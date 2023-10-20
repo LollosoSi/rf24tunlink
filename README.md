@@ -20,15 +20,19 @@ Two working modes:
 The primary radio usually is the one with highest throughput.</br>
 
 ## Performance
-_Results are heterogeneous while the algorithm is finalized._
+_Results are heterogeneous while the algorithm is finalized._</br>
 Expected: 30Kbps to 600Kbps, mixed</br>
 Peak seen during testing: 900Kbps, one directional.
 
 ## Installation and usage
 - You need a pair of Raspberry Pi boards. Raspberry 3B and 4 are tested but virtually every linux board should work.
 - Enable the SPI interface using `raspi-config`
+- Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ -y`
 - Installing pigpio is recommended at this point
-- Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_linux_install.html) following the instructions from their site. SPIDEV is the tested driver for this application, the BCM driver should work too.
+- Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_linux_install.html) following the instructions from their site.
+   - This project is set to look for the **RF24 Core** installation from your home folder (~/) you should be able to reach ~/rf24libs (run install.sh in your home folder).
+   - SPIDEV is the tested driver for this application, the BCM driver should work too.
+   - If you can't compile rf24tunlink due to rf24 not found, try running install.sh with sudo
 - Download the rf24tunlink source code.
 - In case of issues with permissions, running commands using sudo is okay.
 - With the terminal into the folder, run:
@@ -37,7 +41,7 @@ Peak seen during testing: 900Kbps, one directional.
 - rf24tunlink executable should appear
 To run the program as primary and secondary radio:
 Primary: `./rf24tunlink 1`
-Secondary: `./rf24tunlink 0`
+Secondary: `./rf24tunlink 2`
 
 ## Wiring
 CE: GPIO 25</br>
