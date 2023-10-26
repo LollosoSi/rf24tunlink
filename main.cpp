@@ -105,12 +105,12 @@ int main(int argc, char **argv) {
 
 	tuntaphandler ttp(primary);
 
-	if (primary) {
+	if (primary && false) {
 
 			const char * dd = "abcdefghilmnopqrstuvwz1234567890987654321012345678901234567890";
 			printf("Adding testpacket, crc %d\n", gencrc((uint8_t*)dd,62));
 			//radioppppprintchararray((uint8_t*)dd, 46);
-			ttp.rpth.handleData((uint8_t*)dd, 62);
+			ttp.rpth.handleData2((uint8_t*)dd, 62);
 			//ttp.pth.packetstackqueue.push(&testpacket);
 		}
 

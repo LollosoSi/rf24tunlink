@@ -54,7 +54,7 @@ void tuntaphandler::TunnelThread() {
 			/* Do whatever with the data */
 			//printf("Read from buffer: %d bytes, sum %d, CRC: %d \n", nread, (int) checksum(buffer, nread), gencrc(buffer, nread));
 			//radioppppprintchararray((uint8_t*)buffer, nread);
-			rpth.handleData(buffer, nread);
+			rpth.handleData2(buffer, nread);
 			//writeback(nread, buffer);
 			//usleep(1000000);
 		}
@@ -68,7 +68,7 @@ void tuntaphandler::TunnelThread() {
 		//	nread = 0;
 		//}
 		rpth.loop();
-		usleep(250);
+		usleep(500);
 		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	//});

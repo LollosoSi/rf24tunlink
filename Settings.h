@@ -25,20 +25,20 @@ typedef struct {
 
 namespace Settings {
 
-static bool use_empty_packets = 0;
+static bool use_empty_packets = 1;
 static bool resuscitate_packets = 0;
 
 static const int maxbadpackets = 30;
 
-static bool auto_ack = 0;
+static bool auto_ack = 1;
 static bool dynamic_payloads = 1;
-static bool ack_payloads = 0;
+static bool ack_payloads = 1;
 
 static int ce_pin = 25;
 static uint8_t channel = (uint8_t)(110);
 
-static uint8_t radio_delay = 2;
-static uint8_t radio_retries = 15;
+static uint8_t radio_delay = 3;
+static uint8_t radio_retries = 2;
 
 
 static uint8_t payload_size = 32;
