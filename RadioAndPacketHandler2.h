@@ -25,19 +25,11 @@ struct radiopacket2{
     char data[32] = {0};
 };
 
-uint8_t extractId(radiopacket2 &rp2){
-    return rp2.data[0]&0x7F;
-}
-uint8_t extractPrecision(radiopacket2 &rp2){
-    return (rp2.data[0] >> 7)&0x01;
-}
-uint8_t extractSegment(radiopacket2 &rp2){
-    return rp2.data[1];
-}
-void setData(radiopacket2 &rp2, bool precision, uint8_t id, uint8_t segment){
-    rp2.data[1]=segment;
-    rp2.data[0]=((precision<<7) & 0x80) & id;
-}
+struct radiopacketwithsize2{
+    radiopacket2* rp = nullptr;
+    int size = 0;
+};
+
 
 
 class RadioHandler2{
@@ -47,12 +39,10 @@ class RadioHandler2{
 	uint8_t write_address[Settings::addressbytes + 1] = { 0 };
 	uint8_t read_address[Settings::addressbytes + 1] = { 0 };
 
-std::mutex m;
-Callback *c = nullptr;
+    std::mutex m;
+    Callback *c = nullptr;
 
 public:
-
-
     void setup(Callback *c, bool primary,
 			uint8_t write_address[Settings::addressbytes + 1],
 			uint8_t read_address[Settings::addressbytes + 1]) {
