@@ -49,7 +49,7 @@ while(radio->available()){
 if(this->rpqueue.size() > 0){
 m.lock();
 
-if(radio->write(rpqueue.front().rp,rpqueue.front().size)){
+if(radio->writeAckPayload(1,rpqueue.front().rp,rpqueue.front().size)){
 
 }else{
 
@@ -60,7 +60,7 @@ this->rpqueue.pop_front();
 m.unlock();
 }else{
 
-if(radio->write(emptyrpws.rp,emptyrpws.size)){
+if(radio->writeAckPayload(1,emptyrpws.rp,emptyrpws.size)){
 
 }else{
 
