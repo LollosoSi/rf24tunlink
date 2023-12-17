@@ -37,15 +37,16 @@ static bool ack_payloads = 1;
 static int ce_pin = 25;
 static uint8_t channel = (uint8_t)(110);
 
-static uint8_t radio_delay = 3;
-static uint8_t radio_retries = 2;
-
-
 static uint8_t payload_size = 32;
 static rf24_datarate_e data_rate = RF24_2MBPS;
 static rf24_pa_dbm_e power = RF24_PA_MAX;
 static rf24_crclength_e crclen = RF24_CRC_8;
 
+static uint8_t radio_delay_tuned[3] = {6,4,3};
+static uint8_t radio_retries_tuned[3] = {10,3,5};
+
+static uint8_t radio_delay = data_rate == RF24_2MBPS ? radio_delay_tuned[2] : data_rate == RF24_1MBPS ? radio_delay_tuned[1] : radio_delay_tuned[0];
+static uint8_t radio_retries = data_rate == RF24_2MBPS ? radio_retries_tuned[2] : data_rate == RF24_1MBPS ? radio_retries_tuned[1] : radio_retries_tuned[0];
 
 
 static const uint8_t addressbytes = 3;
