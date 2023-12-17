@@ -3,9 +3,13 @@
 using namespace std;
 
 
-void RadioHandler2::loop(){}
+void RadioHandler2::loop(){
 
-void RadioHandler2::handleData(uint8_t *data, unsigned int size){}
+}
+
+void RadioHandler2::handleData(uint8_t *data, unsigned int size){
+    
+}
 
 void RadioHandler2::resetRadio() {
 		if (!radio)
@@ -31,7 +35,7 @@ void RadioHandler2::resetRadio() {
 
 		// save on transmission time by setting the radio to only transmit the
 		// number of bytes we need to transmit
-		radio->setPayloadSize(Settings::payload_size);
+		//radio->setPayloadSize(Settings::payload_size);
 		radio->setAutoAck(Settings::auto_ack);
 
 		// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
