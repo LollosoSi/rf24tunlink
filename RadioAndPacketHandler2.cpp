@@ -11,20 +11,26 @@ static radiopacket2 rp;
 static radiopacketwithsize2 rpwsrec = {&rp,0};
 
 if(primary){
-
+uint8_t pks = 0;
 if(this->rpqueue.size() > 0){
 m.lock();
-
-if(radio->write(rpqueue.front().rp,rpqueue.front().size)){
-
-}else{
-
+pks++;
+if(pks%3==0){
+		pks=0;
+		if(!radio->txStandBy())
+		radio->flush_tx();
+	}
+if(radio->writeFast(rpqueue.front().rp,rpqueue.front().size)){
+	
+	
+}else if(!radio->txStandBy()){
+	radio->flush_tx();
 }
 
 delete this->rpqueue.front().rp;
 this->rpqueue.pop_front();
 m.unlock();
-}else{
+}else if(!Settings::one_way){
 
 if(radio->write(emptyrpws.rp,emptyrpws.size)){
 
@@ -47,6 +53,7 @@ while(radio->available()){
 	readRPWS(rpwsrec);
 
 if(this->rpqueue.size() > 0){
+	if(!Settings::one_way){
 m.lock();
 
 if(radio->writeAckPayload(1,rpqueue.front().rp,rpqueue.front().size)){
@@ -58,13 +65,18 @@ if(radio->writeAckPayload(1,rpqueue.front().rp,rpqueue.front().size)){
 delete this->rpqueue.front().rp;
 this->rpqueue.pop_front();
 m.unlock();
+	}else{
+		rpqueue.clear();
+	}
+
 }else{
 
+if(!Settings::one_way){
 if(radio->writeAckPayload(1,emptyrpws.rp,emptyrpws.size)){
 
 }else{
 
-}
+}}
 
 }
 	
@@ -94,6 +106,11 @@ if(data[cursor] == radio_escape_char){
 	if(packetcursor+2 <= 32){
 		pointer->data[packetcursor++]=data[cursor];
 		pointer->data[packetcursor++]=radio_escape_char;
+		if(packetcursor==32){
+			this->rpqueue.push_back({pointer,packetcursor});
+			pointer = new radiopacket2;
+			packetcursor=0;
+		}
 	}else{
 		this->rpqueue.push_back({pointer,packetcursor});
 		pointer = new radiopacket2;
@@ -129,9 +146,6 @@ m.unlock();
 */
 void RadioHandler2::readRPWS(radiopacketwithsize2& rpws){
 
-static uint16_t message_size = 0;
-static uint8_t* buffer = new uint8_t[Settings::mtu]{0};
-
 for(int i = 0; i < rpws.size; i++){
 	if(rpws.rp->data[i] == radio_escape_char && (i+1 == rpws.size ? true : (rpws.rp->data[i+1]!=radio_escape_char)) ){
 		if(message_size!=0){
@@ -161,7 +175,7 @@ for(int i = 0; i < rpws.size; i++){
 
 void RadioHandler2::resetRadio() {
 		if (!radio)
-			radio = new RF24(Settings::ce_pin, 0, primary ? 500000 : 500000);
+			radio = new RF24(Settings::ce_pin, 0, primary ? 1000000 : 1000000);
 
 		char t = 1;
 		while (!radio->begin()) {

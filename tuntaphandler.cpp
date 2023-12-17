@@ -68,7 +68,7 @@ void tuntaphandler::TunnelThread() {
 		//	nread = 0;
 		//}
 		rph2.loop();
-		usleep(500);
+		//usleep(500);
 		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
 	//});

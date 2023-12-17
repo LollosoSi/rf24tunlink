@@ -39,6 +39,8 @@ uint16_t statistics_packets_corrupted = 0;
 uint16_t statistics_packets_ok = 0;
 uint16_t statistics_packets_control = 0;
 
+uint16_t message_size = 0;
+uint8_t* buffer = new uint8_t[2*Settings::mtu]{0};
 
 radiopacket2 emptyrp = {{radio_escape_char}};
 radiopacketwithsize2 emptyrpws {&emptyrp,1};

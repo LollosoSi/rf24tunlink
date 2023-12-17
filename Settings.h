@@ -25,14 +25,16 @@ typedef struct {
 
 namespace Settings {
 
+static bool one_way = 0;
+
 static bool use_empty_packets = 1;
 static bool resuscitate_packets = 0;
 
 static const int maxbadpackets = 30;
 
-static bool auto_ack = 1;
+static bool auto_ack = !one_way;
 static bool dynamic_payloads = 1;
-static bool ack_payloads = 1;
+static bool ack_payloads = !one_way;
 
 static int ce_pin = 25;
 static uint8_t channel = (uint8_t)(110);
@@ -43,7 +45,7 @@ static rf24_pa_dbm_e power = RF24_PA_MAX;
 static rf24_crclength_e crclen = RF24_CRC_8;
 
 static uint8_t radio_delay_tuned[3] = {6,4,3};
-static uint8_t radio_retries_tuned[3] = {10,3,5};
+static uint8_t radio_retries_tuned[3] = {10,3,15};
 
 static uint8_t radio_delay = data_rate == RF24_2MBPS ? radio_delay_tuned[2] : data_rate == RF24_1MBPS ? radio_delay_tuned[1] : radio_delay_tuned[0];
 static uint8_t radio_retries = data_rate == RF24_2MBPS ? radio_retries_tuned[2] : data_rate == RF24_1MBPS ? radio_retries_tuned[1] : radio_retries_tuned[0];
