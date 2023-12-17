@@ -89,12 +89,6 @@ int main(int argc, char **argv) {
 		return 0;
 	}
 
-	for (int i = 0; i < 31; i++) {
-		testpacket.data[i] = (uint8_t) (0x0);
-	}
-	testpacket.data[0] = (uint8_t) (0x55);
-	testpacket.data[1] = (uint8_t) (0x55);
-
 	printf("Radio is: %d\n", (int) argv[1][0]);
 
 	bool primary = argv[1][0] == '1';
@@ -104,15 +98,6 @@ int main(int argc, char **argv) {
 	//return 0;
 
 	tuntaphandler ttp(primary);
-
-	if (primary && false) {
-
-			const char * dd = "abcdefghilmnopqrstuvwz1234567890987654321012345678901234567890";
-			printf("Adding testpacket, crc %d\n", gencrc((uint8_t*)dd,62));
-			//radioppppprintchararray((uint8_t*)dd, 46);
-			ttp.rpth.handleData2((uint8_t*)dd, 62);
-			//ttp.pth.packetstackqueue.push(&testpacket);
-		}
 
 	ttp.TunnelThread();
 

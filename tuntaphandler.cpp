@@ -54,7 +54,7 @@ void tuntaphandler::TunnelThread() {
 			/* Do whatever with the data */
 			//printf("Read from buffer: %d bytes, sum %d, CRC: %d \n", nread, (int) checksum(buffer, nread), gencrc(buffer, nread));
 			//radioppppprintchararray((uint8_t*)buffer, nread);
-			rpth.handleData2(buffer, nread);
+			rph2.handleData(buffer, nread);
 			//writeback(nread, buffer);
 			//usleep(1000000);
 		}
@@ -67,7 +67,7 @@ void tuntaphandler::TunnelThread() {
 		//	pth.handlepacket(nread, buffer);
 		//	nread = 0;
 		//}
-		rpth.loop();
+		rph2.loop();
 		usleep(500);
 		//std::this_thread::sleep_for(std::chrono::milliseconds(1));
 	}
@@ -111,7 +111,7 @@ tuntaphandler::tuntaphandler(bool primary) :
 	char *d = new char[30] { '\0' };
 	strcpy(d, "arocc");
 
-	rpth.setup(this, primary, primary ? Settings::address1 : Settings::address2, primary ? Settings::address2 : Settings::address1);
+	rph2.setup(this, primary, primary ? Settings::address1 : Settings::address2, primary ? Settings::address2 : Settings::address1);
 
 	tunnel_fd_ = setup_interface(d, IFF_TUN | IFF_UP | IFF_RUNNING,
 			primary ? addr1 : addr2, mask, 5, primary);

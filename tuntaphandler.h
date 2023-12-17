@@ -10,7 +10,7 @@
 
 #include <thread>
 
-#include "RadioAndPacketHandler.h"
+#include "RadioAndPacketHandler2.h"
 #include "Callback.h"
 
 class tuntaphandler : public Callback {
@@ -19,7 +19,7 @@ public:
 	int tunnel_fd_;
 	int mtu;
 	std::thread* networkthread;
-	RadioAndPacketHandler rpth;
+	RadioHandler2 rph2;
 
 
 	tuntaphandler(bool primary);
