@@ -31,14 +31,23 @@ struct radiopacketwithsize2{
 };
 
 
-
 class RadioHandler2{
+
+public:
+static const uint8_t radio_escape_char = '/';
+uint16_t statistics_packets_corrupted = 0;
+uint16_t statistics_packets_ok = 0;
+
+radiopacket2 emptyrp = {{radio_escape_char}};
+radiopacketwithsize2 emptyrpws {&emptyrp,1};
+
     private:
     RF24* radio = nullptr;
     bool primary = true;
 	uint8_t write_address[Settings::addressbytes + 1] = { 0 };
 	uint8_t read_address[Settings::addressbytes + 1] = { 0 };
 
+    std::deque<radiopacketwithsize2> rpqueue;
     std::mutex m;
     Callback *c = nullptr;
 
@@ -56,6 +65,7 @@ public:
 
     void loop();
     void handleData(uint8_t *data, unsigned int size);
+    void readRPWS(radiopacketwithsize2& rpws);
 
     protected:
     void resetRadio();

@@ -2,14 +2,91 @@
 
 using namespace std;
 
-
+/**
+ * Send and receive packets if available
+*/
 void RadioHandler2::loop(){
 
 }
 
+/** Handle packets from TUN
+ * to be sent via radio
+*/
 void RadioHandler2::handleData(uint8_t *data, unsigned int size){
-    
+
+m.lock();
+
+radiopacket2* pointer = new radiopacket2;
+
+int cursor = 0;
+int packetcursor = 0;
+while(cursor < size){
+
+if(data[cursor] == radio_escape_char){
+	if(packetcursor+2 <= 32){
+		pointer->data[packetcursor++]=data[cursor];
+		pointer->data[packetcursor++]=radio_escape_char;
+	}else{
+		this->rpqueue.push_back({pointer,packetcursor});
+		pointer = new radiopacket2;
+		packetcursor=0;
+	}
+}else{
+	pointer->data[packetcursor++]=data[cursor];
+	if(packetcursor==32){
+		this->rpqueue.push_back({pointer,packetcursor});
+		pointer = new radiopacket2;
+		packetcursor=0;
+	}
 }
+
+cursor++;
+}
+
+pointer->data[packetcursor++]=radio_escape_char;
+		this->rpqueue.push_back({pointer,packetcursor});
+		pointer = new radiopacket2;
+		packetcursor=0;
+	
+
+
+m.unlock();
+
+}
+
+/**
+ * Read packets from the radio and compose messages.
+ * Malformed messages will be rejected from the TUN interface
+ * Empty messages will just contain an escape sequence
+*/
+void RadioHandler2::readRPWS(radiopacketwithsize2& rpws){
+
+static uint16_t message_size = 0;
+static uint8_t* buffer = new uint8_t[Settings::mtu]{0};
+
+for(int i = 0; i < rpws.size; i++){
+	if(rpws.rp->data[i] == radio_escape_char && (i+1 == rpws.size ? true : (rpws.rp->data[i+1]!=radio_escape_char)) ){
+		if(message_size!=0)
+			// Write message and set stats
+			if(c->writeback(buffer,message_size)){
+				statistics_packets_ok++;
+			}else{
+				statistics_packets_corrupted++;
+			}
+
+		message_size = 0;
+	}else{
+		buffer[message_size++] = rpws.rp->data[i];
+
+		// Skip the next character because this is an escape
+		if(rpws.rp->data[i] == radio_escape_char)
+			i++;
+		
+	}
+}
+
+}
+
 
 void RadioHandler2::resetRadio() {
 		if (!radio)
