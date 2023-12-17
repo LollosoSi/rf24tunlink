@@ -7,6 +7,74 @@ using namespace std;
 */
 void RadioHandler2::loop(){
 
+static radiopacket2 rp;
+static radiopacketwithsize2 rpwsrec = {&rp,0};
+
+if(primary){
+
+if(this->rpqueue.size() > 0){
+m.lock();
+
+if(radio->write(rpqueue.front().rp,rpqueue.front().size)){
+
+}else{
+
+}
+
+delete this->rpqueue.front().rp;
+this->rpqueue.pop_front();
+m.unlock();
+}else{
+
+if(radio->write(emptyrpws.rp,emptyrpws.size)){
+
+}else{
+
+}
+
+}
+
+while(radio->available()){
+	radio->read(rpwsrec.rp,rpwsrec.size = radio->getDynamicPayloadSize());
+	readRPWS(rpwsrec);
+}
+
+
+}else{
+
+while(radio->available()){
+	radio->read(rpwsrec.rp,rpwsrec.size = radio->getDynamicPayloadSize());
+	readRPWS(rpwsrec);
+
+if(this->rpqueue.size() > 0){
+m.lock();
+
+if(radio->write(rpqueue.front().rp,rpqueue.front().size)){
+
+}else{
+
+}
+
+delete this->rpqueue.front().rp;
+this->rpqueue.pop_front();
+m.unlock();
+}else{
+
+if(radio->write(emptyrpws.rp,emptyrpws.size)){
+
+}else{
+
+}
+
+}
+	
+}
+
+}
+
+
+
+
 }
 
 /** Handle packets from TUN
