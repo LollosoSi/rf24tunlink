@@ -134,13 +134,16 @@ static uint8_t* buffer = new uint8_t[Settings::mtu]{0};
 
 for(int i = 0; i < rpws.size; i++){
 	if(rpws.rp->data[i] == radio_escape_char && (i+1 == rpws.size ? true : (rpws.rp->data[i+1]!=radio_escape_char)) ){
-		if(message_size!=0)
+		if(message_size!=0){
 			// Write message and set stats
 			if(c->writeback(buffer,message_size)){
 				statistics_packets_ok++;
 			}else{
 				statistics_packets_corrupted++;
 			}
+		}else{
+			statistics_packets_control++;
+		}
 
 		message_size = 0;
 	}else{

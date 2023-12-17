@@ -37,6 +37,8 @@ public:
 static const uint8_t radio_escape_char = '/';
 uint16_t statistics_packets_corrupted = 0;
 uint16_t statistics_packets_ok = 0;
+uint16_t statistics_packets_control = 0;
+
 
 radiopacket2 emptyrp = {{radio_escape_char}};
 radiopacketwithsize2 emptyrpws {&emptyrp,1};
