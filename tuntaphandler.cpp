@@ -126,7 +126,6 @@ tuntaphandler::tuntaphandler(bool primary) :
 int tuntaphandler::setup_interface(char *dev, int flags, const char *ip,
 		const char *mask, uint8_t segmentbits, bool primary) {
 
-	this->mtu = Settings::mtu;
 	std::cout << "MTU: " << mtu << std::endl;
 	int fd = OpenTunnel(dev);
 

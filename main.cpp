@@ -85,7 +85,7 @@ int main(int argc, char **argv) {
 
 	if (argc < 2) {
 		printf(
-				"You need to specify primary or secondary role (./thisprogram 1 or 2)");
+				"You need to specify primary or secondary role (./thisprogram [1 or 2] [MTU size])");
 		return 0;
 	}
 
@@ -94,13 +94,18 @@ int main(int argc, char **argv) {
 	bool primary = argv[1][0] == '1';
 	cout << "Radio is " << (primary ? "Primary" : "Secondary") << endl;
 
+	if(argc >= 3){
+		mtu = atoi(argv[2]);
+		cout << "Detected MTU " << argv[2] << " and result of atoi: " << atoi(argv[2]) << " value now: " << mtu << "\n";
+	}
+
 	//justtest(primary);
 	//return 0;
 
-	tuntaphandler ttp(primary);
+	tuntaphandler* ttp = new tuntaphandler(primary);
 
-	ttp.TunnelThread();
+	ttp->TunnelThread();
 
-	ttp.stop_interface();
+	ttp->stop_interface();
 	return 0;
 }

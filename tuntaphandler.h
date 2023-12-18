@@ -17,7 +17,6 @@ class tuntaphandler : public Callback {
 public:
 	bool running_;
 	int tunnel_fd_;
-	int mtu;
 	std::thread* networkthread;
 	RadioHandler2 rph2;
 
