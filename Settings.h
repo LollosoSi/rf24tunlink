@@ -23,6 +23,8 @@ typedef struct {
 } radiopacket;
 #pragma pack(pop)
 
+static unsigned int mtu = 45000;
+
 namespace Settings {
 
 static bool one_way = 0;
@@ -44,8 +46,8 @@ static rf24_datarate_e data_rate = RF24_2MBPS;
 static rf24_pa_dbm_e power = RF24_PA_MAX;
 static rf24_crclength_e crclen = RF24_CRC_8;
 
-static uint8_t radio_delay_tuned[3] = {6,4,3};
-static uint8_t radio_retries_tuned[3] = {10,3,15};
+static uint8_t radio_delay_tuned[3] = {6,4,1};
+static uint8_t radio_retries_tuned[3] = {10, 3, 15};
 
 static uint8_t radio_delay = data_rate == RF24_2MBPS ? radio_delay_tuned[2] : data_rate == RF24_1MBPS ? radio_delay_tuned[1] : radio_delay_tuned[0];
 static uint8_t radio_retries = data_rate == RF24_2MBPS ? radio_retries_tuned[2] : data_rate == RF24_1MBPS ? radio_retries_tuned[1] : radio_retries_tuned[0];
@@ -70,7 +72,8 @@ static const uint8_t precisionmask = 0x80;
 static const uint8_t segmask = pow(2,segmentbits)-1, idmask = pow(2,idbits)-1; // Will be filled at runtime
 static const uint8_t segmaskwildcard = (pow(2,8)-1)-idmask, idmaskwildcard = (pow(2,8)-1)-segmask-precisionmask;
 
-static const unsigned int mtu = 31*(pow(2,segmentbits)-1);
+//static const unsigned int mtu = 31*(pow(2,segmentbits)-1);
+
 
 inline void apply_settings(int ce_pin, uint8_t channel, uint8_t radio_delay,
 		uint8_t radio_retries, rf24_crclength_e crclen, bool auto_ack,
