@@ -39,6 +39,7 @@ Peak seen during testing: 900Kbps, one directional.
   `cmake .`
   `make`
 - rf24tunlink executable should appear
+
 To run the program as primary and secondary radio:
 Primary: `./rf24tunlink 1`
 Secondary: `./rf24tunlink 2`
