@@ -21,6 +21,14 @@ The primary radio usually is the one with highest throughput.</br>
 
 ## Performance
 _Results are heterogeneous while the algorithm is finalized._</br>
+
+<b>Update:</b></br>As of 18/12/2023</br>
+Expected throughput: 500Kbps</br>
+iperf: >1Mbps</br>
+Peak: 2.5Mbps</br>
+Ping: 4ms
+</br>
+First release:</br>
 Expected: 30Kbps to 600Kbps, mixed</br>
 Peak seen during testing: 900Kbps, one directional.
 
