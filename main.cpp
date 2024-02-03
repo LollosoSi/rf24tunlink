@@ -3,6 +3,14 @@
  * Created on 03/02/2024
  */
 
-int main(int argc, char **argv) {
+#include <iostream>
 
+using namespace std;
+
+#include "DefaultSettings.h"
+
+
+
+int main(int argc, char **argv) {
+	cout << address << endl;
 }

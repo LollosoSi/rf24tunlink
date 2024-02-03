@@ -30,7 +30,7 @@ endif()
     #make a target
     
 # This project will output an executable file
-add_executable(${PROJECT_NAME} main.cpp)
+add_executable(${PROJECT_NAME} main.cpp Settings.h DefaultSettings.h)
 
 # Include the configuration header in the build
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
