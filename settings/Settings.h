@@ -14,5 +14,6 @@ extern char* destination;		// Destination of the interface
 extern char* netmask;			// Network address mask
 extern char* interface_name;	// Interface name (arocc)
 extern unsigned int mtu;		// MTU, must be determined later
+extern bool control_packets;		// Whether or not to send empty packets as keepalive
 
 }

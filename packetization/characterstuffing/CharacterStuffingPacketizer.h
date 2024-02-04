@@ -9,25 +9,25 @@
 
 #include <iostream>
 
-#include "../../interfaces/Messenger.h"
-#include "../../structures/TUNMessage.h"
+#include "../../interfaces/PacketHandler.h"
 #include "../../structures/RadioPacket.h"
 
-class CharacterStuffingPacketizer: public Messenger<TUNMessage>,
-		public Messenger<RadioPacket> {
+#include "../../settings/Settings.h"
+
+
+class CharacterStuffingPacketizer : public PacketHandler<RadioPacket> {
 public:
 	CharacterStuffingPacketizer();
 	~CharacterStuffingPacketizer();
 
+	bool next_packet_ready();
+	RadioPacket& next_packet();
+	RadioPacket& get_empty_packet();
+
 protected:
-	//Messenger<TUNMessage> *tun_handle = nullptr;
-	//Messenger<RadioPacket> *radio_handle = nullptr;
-	bool receive_message(TUNMessage &tunmsg) {
-		// Packetize frame
-		return (true);
-	}
-	bool receive_message(RadioPacket &rp) {
-		return (true);
-	}
+	unsigned int current_packet_counter = 0;
+	void received_ok(){current_packet_counter = 0; free_frame(frames.front()); frames.pop_front();}
+	void free_frame(Frame<RadioPacket>& frame);
+
 };
 

@@ -17,4 +17,6 @@ char *destination = new char[18] { '\0' };
 char *netmask = new char[18] { '\0' };
 char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
 unsigned int mtu = 9600;
+bool control_packets = true;
+
 }

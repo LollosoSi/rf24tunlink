@@ -32,7 +32,7 @@ endif()
     #make a target
     
 # This project will output an executable file
-add_executable(${PROJECT_NAME} main.cpp settings/Settings.h settings/DefaultSettings.h interfaces/Messenger.h structures/RadioPacket.h tun/TUNHandler.h tun/TUNHandler.cpp packetization/characterstuffing/CharacterStuffingPacketizer.h packetization/characterstuffing/CharacterStuffingPacketizer.cpp)
+add_executable(${PROJECT_NAME} main.cpp settings/Settings.h settings/DefaultSettings.h interfaces/Messenger.h interfaces/PacketHandler.h structures/RadioPacket.h tun/TUNHandler.h tun/TUNHandler.cpp packetization/selectiverepeat/SelectiveRepeatPacketizer.h packetization/selectiverepeat/SelectiveRepeatPacketizer.cpp packetization/characterstuffing/CharacterStuffingPacketizer.h packetization/characterstuffing/CharacterStuffingPacketizer.cpp)
 
 # Include the configuration header in the build
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
