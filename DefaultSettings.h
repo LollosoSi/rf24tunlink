@@ -8,6 +8,6 @@
 #pragma once
 
 #include "Settings.h"
+#include <string>
 
-
-char* address = "192.168.10.1";
+char* address=new char[18]{'\0'};
