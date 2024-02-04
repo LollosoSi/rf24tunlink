@@ -7,6 +7,8 @@
 
 #include "TUNHandler.h"
 
+#include <thread>
+
 #include <linux/if.h>
 #include <linux/if_tun.h>
 
@@ -37,11 +39,44 @@ using namespace std;
 
 TUNHandler::TUNHandler() {
 
-	tunnel_fd = interface_setup(Settings::interface_name, IFF_TUN | IFF_UP | IFF_RUNNING, Settings::address, Settings::destination, Settings::netmask, Settings::mtu);
+	tunnel_fd = interface_setup(Settings::interface_name,
+	IFF_TUN | IFF_UP | IFF_RUNNING, Settings::address, Settings::destination,
+			Settings::netmask, Settings::mtu);
 
 }
 
 TUNHandler::~TUNHandler() {
+
+}
+
+void TUNHandler::startThread() {
+
+	this->running = true;
+
+	int nread = 0;
+	TUNMessage message;
+	message.data = new uint8_t[Settings::mtu + (Settings::mtu / 2)];
+
+	std::thread read_thread([&] {
+
+		while (this->running) {
+			/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
+			nread = read(tunnel_fd, message.data, sizeof(message.data));
+			if (nread < 0) {
+				perror("Reading from interface");
+				close(tunnel_fd);
+				exit(1);
+			}
+
+			/* Do whatever with the data */
+			message.size = nread;
+			this->packet_handler->send(message);
+
+		}
+
+		delete[] message.data;
+	});
+	read_thread.detach();
 
 }
 
@@ -71,10 +106,12 @@ bool TUNHandler::receive_message(TUNMessage &tunmsg) {
 	return (true);
 }
 
-int TUNHandler::interface_setup(char *dev, int flags, const char *ip, const char *destination,
-		const char *mask, int mtu) {
+int TUNHandler::interface_setup(char *dev, int flags, const char *ip,
+		const char *destination, const char *mask, int mtu) {
 
-	printf("Interface '%s' will have IP '%s', Destination '%s', mask '%s', MTU '%d'\n", dev, ip, destination, mask, mtu);
+	printf(
+			"Interface '%s' will have IP '%s', Destination '%s', mask '%s', MTU '%d'\n",
+			dev, ip, destination, mask, mtu);
 
 	printf("Opening Interface \n");
 	int fd = open_tunnel(dev);
@@ -177,7 +214,8 @@ void TUNHandler::interface_set_ip(const char *device_name, const char *ip,
 	if (inet_pton(AF_INET, std::string(ip).c_str(),
 			&reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr)->sin_addr)
 			== 1)
-		printf("Failed to assign IP address: %s (%d)\n", strerror(errno), errno);
+		printf("Failed to assign IP address: %s (%d)\n", strerror(errno),
+		errno);
 	int status = ioctl(fd, SIOCSIFADDR, &ifr);
 	if (status > 0)
 		printf("Couldn't set tunnel interface ip: %s (%d)\n", strerror(errno),

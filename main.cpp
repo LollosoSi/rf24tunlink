@@ -33,6 +33,8 @@ int main(int argc, char **argv) {
 
 	TUNHandler tunh = TUNHandler();
 
+	tunh.startThread();
+
 	while(true){
 
 	}
