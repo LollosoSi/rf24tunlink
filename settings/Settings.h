@@ -7,4 +7,12 @@
 
 #pragma once
 
-extern char* address;
+namespace Settings{
+
+extern char* address;			// Address of the interface		NOTE: Address and destination must be swapped based on the radio role
+extern char* destination;		// Destination of the interface
+extern char* netmask;			// Network address mask
+extern char* interface_name;	// Interface name (arocc)
+extern unsigned int mtu;		// MTU, must be determined later
+
+}

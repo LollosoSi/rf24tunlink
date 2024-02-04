@@ -9,7 +9,7 @@
 
 #include <RF24/RF24.h>
 
-struct TUNMessage{
-		uint8_t *data = 0;
-		unsigned int size = 0;
+struct TUNMessage {
+	uint8_t *data = 0;
+	unsigned int size = 0;
 };

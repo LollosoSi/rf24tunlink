@@ -10,4 +10,11 @@
 #include "Settings.h"
 #include <string>
 
-char* address=new char[18]{'\0'};
+namespace Settings {
+
+char *address = new char[18] { '\0' };
+char *destination = new char[18] { '\0' };
+char *netmask = new char[18] { '\0' };
+char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
+unsigned int mtu = 9600;
+}
