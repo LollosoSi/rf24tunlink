@@ -55,11 +55,11 @@ void TUNHandler::startThread() {
 
 	this->running = true;
 
-	int nread = 0;
-	TUNMessage message;
-	message.data = new uint8_t[Settings::mtu + (Settings::mtu / 2)];
-
 	std::thread read_thread([&] {
+
+		int nread = 0;
+		TUNMessage message;
+		message.data = new uint8_t[Settings::mtu+1];
 
 		while (this->running) {
 			/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
@@ -76,7 +76,7 @@ void TUNHandler::startThread() {
 
 		}
 
-		delete[] message.data;
+
 	});
 	read_thread.detach();
 
@@ -190,7 +190,7 @@ void TUNHandler::interface_set_mtu(const char *dev, unsigned int mtu) {
 // Sets flags for a given interface
 void TUNHandler::interface_set_flags(const char *device_name, int flags) {
 	int fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd > 0)
+	if (fd == 0)
 		printf("Error opening socket: %s (%d)\n", strerror(errno), errno);
 
 	struct ifreq ifr = { };
@@ -206,7 +206,7 @@ void TUNHandler::interface_set_flags(const char *device_name, int flags) {
 void TUNHandler::interface_set_ip(const char *device_name, const char *ip,
 		const char *ip_mask) {
 	int fd = socket(AF_INET, SOCK_DGRAM, 0);
-	if (fd >= 0)
+	if (fd == 0)
 		printf("Error opening socket: %s (%d)\n", strerror(errno), errno);
 
 	struct ifreq ifr = { };
@@ -215,7 +215,7 @@ void TUNHandler::interface_set_ip(const char *device_name, const char *ip,
 	ifr.ifr_addr.sa_family = AF_INET;
 	if (inet_pton(AF_INET, std::string(ip).c_str(),
 			&reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_addr)->sin_addr)
-			== 1)
+			!= 1)
 		printf("Failed to assign IP address: %s (%d)\n", strerror(errno),
 		errno);
 	int status = ioctl(fd, SIOCSIFADDR, &ifr);
@@ -226,7 +226,7 @@ void TUNHandler::interface_set_ip(const char *device_name, const char *ip,
 	ifr.ifr_netmask.sa_family = AF_INET;
 	if (inet_pton(AF_INET, std::string(ip_mask).c_str(),
 			&reinterpret_cast<struct sockaddr_in*>(&ifr.ifr_netmask)->sin_addr)
-			== 1)
+			!= 1)
 		printf("Couldn't assign IP mask: %s (%d)\n", strerror(errno), errno);
 	status = ioctl(fd, SIOCSIFNETMASK, &ifr);
 	if (status > 0)

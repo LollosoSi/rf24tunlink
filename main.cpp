@@ -21,10 +21,15 @@ using namespace std;
 #include "tun/TUNHandler.h"
 #include "packetization/characterstuffing/CharacterStuffingPacketizer.h"
 
+TUNHandler *tunh = nullptr;
+CharacterStuffingPacketizer *csp = nullptr;
+
 bool running = true;
 void ctrlcevent(int s) {
-	printf("Caught signal %d\n", s);
-	running = false;
+	if(s == 2){
+		printf("\nCaught exit signal\n");
+		running = false;
+	}
 }
 
 int main(int argc, char **argv) {
@@ -45,35 +50,39 @@ int main(int argc, char **argv) {
 	// Initial Setup
 	bool role = 1;
 	if (role) {
-		strcpy(Settings::address, "192.168.1.1");
-		strcpy(Settings::destination, "192.168.1.2");
+		strcpy(Settings::address, "192.168.10.1");
+		strcpy(Settings::destination, "192.168.10.2");
 	} else {
-		strcpy(Settings::address, "192.168.1.2");
-		strcpy(Settings::destination, "192.168.1.1");
+		strcpy(Settings::address, "192.168.10.2");
+		strcpy(Settings::destination, "192.168.10.1");
 	}
 	strcpy(Settings::netmask, "255.255.255.0");
 
-	Settings::mtu = 900;
+	Settings::mtu = 1000;
 
 	// Initialise the interface
-	TUNHandler tunh = TUNHandler();
+	tunh = new TUNHandler();
 
 	// Choose a packetizer and register it
-	CharacterStuffingPacketizer csp = CharacterStuffingPacketizer();
-	tunh.register_packet_handler(&csp);
+	csp = new CharacterStuffingPacketizer();
+	tunh->register_packet_handler(csp);
 
 	// Start the Radio and register it
 	// TODO: radio
 
 	// Start the interface read thread
-	tunh.startThread();
+	tunh->startThread();
 
 	// Program loop (radio loop)
 	while (running) {
-
+		usleep(1000);
 	}
 
 	// Close and free everything
-	tunh.stopThread();
+	tunh->stopThread();
 
+	delete tunh;
+	delete csp;
+
+	return 0;
 }

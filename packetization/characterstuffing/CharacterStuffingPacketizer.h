@@ -7,6 +7,8 @@
 
 #pragma once
 
+#include <iostream>
+
 #include "../../interfaces/Messenger.h"
 #include "../../structures/TUNMessage.h"
 #include "../../structures/RadioPacket.h"
@@ -21,6 +23,7 @@ protected:
 	//Messenger<TUNMessage> *tun_handle = nullptr;
 	//Messenger<RadioPacket> *radio_handle = nullptr;
 	bool receive_message(TUNMessage &tunmsg) {
+		// Packetize frame
 		return (true);
 	}
 	bool receive_message(RadioPacket &rp) {
