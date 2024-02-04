@@ -9,10 +9,10 @@
 
 template<typename Message>
 class Messenger{
-	private:
-		~Messenger(){}
 	protected:
-		virtual bool receive_message(Message m) = 0;
+		virtual bool receive_message(Message &m) = 0;
 	public:
-		bool send(Message m){return (receive_message(m));}
+		bool send(Message &m){return (receive_message(m));}
+		virtual ~Messenger(){}
+		Messenger() = default;
 };
