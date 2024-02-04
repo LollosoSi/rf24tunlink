@@ -8,7 +8,7 @@
 #pragma once
 
 template<typename Message>
-virtual class Messenger{
+class Messenger{
 	private:
 		~Messenger(){}
 	protected:
