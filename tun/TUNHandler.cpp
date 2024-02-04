@@ -47,6 +47,8 @@ TUNHandler::TUNHandler() {
 
 TUNHandler::~TUNHandler() {
 
+	close(tunnel_fd);
+
 }
 
 void TUNHandler::startThread() {

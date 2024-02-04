@@ -25,6 +25,7 @@ public:
 	}
 
 	void startThread();
+	void stopThread(){	this->running = false; }
 protected:
 	Messenger<TUNMessage> *packet_handler = nullptr;
 	bool receive_message(TUNMessage &tunmsg);
