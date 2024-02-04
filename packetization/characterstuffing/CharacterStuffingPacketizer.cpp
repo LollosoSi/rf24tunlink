@@ -30,10 +30,10 @@ RadioPacket& CharacterStuffingPacketizer::next_packet() {
 			return (get_empty_packet());
 		} else {
 			if (current_packet_counter == frames.front().packets.size()) {
-				return (frames.front().packets[current_packet_counter]);
-			} else {
-				return (frames.front().packets[current_packet_counter++]);
+				received_ok();
 			}
+			return (frames.front().packets[current_packet_counter++]);
+
 		}
 	} else {
 
@@ -43,10 +43,9 @@ RadioPacket& CharacterStuffingPacketizer::next_packet() {
 			exit(2);
 		} else {
 			if (current_packet_counter == frames.front().packets.size()) {
-				return (frames.front().packets[current_packet_counter]);
-			} else {
-				return (frames.front().packets[current_packet_counter++]);
+				received_ok();
 			}
+			return (frames.front().packets[current_packet_counter++]);
 		}
 
 	}
