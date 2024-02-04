@@ -6,3 +6,13 @@
  */
 
 #pragma once
+
+template<typename Message>
+virtual class Messenger{
+	private:
+		~Messenger(){}
+	protected:
+		virtual bool receive_message(Message m) = 0;
+	public:
+		bool send(Message m){return (receive_message(m));}
+};
