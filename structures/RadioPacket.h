@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include <RF24.h>
+#include <RF24/RF24.h>
 
 struct RadioPacket{
 		uint8_t info = 0;

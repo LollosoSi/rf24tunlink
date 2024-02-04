@@ -11,12 +11,15 @@ using namespace std;
 #include <cstring>
 
 // Custom implementations
-#include "DefaultSettings.h"
+#include "settings/DefaultSettings.h"
 
-
+#include "structures/RadioPacket.h"
+#include "interfaces/Messenger.h"
 
 
 int main(int argc, char **argv) {
+
+
 	strcpy(address,"192.168.1.10");
 	cout << address << endl;
 }
