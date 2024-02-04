@@ -12,21 +12,17 @@ using namespace std;
 
 // Custom implementations
 #include "settings/DefaultSettings.h"
-
 #include "tun/TUNHandler.h"
-
 
 int main(int argc, char **argv) {
 
 	TUNHandler tunh = TUNHandler();
 	TUNMessage t;
-	t.data =  0x0;
+	t.data = 0x0;
 	t.size = 1;
 
 	tunh.send(t);
 
-
-
-	strcpy(address,"192.168.1.10");
+	strcpy(address, "192.168.1.10");
 	cout << address << endl;
 }

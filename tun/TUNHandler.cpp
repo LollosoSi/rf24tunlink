@@ -2,7 +2,7 @@
  * TUNHandler.cpp
  *
  *  Created on: 4 Feb 2024
- *      Author: andrea
+ *      Author: Andrea Roccaccino
  */
 
 #include "TUNHandler.h"
@@ -11,12 +11,11 @@
 using namespace std;
 
 TUNHandler::TUNHandler() {
-	// TODO Auto-generated constructor stub
 
 }
 
 TUNHandler::~TUNHandler() {
-	// TODO Auto-generated destructor stub
+
 }
 
 bool TUNHandler::receive_message(TUNMessage &tunmsg) {

@@ -2,7 +2,7 @@
  * RadioPacket.h
  *
  *  Created on: 4 Feb 2024
- *      Author: andrea
+ *      Author: Andrea Roccaccino
  */
 
 #pragma once
