@@ -82,9 +82,6 @@ bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 	Frame<RadioPacket> *frm = new Frame<RadioPacket>;
 	RadioPacket *pointer = nullptr;
 
-	int cursor = tunmsg->size - 1;
-	int counter = 0;
-
 	int tracker = tunmsg->size - 31;
 
 	int packetcounter = floor(tunmsg->size / 31.0);
@@ -99,7 +96,7 @@ bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 		tracker -= 31;
 		pointer->size = 32;
 		frm->packets.push_back(pointer);
-		printf("Pacchetto creato: %i %s\n", (int) pointer->size, pointer->data);
+		//printf("Pacchetto creato: %i %s\n", (int) pointer->size, pointer->data);
 
 	}
 
@@ -109,29 +106,7 @@ bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 	strncpy((char*) ((pointer->data) + 1), (const char*) (tunmsg->data),
 			31 + tracker);
 	frm->packets.push_back(pointer);
-	printf("Pacchetto creato: %i %s\n", (int) pointer->size, pointer->data);
-
-	/*
-	 while (cursor >= 0) {
-
-	 uint8_t ch = tunmsg->data[cursor--];
-	 pointer->data[1 + counter++] = ch;
-
-	 bool is_last_packet = cursor == -1;
-	 if (is_last_packet || counter == 31) {
-	 pointer->size = 1 + counter;
-	 pointer->data[0] = pack_info(is_last_packet, id,
-	 is_last_packet ? totalpackets : packetcounter--);
-	 frm->packets.push_back(pointer);
-	 printf("Pacchetto creato: %i %s", (int) pointer->size,
-	 pointer->data);
-	 if (!is_last_packet) {
-	 pointer = new RadioPacket;
-	 }
-	 counter = 0;
-	 }
-
-	 }*/
+	//printf("Pacchetto creato: %i %s\n", (int) pointer->size, pointer->data);
 
 	frames.push_back(frm);
 
@@ -164,7 +139,7 @@ bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
 }
 
 inline void SelectiveRepeatPacketizer::response_packet_ok(uint8_t id) {
-	printf("OK per id %i\n", id);
+	//printf("OK per id %i\n", id);
 	static RadioPacket *rp_answer = new RadioPacket;
 	rp_answer->size = 1;
 	rp_answer->data[0] = pack_info(true, 0, id);
@@ -187,8 +162,8 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 	uint8_t seg = 0;
 	unpack_info(rp->data[0], first, id, seg);
 
-	printf("Ricevuto pack: %i %s con valori %i %i %i\n", (int) rp->size,
-			rp->data, (int) first, (int) id, (int) seg);
+	//printf("Ricevuto pack: %i %s con valori %i %i %i\n", (int) rp->size,
+	//		rp->data, (int) first, (int) id, (int) seg);
 
 	// Is this a control packet?
 	if (id == 0) {
@@ -200,7 +175,7 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 			// If it carries more than the info byte, assume these are all requests
 			if (rp->size > 1) {
 				int counter = 1;
-				printf("Requested packets: ");
+				//printf("Requested packets: ");
 				while (counter < rp->size) {
 					bool pkt_boolean = 0;
 					uint8_t pkt_id = 0;
@@ -223,22 +198,21 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 					unpack_info(frames.front()->packets[position]->data[0],
 							dbg_pkt_boolean, dbg_pkt_id, dbg_pkt_seg);
 
-					printf("| (SEG: %i, carried: %i) %s ", pkt_seg, dbg_pkt_seg,
-							frames.front()->packets[position]->data);
+					//printf("| (SEG: %i, carried: %i) %s ", pkt_seg, dbg_pkt_seg,
+					//		frames.front()->packets[position]->data);
 					resend_list.push_back(frames.front()->packets[position]);
 
 					counter++;
 				}
-				printf("\n");
+				//printf("\n");
 
 			} else if (seg == get_pack_id(frames.front()->packets.front())) {
 				// This is a confirmation! Next frame.
 				received_ok();
-				printf("Confirmed packet\n");
+				//printf("Confirmed packet\n");
 			} else {
 				// Undefined behaviour, wtf
-				std::cout
-						<< "SelectiveRepeatPacketizer has hit a WTF checkpoint\n";
+				std::cout << "SelectiveRepeatPacketizer has hit a WTF checkpoint\n";
 			}
 		} else {
 			// This packet isn't carrying requests
@@ -289,11 +263,11 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				unsigned int packets_full = (seg);
 				unsigned int first_packet_size = 31-leftover;
 				unsigned int message_size = (31*packets_full) + first_packet_size;
-				printf("Packets full: %i\tFirst packet size: %i\t Message size: %i\n",packets_full,first_packet_size,message_size);
+				//printf("Packets full: %i\tFirst packet size: %i\t Message size: %i\n",packets_full,first_packet_size,message_size);
 				static TUNMessage *tm = new TUNMessage { nullptr, 0 };
 				tm->data = (buffer + leftover);
 				tm->size = message_size;
-				std::cout << "Message length: " << (unsigned int)message_size << std::endl;
+				//std::cout << "Message length: " << (unsigned int)message_size << std::endl;
 				this->tun_handle->send(tm);
 
 				for (unsigned int b = 0; b <= seg; b++)

@@ -51,7 +51,7 @@ public:
 			//usleep(10000);
 		}
 
-		std::cout << "\n\tSent: " << sent << "   cut: " << cut << std::endl;
+		std::cout << "\n\tSent: " << sent << "   Lost: " << cut << std::endl;
 
 
 

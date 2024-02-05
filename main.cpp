@@ -34,7 +34,7 @@ PacketHandler<RadioPacket> *csp = nullptr;
 void test_run(){
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(10);
+	FakeRadio<RadioPacket> fr(90);
 	csp = new SelectiveRepeatPacketizer();
 
 	fr.register_packet_handler(csp);
