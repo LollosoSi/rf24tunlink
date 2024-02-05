@@ -65,7 +65,6 @@ RadioPacket* CharacterStuffingPacketizer::next_packet() {
 void CharacterStuffingPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
 	while (!frame->packets.empty()) {
-		delete[] frame->packets.front()->data;
 		frame->packets.pop_front();
 	}
 
@@ -73,8 +72,7 @@ void CharacterStuffingPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
 RadioPacket* CharacterStuffingPacketizer::get_empty_packet() {
 
-	static RadioPacket *rp = new RadioPacket { new uint8_t[1] {
-			radio_escape_char }, 0, 1 };
+	static RadioPacket *rp = new RadioPacket { {0}, 1 };
 	return (rp);
 
 }
@@ -86,7 +84,6 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 	Frame<RadioPacket> *frm = new Frame<RadioPacket>;
 
 	RadioPacket *pointer = new RadioPacket;
-	pointer->data = new uint8_t[32] { 0 };
 
 	unsigned int cursor = 0;
 	int packetcursor = 0;
@@ -100,14 +97,12 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 					pointer->size = packetcursor;
 					frm->packets.push_back(pointer);
 					pointer = new RadioPacket;
-					pointer->data = new uint8_t[32] { 0 };
 					packetcursor = 0;
 				}
 			} else {
 				pointer->size = packetcursor;
 				frm->packets.push_back(pointer);
 				pointer = new RadioPacket;
-				pointer->data = new uint8_t[32] { 0 };
 				packetcursor = 0;
 			}
 		} else {
@@ -116,7 +111,6 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 				pointer->size = packetcursor;
 				frm->packets.push_back(pointer);
 				pointer = new RadioPacket;
-				pointer->data = new uint8_t[32] { 0 };
 				packetcursor = 0;
 			}
 		}

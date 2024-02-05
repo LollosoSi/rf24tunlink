@@ -16,4 +16,6 @@ extern char* interface_name;	// Interface name (arocc)
 extern unsigned int mtu;		// MTU, must be determined later
 extern bool control_packets;		// Whether or not to send empty packets as keepalive
 
+const unsigned int max_pkt_size = 32;
+
 }

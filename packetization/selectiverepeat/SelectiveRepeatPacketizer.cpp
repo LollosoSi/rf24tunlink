@@ -62,14 +62,13 @@ RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 void SelectiveRepeatPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
 	while (!frame->packets.empty()) {
-		delete[] frame->packets.front()->data;
 		frame->packets.pop_front();
 	}
 
 }
 
 RadioPacket* SelectiveRepeatPacketizer::get_empty_packet() {
-	static RadioPacket *rp = new RadioPacket{ new uint8_t[1] { 0 }, 0, 0 };
+	static RadioPacket *rp = new RadioPacket{ { 0 }, 0 };
 	return (rp);
 }
 
