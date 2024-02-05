@@ -77,9 +77,9 @@ RadioPacket* CharacterStuffingPacketizer::get_empty_packet() {
 
 }
 
-bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
+bool CharacterStuffingPacketizer::packetize(TUNMessage *tunmsg) {
 
-	//printf("To packetize: %s of size %i\n", tunmsg.data, tunmsg.size);
+	//printf("To packetize: %s of size %i\n", tunmsg->data, tunmsg->size);
 
 	Frame<RadioPacket> *frm = new Frame<RadioPacket>;
 
@@ -87,11 +87,11 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 
 	unsigned int cursor = 0;
 	int packetcursor = 0;
-	while (cursor < tunmsg.size) {
+	while (cursor < tunmsg->size) {
 
-		if (tunmsg.data[cursor] == radio_escape_char) {
+		if (tunmsg->data[cursor] == radio_escape_char) {
 			if (packetcursor + 2 <= 32) {
-				pointer->data[packetcursor++] = tunmsg.data[cursor];
+				pointer->data[packetcursor++] = tunmsg->data[cursor];
 				pointer->data[packetcursor++] = radio_escape_char;
 				if (packetcursor == 32) {
 					pointer->size = packetcursor;
@@ -106,7 +106,7 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 				packetcursor = 0;
 			}
 		} else {
-			pointer->data[packetcursor++] = tunmsg.data[cursor];
+			pointer->data[packetcursor++] = tunmsg->data[cursor];
 			if (packetcursor == 32) {
 				pointer->size = packetcursor;
 				frm->packets.push_back(pointer);
@@ -135,7 +135,7 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
  * Malformed messages will be rejected from the TUN interface
  * Empty messages will just contain an escape sequence
  */
-bool CharacterStuffingPacketizer::receive_packet(RadioPacket &rp) {
+bool CharacterStuffingPacketizer::receive_packet(RadioPacket *rp) {
 
 	//std::cout << "Received packet data, size: " << (int)rp.size << "\n";
 
@@ -145,16 +145,16 @@ bool CharacterStuffingPacketizer::receive_packet(RadioPacket &rp) {
 		buffer = new uint8_t[Settings::mtu * 2] { 0 };
 	}
 
-	static TUNMessage tm = { new uint8_t[Settings::mtu * 2], 0 };
+	static TUNMessage *tm = new TUNMessage{ new uint8_t[Settings::mtu * 2], 0 };
 
-	for (int i = 0; i < rp.size; i++) {
-		if (rp.data[i] == radio_escape_char
-				&& (i + 1 == rp.size ?
-						true : (rp.data[i + 1] != radio_escape_char))) {
+	for (int i = 0; i < rp->size; i++) {
+		if (rp->data[i] == radio_escape_char
+				&& (i + 1 == rp->size ?
+						true : (rp->data[i + 1] != radio_escape_char))) {
 			if (message_size != 0) {
 				// Write message and set stats
-				tm.size = message_size;
-				strncpy((char*) tm.data, (const char*) buffer, message_size);
+				tm->size = message_size;
+				strncpy((char*) tm->data, (const char*) buffer, message_size);
 				if (tun_handle->send(tm)) {
 					//statistics_packets_ok++;
 
@@ -167,10 +167,10 @@ bool CharacterStuffingPacketizer::receive_packet(RadioPacket &rp) {
 
 			message_size = 0;
 		} else {
-			buffer[message_size++] = rp.data[i];
+			buffer[message_size++] = rp->data[i];
 
 			// Skip the next character because this is an escape
-			if (rp.data[i] == radio_escape_char)
+			if (rp->data[i] == radio_escape_char)
 				i++;
 		}
 	}

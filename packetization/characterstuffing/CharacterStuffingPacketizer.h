@@ -20,19 +20,21 @@ public:
 	CharacterStuffingPacketizer();
 	~CharacterStuffingPacketizer();
 
-	static int get_mtu(){return (32*10);}
+	int get_mtu(){return (32*10);}
 
 	bool next_packet_ready();
 	RadioPacket* next_packet();
 	RadioPacket* get_empty_packet();
+
+	bool receive_packet(RadioPacket *rp);
 
 protected:
 	const uint8_t radio_escape_char = '/';
 	unsigned int current_packet_counter = 0;
 	void received_ok(){current_packet_counter = 0; frames.pop_front();}
 	void free_frame(Frame<RadioPacket>* frame);
-	bool packetize(TUNMessage &tunmsg);
-	bool receive_packet(RadioPacket &rp);
+	bool packetize(TUNMessage *tunmsg);
+
 
 };
 

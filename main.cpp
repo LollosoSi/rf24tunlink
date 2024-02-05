@@ -27,19 +27,19 @@ using namespace std;
 
 
 TUNHandler *tunh = nullptr;
-CharacterStuffingPacketizer *csp = nullptr;
+PacketHandler<RadioPacket> *csp = nullptr;
 
 
 #include "unit_tests/FakeRadio.h"
 void test_run(){
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(50);
-	csp = new CharacterStuffingPacketizer();
+	FakeRadio<RadioPacket> fr(10);
+	csp = new SelectiveRepeatPacketizer();
 
 	fr.register_packet_handler(csp);
 
-	std::string st[4]={"Ciao", "Sono", "Andrea", "e sto provando se questo modulo funziona, e se e quanti dati perde o recupera, non sarà un compito semplice però credo che ci si possa riuscire"};
+	std::string st[5]={"Ciao", "Sono", "Andrea", "e sto provando se questo modulo funziona, e se e quanti dati perde o recupera, non sarà un compito semplice però credo che ci si possa riuscire","A Quanto pare sono riuscito nel mio intento"};
 	int sz = sizeof(st)/sizeof(std::string);
 	fr.test(st,sz);
 

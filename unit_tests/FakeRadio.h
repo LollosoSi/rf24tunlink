@@ -12,6 +12,7 @@
 #include <cstring>
 #include <iostream>
 #include <stdio.h>
+#include <unistd.h>
 
 template<typename packet>
 class FakeRadio : Messenger<TUNMessage> {
@@ -31,7 +32,7 @@ public:
 			tunmessages[i].size = messages[i].length();
 			std::strcpy((char*)tunmessages[i].data, (const char*)messages[i].c_str());
 			std::cout << messages[i] << std::endl;
-			((Messenger<TUNMessage>*)pkt_ref)->send(tunmessages[i]);
+			((Messenger<TUNMessage>*)pkt_ref)->send(tunmessages+i);
 		}
 		std::cout << "- - - - - - Begin transmission - - - - - - \n";
 
@@ -43,11 +44,11 @@ public:
 			p = pkt_ref->next_packet();
 			if(rand()%100 > chance_loss){
 				sent++;
-				((Messenger<RadioPacket>*)pkt_ref)->send(*p);
+				((Messenger<RadioPacket>*)pkt_ref)->send(p);
 			}else{
 				cut++;
 			}
-
+			//usleep(10000);
 		}
 
 		std::cout << "\n\tSent: " << sent << "   cut: " << cut << std::endl;
@@ -67,9 +68,9 @@ public:
 		}
 	}
 protected:
-	bool receive_message(TUNMessage &tunmsg){
-		printf("%s\n",tunmsg.data);
-
+	bool receive_message(TUNMessage *tunmsg){
+		tunmsg->data[tunmsg->size]='\0';
+		printf("Lettura:\t\t%s\n",tunmsg->data);
 		return (true);
 	}
 private:

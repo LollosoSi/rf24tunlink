@@ -72,7 +72,7 @@ void TUNHandler::startThread() {
 
 			/* Do whatever with the data */
 			message.size = nread;
-			this->packet_handler->send(message);
+			this->packet_handler->send(&message);
 
 		}
 
@@ -82,16 +82,16 @@ void TUNHandler::startThread() {
 
 }
 
-bool TUNHandler::receive_message(TUNMessage &tunmsg) {
+bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 
 	unsigned int tot = 0;
 	int n = 0;
-	while (tot < tunmsg.size) {
-		if ((n = write(tunnel_fd, tunmsg.data + tot, tunmsg.size - tot)) < 0) {
+	while (tot < tunmsg->size) {
+		if ((n = write(tunnel_fd, tunmsg->data + tot, tunmsg->size - tot)) < 0) {
 			perror("Writing to interface");
 			fprintf(stderr,
 					"Error: %s (errno: %d), tunnel fd: %d, data length: %d, bytes written tot: %d, write returned: %d \n",
-					strerror(errno), errno, tunnel_fd, tunmsg.size, tot, n);
+					strerror(errno), errno, tunnel_fd, tunmsg->size, tot, n);
 			close(tunnel_fd);
 			exit(1);
 			return (false);
