@@ -92,7 +92,7 @@ bool TUNHandler::receive_message(TUNMessage &tunmsg) {
 			fprintf(stderr,
 					"Error: %s (errno: %d), tunnel fd: %d, data length: %d, bytes written tot: %d, write returned: %d \n",
 					strerror(errno), errno, tunnel_fd, tunmsg.size, tot, n);
-			close(tunnel_fd_);
+			close(tunnel_fd);
 			exit(1);
 			return (false);
 		}

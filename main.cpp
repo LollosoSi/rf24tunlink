@@ -3,6 +3,9 @@
  * Created on 03/02/2024
  */
 
+// Defines
+// #define UNIT_TEST
+
 // Basic
 #include <iostream>
 using namespace std;
@@ -24,6 +27,24 @@ using namespace std;
 TUNHandler *tunh = nullptr;
 CharacterStuffingPacketizer *csp = nullptr;
 
+
+#include "unit_tests/FakeRadio.h"
+void test_run(){
+
+	Settings::control_packets = false;
+
+	FakeRadio<RadioPacket> fr(50);
+	csp = new CharacterStuffingPacketizer();
+
+	fr.register_packet_handler(csp);
+
+	std::string st[4]={"Ciao", "Sono", "Andrea", "e sto provando se questo modulo funziona, e se e quanti dati perde o recupera, non sarà un compito semplice però credo che ci si possa riuscire"};
+	int sz = sizeof(st)/sizeof(std::string);
+	fr.test(st,sz);
+
+	exit(0);
+}
+
 bool running = true;
 void ctrlcevent(int s) {
 	if(s == 2){
@@ -33,6 +54,10 @@ void ctrlcevent(int s) {
 }
 
 int main(int argc, char **argv) {
+
+#ifdef UNIT_TEST
+	test_run();
+#endif
 
 	if (geteuid()){
 		cout << "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";

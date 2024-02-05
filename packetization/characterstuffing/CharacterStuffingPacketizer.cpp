@@ -21,7 +21,7 @@ CharacterStuffingPacketizer::~CharacterStuffingPacketizer() {
 }
 
 bool CharacterStuffingPacketizer::next_packet_ready() {
-	return (Settings::control_packets || !frames.empty());
+	return (Settings::control_packets || frames.size() > 0);
 }
 
 RadioPacket* CharacterStuffingPacketizer::next_packet() {
@@ -42,10 +42,20 @@ RadioPacket* CharacterStuffingPacketizer::next_packet() {
 			std::cout << "Requested frame when no one is available\n";
 			exit(2);
 		} else {
+			RadioPacket *rp =
+					(frames.front()->packets[current_packet_counter++]);
 			if (current_packet_counter == frames.front()->packets.size()) {
+				static Frame<RadioPacket> *deletequeue = nullptr;
+
+				if (deletequeue != nullptr) {
+					free_frame(deletequeue);
+					delete deletequeue;
+				}
+				deletequeue = frames.front();
+
 				received_ok();
 			}
-			return (frames.front()->packets[current_packet_counter++]);
+			return (rp);
 		}
 
 	}
@@ -63,12 +73,15 @@ void CharacterStuffingPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
 RadioPacket* CharacterStuffingPacketizer::get_empty_packet() {
 
-	static RadioPacket *rp = new RadioPacket { new uint8_t[1] { radio_escape_char }, 0, 1 };
+	static RadioPacket *rp = new RadioPacket { new uint8_t[1] {
+			radio_escape_char }, 0, 1 };
 	return (rp);
 
 }
 
 bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
+
+	//printf("To packetize: %s of size %i\n", tunmsg.data, tunmsg.size);
 
 	Frame<RadioPacket> *frm = new Frame<RadioPacket>;
 
@@ -116,6 +129,10 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
 	frm->packets.push_back(pointer);
 	packetcursor = 0;
 
+	frames.push_back(frm);
+
+	//std::cout << "Packets: " << frm->packets.size() << std::endl;
+
 	return (true);
 }
 
@@ -126,13 +143,15 @@ bool CharacterStuffingPacketizer::packetize(TUNMessage &tunmsg) {
  */
 bool CharacterStuffingPacketizer::receive_packet(RadioPacket &rp) {
 
+	//std::cout << "Received packet data, size: " << (int)rp.size << "\n";
+
 	static unsigned int message_size = 0;
 	static uint8_t *buffer = nullptr;
-	if(buffer==nullptr){
-		buffer = new uint8_t[Settings::mtu*2]{0};
+	if (buffer == nullptr) {
+		buffer = new uint8_t[Settings::mtu * 2] { 0 };
 	}
 
-	static TUNMessage tm = {new uint8_t[Settings::mtu*2], 0};
+	static TUNMessage tm = { new uint8_t[Settings::mtu * 2], 0 };
 
 	for (int i = 0; i < rp.size; i++) {
 		if (rp.data[i] == radio_escape_char
@@ -141,7 +160,7 @@ bool CharacterStuffingPacketizer::receive_packet(RadioPacket &rp) {
 			if (message_size != 0) {
 				// Write message and set stats
 				tm.size = message_size;
-				strncpy((char*)tm.data, (const char*)buffer, message_size);
+				strncpy((char*) tm.data, (const char*) buffer, message_size);
 				if (tun_handle->send(tm)) {
 					//statistics_packets_ok++;
 

@@ -27,7 +27,7 @@ public:
 protected:
 	const uint8_t radio_escape_char = '/';
 	unsigned int current_packet_counter = 0;
-	void received_ok(){current_packet_counter = 0; free_frame(frames.front()); delete frames.front(); frames.pop_front();}
+	void received_ok(){current_packet_counter = 0; frames.pop_front();}
 	void free_frame(Frame<RadioPacket>* frame);
 	bool packetize(TUNMessage &tunmsg);
 	bool receive_packet(RadioPacket &rp);
