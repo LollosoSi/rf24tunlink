@@ -25,7 +25,6 @@ typedef Messenger<TUNMessage> tun;
 template<typename packet>
 class PacketHandler: public Messenger<TUNMessage>, public Messenger<RadioPacket> {
 
-
 public:
 	PacketHandler() = default;
 	~PacketHandler() {}
@@ -33,6 +32,7 @@ public:
 	virtual bool next_packet_ready() = 0;
 	virtual packet* next_packet() = 0;
 	virtual packet* get_empty_packet() = 0;
+	virtual static int get_mtu() = 0;
 
 	bool register_tun_handler(tun *tun_handler_pointer) {
 			if (this->tun_handle == nullptr) {

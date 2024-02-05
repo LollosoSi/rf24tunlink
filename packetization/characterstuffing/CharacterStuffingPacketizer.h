@@ -20,6 +20,8 @@ public:
 	CharacterStuffingPacketizer();
 	~CharacterStuffingPacketizer();
 
+	static int get_mtu(){return (32*10);}
+
 	bool next_packet_ready();
 	RadioPacket* next_packet();
 	RadioPacket* get_empty_packet();

@@ -12,6 +12,8 @@
 
 #include "../../settings/Settings.h"
 
+#include <cmath>
+
 class SelectiveRepeatPacketizer: public PacketHandler<RadioPacket> {
 public:
 	SelectiveRepeatPacketizer();
@@ -21,9 +23,22 @@ public:
 	RadioPacket* next_packet();
 	RadioPacket* get_empty_packet();
 
+	static int get_mtu(){return (31*pow(2,5));}
+
+
+	uint8_t pack_info(bool first, uint8_t id, uint8_t segment){
+		return (((first << 7) & 0x80) | ((id << 5) & 0x60) | (segment & 0x1F));
+	}
+
+	void unpack_info(uint8_t &data, bool &first, uint8_t &id, uint8_t &segment){
+		first = (data >> 7) & 0x01;
+		id = (data >> 5) & 0x03;
+		segment = data & 0x1F;
+	}
+
 protected:
 	unsigned int current_packet_counter = 0;
-	std::deque<int> resend_list;
+	std::deque<RadioPacket*> resend_list;
 	void received_ok(){current_packet_counter = 0; free_frame(frames.front()); delete frames.front(); frames.pop_front();}
 
 	void free_frame(Frame<RadioPacket> *frame);

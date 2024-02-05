@@ -23,6 +23,8 @@ using namespace std;
 #include "settings/DefaultSettings.h"
 #include "tun/TUNHandler.h"
 #include "packetization/characterstuffing/CharacterStuffingPacketizer.h"
+#include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
+
 
 TUNHandler *tunh = nullptr;
 CharacterStuffingPacketizer *csp = nullptr;
@@ -30,7 +32,6 @@ CharacterStuffingPacketizer *csp = nullptr;
 
 #include "unit_tests/FakeRadio.h"
 void test_run(){
-
 	Settings::control_packets = false;
 
 	FakeRadio<RadioPacket> fr(50);
