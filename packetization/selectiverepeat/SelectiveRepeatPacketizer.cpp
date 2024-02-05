@@ -20,21 +20,21 @@ bool SelectiveRepeatPacketizer::next_packet_ready() {
 	return (Settings::control_packets || !frames.empty());
 }
 
-RadioPacket& SelectiveRepeatPacketizer::next_packet() {
+RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 	if (Settings::control_packets) {
 		if (frames.empty()) {
 			return (get_empty_packet());
 		} else {
-			if (current_packet_counter == frames.front().packets.size()) {
+			if (current_packet_counter == frames.front()->packets.size()) {
 				if (resend_list.empty())
-					return (frames.front().packets[current_packet_counter]);
+					return (frames.front()->packets[current_packet_counter]);
 				else {
 					int rs = resend_list.front();
 					resend_list.pop_front();
-					return (frames.front().packets[rs]);
+					return (frames.front()->packets[rs]);
 				}
 			} else {
-				return (frames.front().packets[current_packet_counter++]);
+				return (frames.front()->packets[current_packet_counter++]);
 			}
 		}
 	} else {
@@ -43,32 +43,47 @@ RadioPacket& SelectiveRepeatPacketizer::next_packet() {
 			std::cout << "Requested frame when no one is available\n";
 			exit(2);
 		} else {
-			if (current_packet_counter == frames.front().packets.size()) {
+			if (current_packet_counter == frames.front()->packets.size()) {
 				if (resend_list.empty())
-					return (frames.front().packets[current_packet_counter]);
+					return (frames.front()->packets[current_packet_counter]);
 				else {
 					int rs = resend_list.front();
 					resend_list.pop_front();
-					return (frames.front().packets[rs]);
+					return (frames.front()->packets[rs]);
 				}
 			} else {
-				return (frames.front().packets[current_packet_counter++]);
+				return (frames.front()->packets[current_packet_counter++]);
 			}
 		}
 	}
 
 }
 
-void SelectiveRepeatPacketizer::free_frame(Frame<RadioPacket> &frame) {
+void SelectiveRepeatPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
-	while (!frame.packets.empty()) {
-		delete[] frame.packets.front().data;
-		frame.packets.pop_front();
+	while (!frame->packets.empty()) {
+		delete[] frame->packets.front()->data;
+		frame->packets.pop_front();
 	}
 
 }
 
-RadioPacket& SelectiveRepeatPacketizer::get_empty_packet() {
-	static RadioPacket rp = { 0, new uint8_t[1] { 0 } };
+RadioPacket* SelectiveRepeatPacketizer::get_empty_packet() {
+	static RadioPacket *rp = new RadioPacket{ new uint8_t[1] { 0 }, 0, 0 };
 	return (rp);
+}
+
+bool SelectiveRepeatPacketizer::packetize(TUNMessage &tunmsg) {
+
+	// Not implemented
+
+	return (false);
+}
+
+bool SelectiveRepeatPacketizer::receive_packet(RadioPacket &rp) {
+
+	// Not implemented
+
+	return (false);
+
 }

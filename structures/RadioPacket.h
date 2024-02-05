@@ -10,6 +10,7 @@
 #include <RF24/RF24.h>
 
 struct RadioPacket{
-		uint8_t info = 0;
 		uint8_t *data = 0;
+		uint8_t info = 0;
+		uint8_t size = 0;
 };
