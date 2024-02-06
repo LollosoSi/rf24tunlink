@@ -24,7 +24,7 @@ struct Frame {
 typedef Messenger<TUNMessage> tun;
 
 template<typename packet>
-class PacketHandler: public Messenger<TUNMessage>, public Messenger<RadioPacket>{
+class PacketHandler: public Messenger<TUNMessage>, public Messenger<packet>{
 
 public:
 	PacketHandler() {};
