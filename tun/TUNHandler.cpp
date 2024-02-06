@@ -37,7 +37,11 @@
 #include <iostream>
 using namespace std;
 
-TUNHandler::TUNHandler() {
+TUNHandler::TUNHandler() :
+		Telemetry("TUNHandler") {
+
+	std::vector<std::string> names_vec { "Bytes Successful", "Bytes Failed" };
+	register_elements(names_vec);
 
 	tunnel_fd = interface_setup(Settings::interface_name,
 	IFF_TUN | IFF_UP | IFF_RUNNING, Settings::address, Settings::destination,
@@ -51,6 +55,12 @@ TUNHandler::~TUNHandler() {
 
 }
 
+std::vector<std::string> TUNHandler::telemetry_collect() {
+	std::vector<std::string> returnvector { std::to_string(bytes_successful), std::to_string(bytes_failed) };
+	bytes_successful = bytes_failed = 0;
+	return (returnvector);
+}
+
 void TUNHandler::startThread() {
 
 	this->running = true;
@@ -59,7 +69,7 @@ void TUNHandler::startThread() {
 
 		int nread = 0;
 		TUNMessage message;
-		message.data = new uint8_t[Settings::mtu+1];
+		message.data = new uint8_t[Settings::mtu + 1];
 
 		while (this->running) {
 			/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
@@ -76,7 +86,6 @@ void TUNHandler::startThread() {
 
 		}
 
-
 	});
 	read_thread.detach();
 
@@ -87,13 +96,15 @@ bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 	unsigned int tot = 0;
 	int n = 0;
 	while (tot < tunmsg->size) {
-		if ((n = write(tunnel_fd, tunmsg->data + tot, tunmsg->size - tot)) < 0) {
+		if ((n = write(tunnel_fd, tunmsg->data + tot, tunmsg->size - tot))
+				< 0) {
 			perror("Writing to interface");
 			fprintf(stderr,
 					"Error: %s (errno: %d), tunnel fd: %d, data length: %d, bytes written tot: %d, write returned: %d \n",
 					strerror(errno), errno, tunnel_fd, tunmsg->size, tot, n);
-			close(tunnel_fd);
-			exit(1);
+			//close(tunnel_fd);
+			//exit(1);
+			bytes_failed += tunmsg->size;
 			return (false);
 		}
 		if (n > 0)
@@ -104,6 +115,7 @@ bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 		}
 	}
 
+	bytes_successful += tunmsg->size;
 	//printf("Wrote to buffer: %d bytes, sum %d, CRC %d\n", tot, (int) checksum(data, size), gencrc(data,size));
 	return (true);
 }

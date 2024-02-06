@@ -10,8 +10,9 @@
 #include "../interfaces/Messenger.h"
 #include "../structures/TUNMessage.h"
 #include "../settings/Settings.h"
+#include "../telemetry/Telemetry.h"
 
-class TUNHandler: public Messenger<TUNMessage> {
+class TUNHandler: public Messenger<TUNMessage>, public Telemetry {
 public:
 	TUNHandler();
 	~TUNHandler();
@@ -46,6 +47,9 @@ private:
 	void interface_set_mtu(const char *dev, unsigned int mtu);
 	bool interface_set_destination(const char *deviceName,
 			const char *destinationIP);
+
+	std::vector<std::string> telemetry_collect();
+	int bytes_successful = 0, bytes_failed = 0;
 
 };
 
