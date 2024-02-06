@@ -33,12 +33,16 @@ void RF24Radio::stop() {
  */
 void RF24Radio::channel_sweep(){
 
+	std::cout << "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)";
+
 	radio->startListening();
 	for(uint8_t i = 0; i < 126; i++){
 		radio->setChannel(i);
-		std::cout << ((unsigned int)i) << " | ";
+		std::cout << ((unsigned int)i) << "\t|\t";
 		if(radio->testCarrier()) std::cout << "CCCC";
-		if(radio->testRPD())std::cout << "RRRR";
+		std::cout << "\t";
+		if(radio->isPVariant())
+			if(radio->testRPD())std::cout << "RRRR";
 		std::cout << "\n";
 	}
 	radio->stopListening();
