@@ -7,13 +7,32 @@
 
 #include "SelectiveRepeatPacketizer.h"
 
-SelectiveRepeatPacketizer::SelectiveRepeatPacketizer() {
-	// TODO Auto-generated constructor stub
+SelectiveRepeatPacketizer::SelectiveRepeatPacketizer() :
+		Telemetry("SelectiveRepeatPacketizer") {
+
+
+	returnvector = new std::string[5]{std::to_string(fragments_received), std::to_string(fragments_sent), std::to_string(fragments_resent), std::to_string(frames_completed), std::to_string(fragments_control)};
+
+	register_elements(new std::string[5]{ "Fragments Received", "Fragments Sent",
+		"Fragments Resent", "Frames completed", "Control Fragments" }, 5);
 
 }
 
 SelectiveRepeatPacketizer::~SelectiveRepeatPacketizer() {
 	// TODO Auto-generated destructor stub
+}
+
+std::string* SelectiveRepeatPacketizer::telemetry_collect(const unsigned long delta) {
+
+	returnvector[0]=(std::to_string(fragments_received));
+	returnvector[1]=(std::to_string(fragments_sent));
+	returnvector[2]=(std::to_string(fragments_resent));
+	returnvector[3]=(std::to_string(frames_completed));
+	returnvector[4]=(std::to_string(fragments_control));
+	//returnvector = { std::to_string(fragments_received), std::to_string( fragments_sent), std::to_string(fragments_resent), std::to_string(frames_completed), std::to_string(fragments_control) };
+	fragments_received = fragments_sent = fragments_resent = frames_completed = fragments_control = 0;
+	return (returnvector);
+
 }
 
 bool SelectiveRepeatPacketizer::next_packet_ready() {
@@ -34,6 +53,7 @@ RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 					return (rs);
 				}
 			} else {
+				fragments_sent++;
 				return (frames.front()->packets[current_packet_counter++]);
 			}
 		}
@@ -52,6 +72,7 @@ RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 					return (rs);
 				}
 			} else {
+				fragments_sent++;
 				return (frames.front()->packets[current_packet_counter++]);
 			}
 		}
@@ -129,6 +150,7 @@ bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
 		}
 	}
 	if (findings > 0) {
+		fragments_resent+=findings;
 		rp_answer->data[0] = pack_info(true, 0, findings);
 		rp_answer->size = 1 + findings;
 		resend_list.push_front(rp_answer);
@@ -168,6 +190,8 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 	// Is this a control packet?
 	if (id == 0) {
 
+		fragments_control++;
+
 		// Does this packet carry a NAck or something else?
 		// NOTE: NAck could be a confirmation if it carries 0 requests
 		if (first) {
@@ -190,7 +214,8 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 					unpack_info(frames.back()->packets[0]->data[0],
 							dbg2_pkt_boolean, dbg2_pkt_id, dbg2_pkt_seg);
 
-					unsigned int position = frames.front()->packets.size() - 1 - pkt_seg;
+					unsigned int position = frames.front()->packets.size() - 1
+							- pkt_seg;
 
 					bool dbg_pkt_boolean = 0;
 					uint8_t dbg_pkt_id = 0;
@@ -212,14 +237,18 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				//printf("Confirmed packet\n");
 			} else {
 				// Undefined behaviour, wtf
-				std::cout << "SelectiveRepeatPacketizer has hit a WTF checkpoint\n";
+				std::cout
+						<< "SelectiveRepeatPacketizer has hit a WTF checkpoint\n";
 			}
 		} else {
 			// This packet isn't carrying requests
+
 		}
 
 		return (true);
 	}
+
+	fragments_received++;
 
 	static uint8_t *buffer = nullptr;
 	static bool *received_packets_boolean = nullptr;
@@ -258,11 +287,13 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				//printf("Reception is not okay, trying packet request\n");
 
 			} else {
+				frames_completed++;
 				// Respond OK
 				response_packet_ok(id);
 				unsigned int packets_full = (seg);
-				unsigned int first_packet_size = 31-leftover;
-				unsigned int message_size = (31*packets_full) + first_packet_size;
+				unsigned int first_packet_size = 31 - leftover;
+				unsigned int message_size = (31 * packets_full)
+						+ first_packet_size;
 				//printf("Packets full: %i\tFirst packet size: %i\t Message size: %i\n",packets_full,first_packet_size,message_size);
 				static TUNMessage *tm = new TUNMessage { nullptr, 0 };
 				tm->data = (buffer + leftover);

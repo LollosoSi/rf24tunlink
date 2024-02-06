@@ -14,8 +14,10 @@
 
 #include "../../settings/Settings.h"
 
+#include "../../telemetry/Telemetry.h"
 
-class CharacterStuffingPacketizer : public PacketHandler<RadioPacket> {
+
+class CharacterStuffingPacketizer : public PacketHandler<RadioPacket>, public Telemetry {
 public:
 	CharacterStuffingPacketizer();
 	~CharacterStuffingPacketizer();
@@ -28,6 +30,9 @@ public:
 
 	bool receive_packet(RadioPacket *rp);
 
+	std::string* telemetry_collect(const unsigned long delta);
+
+
 protected:
 	const uint8_t radio_escape_char = '/';
 	unsigned int current_packet_counter = 0;
@@ -35,6 +40,8 @@ protected:
 	void free_frame(Frame<RadioPacket>* frame);
 	bool packetize(TUNMessage *tunmsg);
 
+	std::string* returnvector = nullptr;
+	unsigned int fragments_sent = 0, fragments_received = 0, fragments_control = 0, frames_completed = 0, frames_failed = 0;
 
 };
 

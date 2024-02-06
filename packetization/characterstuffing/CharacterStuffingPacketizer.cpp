@@ -10,13 +10,32 @@
 #include <iostream>
 using namespace std;
 
-CharacterStuffingPacketizer::CharacterStuffingPacketizer() {
+CharacterStuffingPacketizer::CharacterStuffingPacketizer() :
+		Telemetry("CharacterStuffingPacketizer") {
+
+
+	register_elements(new std::string[5] { "Fragments sent", "Fragments received", "Control Fragments", "Frames Completed", "Frames Failed" }, 5);
+
+	returnvector = new std::string[5]{std::to_string(fragments_sent), std::to_string(fragments_received), std::to_string(fragments_control), std::to_string(frames_completed), std::to_string(frames_failed)};
 
 	cout << "Character Stuffing Packetizer initialized\n";
 
 }
 
 CharacterStuffingPacketizer::~CharacterStuffingPacketizer() {
+
+}
+
+std::string* CharacterStuffingPacketizer::telemetry_collect(const unsigned long delta) {
+
+	returnvector[0]=(std::to_string(fragments_sent));
+	returnvector[1]=(std::to_string(fragments_received));
+	returnvector[2]=(std::to_string(fragments_control));
+	returnvector[3]=(std::to_string(frames_completed));
+	returnvector[4]=(std::to_string(frames_failed));
+
+	fragments_sent = fragments_received = fragments_control = 0;
+	return (returnvector);
 
 }
 
@@ -32,6 +51,7 @@ RadioPacket* CharacterStuffingPacketizer::next_packet() {
 			if (current_packet_counter == frames.front()->packets.size()) {
 				received_ok();
 			}
+			fragments_sent++;
 			return (frames.front()->packets[current_packet_counter++]);
 
 		}
@@ -55,6 +75,7 @@ RadioPacket* CharacterStuffingPacketizer::next_packet() {
 
 				received_ok();
 			}
+			fragments_sent++;
 			return (rp);
 		}
 
@@ -72,7 +93,7 @@ void CharacterStuffingPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
 RadioPacket* CharacterStuffingPacketizer::get_empty_packet() {
 
-	static RadioPacket *rp = new RadioPacket { {0}, 1 };
+	static RadioPacket *rp = new RadioPacket { { 0 }, 1 };
 	return (rp);
 
 }
@@ -145,7 +166,9 @@ bool CharacterStuffingPacketizer::receive_packet(RadioPacket *rp) {
 		buffer = new uint8_t[Settings::mtu * 2] { 0 };
 	}
 
-	static TUNMessage *tm = new TUNMessage{ new uint8_t[Settings::mtu * 2], 0 };
+	fragments_received++;
+
+	static TUNMessage *tm = new TUNMessage { new uint8_t[Settings::mtu * 2], 0 };
 
 	for (int i = 0; i < rp->size; i++) {
 		if (rp->data[i] == radio_escape_char
@@ -157,12 +180,14 @@ bool CharacterStuffingPacketizer::receive_packet(RadioPacket *rp) {
 				strncpy((char*) tm->data, (const char*) buffer, message_size);
 				if (tun_handle->send(tm)) {
 					//statistics_packets_ok++;
-
+					frames_completed++;
 				} else {
 					//statistics_packets_corrupted++;
+					frames_failed++;
 				}
 			} else {
 				//statistics_packets_control++;
+				fragments_control++;
 			}
 
 			message_size = 0;

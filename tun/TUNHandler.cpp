@@ -40,8 +40,10 @@ using namespace std;
 TUNHandler::TUNHandler() :
 		Telemetry("TUNHandler") {
 
-	std::vector<std::string> names_vec { "Bytes Successful", "Bytes Failed" };
-	register_elements(names_vec);
+	register_elements(new std::string[2] { "Bytes Successful", "Bytes Failed" }, 2);
+
+	returnvector = new std::string[2]{std::to_string(bytes_successful), std::to_string(bytes_failed)};
+
 
 	tunnel_fd = interface_setup(Settings::interface_name,
 	IFF_TUN | IFF_UP | IFF_RUNNING, Settings::address, Settings::destination,
@@ -55,8 +57,10 @@ TUNHandler::~TUNHandler() {
 
 }
 
-std::vector<std::string> TUNHandler::telemetry_collect() {
-	std::vector<std::string> returnvector { std::to_string(bytes_successful), std::to_string(bytes_failed) };
+std::string* TUNHandler::telemetry_collect(const unsigned long delta) {
+	returnvector[0]=(std::to_string(bytes_successful));
+	returnvector[1]=(std::to_string(bytes_failed));
+
 	bytes_successful = bytes_failed = 0;
 	return (returnvector);
 }

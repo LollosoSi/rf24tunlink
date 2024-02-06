@@ -10,19 +10,26 @@
 #include <string>
 #include <vector>
 
+#include <iostream>
+
 class Telemetry {
 
 protected:
 	std::string name;
-	std::vector<std::string> element_names;
+	std::string* element_names = nullptr;
+	int element_length = 0;
 
 public:
-	Telemetry(std::string name){this->name = name;}
+	Telemetry(std::string name) {this->name = name;}
 	virtual ~Telemetry(){}
 
-	void register_elements(std::vector<std::string> names){element_names = names;}
+	const std::string get_name(){return (name);}
+	const std::string* get_element_names(){return (element_names);}
+	int size(){return (element_length);}
 
-	virtual std::vector<std::string> telemetry_collect() = 0;
+	void register_elements(std::string* names, int length){element_names = names; element_length = length;printf("Registering names with length %i\n",element_length);}
+
+	virtual std::string* telemetry_collect(const unsigned long delta) = 0;
 
 
 };

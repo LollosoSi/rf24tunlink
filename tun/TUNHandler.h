@@ -48,7 +48,8 @@ private:
 	bool interface_set_destination(const char *deviceName,
 			const char *destinationIP);
 
-	std::vector<std::string> telemetry_collect();
+	std::string* returnvector = nullptr;
+	std::string* telemetry_collect(const unsigned long delta);
 	int bytes_successful = 0, bytes_failed = 0;
 
 };

@@ -12,10 +12,12 @@
 
 #include "../../settings/Settings.h"
 
+#include "../../telemetry/Telemetry.h"
+
 #include <cmath>
 #include <cstring>
 
-class SelectiveRepeatPacketizer: public PacketHandler<RadioPacket> {
+class SelectiveRepeatPacketizer: public PacketHandler<RadioPacket>, public Telemetry {
 public:
 	SelectiveRepeatPacketizer();
 	virtual ~SelectiveRepeatPacketizer();
@@ -38,6 +40,8 @@ public:
 	}
 
 	bool receive_packet(RadioPacket *rp);
+	std::string* telemetry_collect(const unsigned long delta);
+
 
 protected:
 	unsigned int current_packet_counter = 0;
@@ -51,6 +55,8 @@ protected:
 	inline void response_packet_ok(uint8_t id);
 	inline uint8_t get_pack_id(RadioPacket *rp);
 
+	std::string* returnvector = nullptr;
+	unsigned int fragments_received = 0, fragments_sent = 0, fragments_resent = 0, frames_completed = 0, fragments_control = 0;
 
 
 };

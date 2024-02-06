@@ -34,10 +34,13 @@ PacketHandler<RadioPacket> *csp = nullptr;
 void test_run(){
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(90);
+	FakeRadio<RadioPacket> fr(50);
 	csp = new SelectiveRepeatPacketizer();
 
+
 	fr.register_packet_handler(csp);
+
+
 
 	std::string st[5]={"Ciao", "Sono", "Andrea", "e sto provando se questo modulo funziona, e se e quanti dati perde o recupera, non sarà un compito semplice però credo che ci si possa riuscire","A Quanto pare sono riuscito nel mio intento"};
 	int sz = sizeof(st)/sizeof(std::string);

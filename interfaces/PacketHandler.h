@@ -15,6 +15,7 @@
 #include "../structures/TUNMessage.h"
 #include "../structures/RadioPacket.h"
 
+
 template<typename packet>
 struct Frame {
 	std::deque<packet*> packets;
@@ -23,11 +24,11 @@ struct Frame {
 typedef Messenger<TUNMessage> tun;
 
 template<typename packet>
-class PacketHandler: public Messenger<TUNMessage>, public Messenger<RadioPacket> {
+class PacketHandler: public Messenger<TUNMessage>, public Messenger<RadioPacket>{
 
 public:
-	PacketHandler() = default;
-	~PacketHandler() {
+	PacketHandler() {};
+	virtual ~PacketHandler() {
 	}
 
 	virtual bool next_packet_ready() = 0;
@@ -51,6 +52,7 @@ public:
 	bool receive_message(RadioPacket *rp) {
 		return (receive_packet(rp));
 	}
+
 
 protected:
 	tun *tun_handle = nullptr;
