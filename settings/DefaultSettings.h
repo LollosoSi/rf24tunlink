@@ -20,3 +20,24 @@ unsigned int mtu = 9600;
 bool control_packets = true;
 
 }
+
+namespace Settings::RF24{
+
+	int ce_pin = 25;
+	int csn_pin = 0;
+	unsigned long spi_speed = RF24_SPI_SPEED;
+
+	uint8_t radio_delay = 3;
+	uint8_t radio_retries = 6;
+	rf24_datarate_e data_rate = RF24_2MBPS;
+	rf24_pa_dbm_e radio_power = RF24_PA_MAX;
+	rf24_crclength_e crc_length = RF24_CRC_8;
+
+	uint8_t channel = 90;
+	uint8_t address_bytes = 3;
+	uint8_t* address_1 = new uint8_t[3]{'1','N','o'};
+	uint8_t* address_2 = new uint8_t[3]{'2','N','o'};
+
+
+
+}

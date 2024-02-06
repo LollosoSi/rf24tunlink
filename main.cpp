@@ -24,14 +24,20 @@ using namespace std;
 #include "tun/TUNHandler.h"
 #include "packetization/characterstuffing/CharacterStuffingPacketizer.h"
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
+#include "radio/NRF24/RF24Radio.h"
 
 
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
+RadioHandler<RadioPacket>* rh = nullptr;
 
 
 #include "unit_tests/FakeRadio.h"
 void test_run(){
+
+	rh = new RF24Radio();
+	exit(0);
+
 	Settings::control_packets = false;
 
 	FakeRadio<RadioPacket> fr(90);
@@ -39,7 +45,6 @@ void test_run(){
 
 
 	fr.register_packet_handler(csp);
-
 
 
 	std::string st[6]={

@@ -8,12 +8,12 @@
 #include "LoraRadio.h"
 
 LoraRadio::LoraRadio() {
-	// TODO Auto-generated constructor stub
+	setup();
 
 }
 
 LoraRadio::~LoraRadio() {
-	// TODO Auto-generated destructor stub
+	stop();
 }
 
 
