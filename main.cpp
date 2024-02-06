@@ -34,7 +34,7 @@ PacketHandler<RadioPacket> *csp = nullptr;
 void test_run(){
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(50);
+	FakeRadio<RadioPacket> fr(90);
 	csp = new SelectiveRepeatPacketizer();
 
 
@@ -42,7 +42,14 @@ void test_run(){
 
 
 
-	std::string st[5]={"Ciao", "Sono", "Andrea", "e sto provando se questo modulo funziona, e se e quanti dati perde o recupera, non sarà un compito semplice però credo che ci si possa riuscire","A Quanto pare sono riuscito nel mio intento"};
+	std::string st[6]={
+			"Hello, my name is Andrea",
+			"And I am the developer behind rf24tunlink",
+			"This is a very important test in order to understand how strong and well thought the packetizer is",
+			"At the moment we have two packetizers available",
+			"One is based on the old simple character stuffing technique with no retransmission",
+			"The other is based on ARQ algorithms, in particular, Selective Retransmission"
+	};
 	int sz = sizeof(st)/sizeof(std::string);
 	fr.test(st,sz);
 

@@ -27,7 +27,7 @@ public:
 	const std::string* get_element_names(){return (element_names);}
 	int size(){return (element_length);}
 
-	void register_elements(std::string* names, int length){element_names = names; element_length = length;printf("Registering names with length %i\n",element_length);}
+	void register_elements(std::string* names, int length){element_names = names; element_length = length;}
 
 	virtual std::string* telemetry_collect(const unsigned long delta) = 0;
 

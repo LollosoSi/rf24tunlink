@@ -56,11 +56,17 @@ public:
 			} else {
 				cut++;
 			}
+
 			//usleep(10000);
 		}
 
 		std::cout << "\n\tSent: " << sent << "   Lost: " << cut << std::endl;
 
+		print_telemetry();
+
+	}
+
+	void print_telemetry() {
 		const std::string *telemetrydata =
 				((dynamic_cast<Telemetry*>(pkt_ref)))->telemetry_collect(1000);
 		const std::string *elementnames =
@@ -69,11 +75,10 @@ public:
 				((dynamic_cast<Telemetry*>(pkt_ref)))->size());
 		for (int i = 0; i < ((dynamic_cast<Telemetry*>(pkt_ref)))->size();
 				i++) {
-			printf("%s : %s \t", elementnames[i].c_str(),
+			printf("%s: %s\t", elementnames[i].c_str(),
 					telemetrydata[i].c_str());
 		}
 		printf("\n");
-
 	}
 
 	bool register_packet_handler(PacketHandler<packet> *pkt_handler_pointer) {
@@ -89,7 +94,7 @@ public:
 protected:
 	bool receive_message(TUNMessage *tunmsg) {
 		tunmsg->data[tunmsg->size] = '\0';
-		printf("Lettura:\t\t%s\n", tunmsg->data);
+		printf("Lettura:\t%s\n", tunmsg->data);
 		return (true);
 	}
 private:
