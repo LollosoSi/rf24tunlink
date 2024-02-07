@@ -7,12 +7,25 @@
 
 #include "RF24Radio.h"
 
-RF24Radio::RF24Radio() {
+RF24Radio::RF24Radio() : Telemetry("RF24Radio") {
+
+	register_elements(new std::string[2] { "AVG ARC", "Packets Out" }, 2);
+
+	returnvector = new std::string[2] { std::to_string(0), std::to_string(0) };
+
 	setup();
 }
 
 RF24Radio::~RF24Radio() {
 	stop();
+}
+
+std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
+	returnvector[0]=(std::to_string(sum_arc/count_arc));
+	returnvector[1]=(std::to_string(count_arc));
+
+	sum_arc = count_arc = 0;
+	return (returnvector);
 }
 
 void RF24Radio::setup() {
@@ -24,25 +37,73 @@ void RF24Radio::setup() {
 	reset_radio();
 }
 void RF24Radio::loop(unsigned long delta) {
+
 }
+
 void RF24Radio::stop() {
+
+}
+
+void RF24Radio::send_tx() {
+
+	if (radio->txStandBy()) {
+		// Transmit was successful, everything is okay
+
+	} else {
+		// Some or all packets failed to transmit. Sorry for the inconvenience
+
+	}
+
+}
+
+void RF24Radio::fill_buffer_tx() {
+
+	// Check if radio FIFO TX is full, if yes, skip.
+	// Also check if the next packet is available
+	if (radio->isFifo(true, false) && has_next_packet()) {
+		static RadioPacket *rp = next_packet();
+		if (radio->writeFast(rp->data, rp->size, false)) {
+			// Transfer to radio successful
+		} else {
+			// Transfer to radio failed
+		}
+	}
+
+}
+
+void RF24Radio::fill_buffer_ack() {
+
+	// Check if radio FIFO TX is full, if yes, skip.
+	// Also check if the next packet is available
+	if (radio->isFifo(true, false) && has_next_packet()) {
+		static RadioPacket *rp = next_packet();
+		if (radio->writeAckPayload(1, rp->data, rp->size)) {
+			// Transfer to radio successful
+		} else {
+			// Transfer to radio failed
+		}
+	}
+
 }
 
 /**
  *  Sweeps all channels to find less disturbance
  */
-void RF24Radio::channel_sweep(){
+void RF24Radio::channel_sweep() {
 
-	std::cout << "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)";
+	std::cout
+			<< "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)";
 
 	radio->startListening();
-	for(uint8_t i = 0; i < 126; i++){
+	for (uint8_t i = 0; i < 126; i++) {
 		radio->setChannel(i);
-		std::cout << ((unsigned int)i) << "\t|\t";
-		if(radio->testCarrier()) std::cout << "CCCC";
+		std::cout << ((unsigned int) i) << "\t|\t";
+		if (radio->testCarrier())
+			std::cout << "CCCC";
 		std::cout << "\t";
-		if(radio->isPVariant())
-			if(radio->testRPD())std::cout << "RRRR";
+		if (radio->isPVariant())
+			if (radio->testRPD())
+				std::cout << "RRRR";
 		std::cout << "\n";
 	}
 	radio->stopListening();
@@ -98,13 +159,16 @@ void RF24Radio::reset_radio() {
 	radio->openWritingPipe(
 			primary ? Settings::RF24::address_1 : Settings::RF24::address_2);
 
-	if(primary)
+	if (primary)
 		radio->stopListening();
 	else
 		radio->startListening();
 
-
 	radio->printPrettyDetails();
-	printf("Radio details! P-Variant: %s\tValid: %s\tCarrier: %s\tRPD: %s\n", radio->isPVariant() ? "YES": "NO", radio->isValid() ? "YES" : "NO, WHAT???", radio->testCarrier() ? "BUSY" : "FREE", radio->testRPD() ? "BUSY" : "FREE");
+	printf("Radio details! P-Variant: %s\tValid: %s\tCarrier: %s\tRPD: %s\n",
+			radio->isPVariant() ? "YES" : "NO",
+			radio->isValid() ? "YES" : "NO, WHAT???",
+			radio->testCarrier() ? "BUSY" : "FREE",
+			radio->testRPD() ? "BUSY" : "FREE");
 
 }
