@@ -71,7 +71,7 @@ void RF24Radio::loop(unsigned long delta) {
 
 	if (primary) {
 
-		while (fill_buffer_tx()) {
+		if (fill_buffer_tx()) {
 
 		}
 		send_tx();
@@ -82,7 +82,7 @@ void RF24Radio::loop(unsigned long delta) {
 	} else {
 
 		if (read()) {
-			while (fill_buffer_ack()) {
+			if (fill_buffer_ack()) {
 			}
 		}
 		//fill_buffer_ack();
@@ -134,7 +134,7 @@ void RF24Radio::send_tx() {
 		// Transmit was successful, everything is okay
 		sum_arc += radio->getARC();
 		count_arc++;
-	} else if (false) {
+	} else if (true) {
 		// Some or all packets failed to transmit. Sorry for the inconvenience
 		static bool retry_once = true;
 		radio->reUseTX();

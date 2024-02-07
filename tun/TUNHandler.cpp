@@ -90,8 +90,8 @@ void TUNHandler::startThread() {
 
 			/* Do whatever with the data */
 			message->size = nread;
-			printf("From TUN (%i)\n",message->size);
-			print_hex(message->data, message->size);
+			//printf("From TUN (%i)\n",message->size);
+			//print_hex(message->data, message->size);
 			this->packet_handler->send(message);
 
 		}
@@ -126,8 +126,8 @@ bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 	}
 
 	bytes_successful += tunmsg->size;
-	printf("Wrote to buffer: %d bytes, (%i)\n", tot, tunmsg->size);
-	print_hex(tunmsg->data, tunmsg->size);
+	//printf("Wrote to buffer: %d bytes, (%i)\n", tot, tunmsg->size);
+	//print_hex(tunmsg->data, tunmsg->size);
 	return (true);
 }
 

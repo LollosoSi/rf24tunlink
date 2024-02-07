@@ -157,9 +157,9 @@ bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 			pointer->data[1 + count++] = tunmsg->data[j];
 		}
 		frm->packets.push_front(pointer);
-		printf("Pacchetto creato: %i, pack: %i posizione: %i\n",
-				(int) pointer->size-1, i, start);
-		print_hex(pointer->data + 1, pointer->size - 1);
+		//printf("Pacchetto creato: %i, pack: %i posizione: %i\n",
+		//		(int) pointer->size-1, i, start);
+		//print_hex(pointer->data + 1, pointer->size - 1);
 	}
 
 	/*
@@ -361,8 +361,8 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 		//strncpy((char*) (buffer + copyposition), (const char*) (rp->data + 1),
 		//		copylength);
 
-		printf("Copied in position (%i, +%i), pack index %i \n", copyposition, copylength, seg);
-		print_hex((rp->data + 1), copylength);
+		//printf("Copied in position (%i, +%i), pack index %i \n", copyposition, copylength, seg);
+		//print_hex((rp->data + 1), copylength);
 
 		unsigned int pos = first ? 0 : seg;
 		received_packets_boolean[pos] = 1;
@@ -380,7 +380,7 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				printf("Reception is not okay, trying packet request\n");
 
 			} else {
-				printf("Reception is okay\n");
+				//printf("Reception is okay\n");
 				frames_completed++;
 				// Respond OK
 				response_packet_ok(id);
@@ -394,9 +394,9 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				tm->size = message_size;
 				//std::cout << "Message length: " << (unsigned int)message_size << std::endl;
 				if (this->tun_handle->send(tm)) {
-					printf("TUN Handler accepted the data\n");
+					//printf("TUN Handler accepted the data\n");
 				} else {
-					printf("TUN Handler REJECTED the data\n");
+					//printf("TUN Handler REJECTED the data\n");
 				}
 
 				for (unsigned int b = 0; b <= seg; b++)
