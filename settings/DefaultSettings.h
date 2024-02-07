@@ -27,8 +27,8 @@ namespace Settings::RF24{
 	int csn_pin = 0;
 	unsigned long spi_speed = 5000000;
 
-	uint8_t radio_delay = 3;
-	uint8_t radio_retries = 6;
+	uint8_t radio_delay = 1;
+	uint8_t radio_retries = 15;
 	rf24_datarate_e data_rate = RF24_2MBPS;
 	rf24_pa_dbm_e radio_power = RF24_PA_MAX;
 	rf24_crclength_e crc_length = RF24_CRC_8;
