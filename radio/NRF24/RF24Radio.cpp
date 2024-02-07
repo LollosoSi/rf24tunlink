@@ -7,11 +7,16 @@
 
 #include "RF24Radio.h"
 
-RF24Radio::RF24Radio() : Telemetry("RF24Radio") {
+RF24Radio::RF24Radio(bool primary) :
+		Telemetry("RF24Radio") {
 
-	register_elements(new std::string[2] { "AVG ARC", "Packets Out" }, 2);
+	this->primary = primary;
 
-	returnvector = new std::string[2] { std::to_string(0), std::to_string(0) };
+	register_elements(new std::string[3] { "AVG ARC", "Packets Out",
+			"Packets In" }, 3);
+
+	returnvector = new std::string[3] { std::to_string(0), std::to_string(0),
+			std::to_string(0) };
 
 	setup();
 }
@@ -21,11 +26,21 @@ RF24Radio::~RF24Radio() {
 }
 
 std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
-	returnvector[0]=(std::to_string(sum_arc/count_arc));
-	returnvector[1]=(std::to_string(count_arc));
+	returnvector[0] = (std::to_string(sum_arc / count_arc));
+	returnvector[1] = (std::to_string(count_arc));
+	returnvector[2] = (std::to_string(packets_in));
 
-	sum_arc = count_arc = 0;
+	sum_arc = count_arc = packets_in = 0;
 	return (returnvector);
+}
+
+void RF24Radio::check_fault() {
+	if (radio->failureDetected || (radio->getDataRate() != Settings::RF24::data_rate)
+			|| (!radio->isChipConnected())) {
+		radio->failureDetected = 0;
+		reset_radio();
+		return;
+	}
 }
 
 void RF24Radio::setup() {
@@ -36,7 +51,23 @@ void RF24Radio::setup() {
 
 	reset_radio();
 }
+
 void RF24Radio::loop(unsigned long delta) {
+
+	check_fault();
+
+	if (primary) {
+
+		fill_buffer_tx();
+		send_tx();
+
+	} else {
+
+		if (read()) {
+			fill_buffer_ack();
+		}
+
+	}
 
 }
 
@@ -44,19 +75,57 @@ void RF24Radio::stop() {
 
 }
 
+void RF24Radio::interrupt_routine() {
+	bool tx_ok, tx_fail, rx_ready;
+	radio->whatHappened(tx_ok, tx_fail, rx_ready);
+
+	if (rx_ready) {
+		if (read())
+			fill_buffer_ack();
+
+	}
+}
+
+bool RF24Radio::read() {
+
+	bool result = false;
+
+	while (radio->available()) {
+		static RadioPacket *rp = new RadioPacket;
+		rp->size = radio->getDynamicPayloadSize();
+		radio->read(rp, rp->size);
+
+		this->packet_received(rp);
+		result = true;
+		packets_in++;
+	}
+
+	return (result);
+}
+
 void RF24Radio::send_tx() {
 
 	if (radio->txStandBy()) {
 		// Transmit was successful, everything is okay
-
+		sum_arc += radio->getARC();
+		count_arc++;
 	} else {
 		// Some or all packets failed to transmit. Sorry for the inconvenience
-
+		static bool retry_once = true;
+		radio->reUseTX();
+		if (retry_once) {
+			retry_once = false;
+			printf("Retrying to send once .....");
+			send_tx();
+		} else {
+			printf("..... tried\n");
+		}
+		retry_once = true;
 	}
 
 }
 
-void RF24Radio::fill_buffer_tx() {
+bool RF24Radio::fill_buffer_tx() {
 
 	// Check if radio FIFO TX is full, if yes, skip.
 	// Also check if the next packet is available
@@ -64,14 +133,18 @@ void RF24Radio::fill_buffer_tx() {
 		static RadioPacket *rp = next_packet();
 		if (radio->writeFast(rp->data, rp->size, false)) {
 			// Transfer to radio successful
+			return (true);
 		} else {
 			// Transfer to radio failed
+			return (false);
 		}
+	} else {
+		return (false);
 	}
 
 }
 
-void RF24Radio::fill_buffer_ack() {
+bool RF24Radio::fill_buffer_ack() {
 
 	// Check if radio FIFO TX is full, if yes, skip.
 	// Also check if the next packet is available
@@ -79,9 +152,13 @@ void RF24Radio::fill_buffer_ack() {
 		static RadioPacket *rp = next_packet();
 		if (radio->writeAckPayload(1, rp->data, rp->size)) {
 			// Transfer to radio successful
+			return (true);
 		} else {
 			// Transfer to radio failed
+			return (false);
 		}
+	} else {
+		return (false);
 	}
 
 }

@@ -4,7 +4,7 @@
  */
 
 // Defines
-// #define UNIT_TEST
+//#define UNIT_TEST
 
 // Basic
 #include <iostream>
@@ -26,44 +26,36 @@ using namespace std;
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
 #include "radio/NRF24/RF24Radio.h"
 
-
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
-RadioHandler<RadioPacket>* rh = nullptr;
-
+RadioHandler<RadioPacket> *rh = nullptr;
 
 #include "unit_tests/FakeRadio.h"
-void test_run(){
-
-	rh = new RF24Radio();
-	exit(0);
+void test_run() {
 
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(90);
+	FakeRadio<RadioPacket> fr(98);
 	csp = new SelectiveRepeatPacketizer();
-
 
 	fr.register_packet_handler(csp);
 
-
-	std::string st[6]={
-			"Hello, my name is Andrea",
-			"And I am the developer behind rf24tunlink",
-			"This is a very important test in order to understand how strong and well thought the packetizer is",
-			"At the moment we have two packetizers available",
-			"One is based on the old simple character stuffing technique with no retransmission",
-			"The other is based on ARQ algorithms, in particular, Selective Retransmission"
-	};
-	int sz = sizeof(st)/sizeof(std::string);
-	fr.test(st,sz);
+	std::string st[6] =
+			{ "Hello, my name is Andrea",
+					"And I am the developer behind rf24tunlink",
+					"This is a very important test in order to understand how strong and well thought the packetizer is",
+					"At the moment we have two packetizers available",
+					"One is based on the old simple character stuffing technique with no retransmission",
+					"The other is based on ARQ algorithms, in particular, Selective Retransmission" };
+	int sz = sizeof(st) / sizeof(std::string);
+	fr.test(st, sz);
 
 	exit(0);
 }
 
 bool running = true;
 void ctrlcevent(int s) {
-	if(s == 2){
+	if (s == 2) {
 		printf("\nCaught exit signal\n");
 		running = false;
 	}
@@ -75,11 +67,23 @@ int main(int argc, char **argv) {
 	test_run();
 #endif
 
-	if (geteuid()){
-		cout << "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
-	}else{
+	if (geteuid()) {
+		cout
+				<< "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
+	} else {
 		cout << "Running as root\n";
 	}
+
+	if (argc < 2) {
+		printf(
+				"You need to specify primary or secondary role (./thisprogram [1 or 2])");
+		return 0;
+	}
+
+	printf("Radio is: %d\n", (int) argv[1][0]);
+
+	bool primary = argv[1][0] == '1';
+	cout << "Radio is " << (primary ? "Primary" : "Secondary") << endl;
 
 	// CTRL+C Handler
 	struct sigaction sigIntHandler;
@@ -89,8 +93,7 @@ int main(int argc, char **argv) {
 	sigaction(SIGINT, &sigIntHandler, NULL);
 
 	// Initial Setup
-	bool role = 1;
-	if (role) {
+	if (primary) {
 		strcpy(Settings::address, "192.168.10.1");
 		strcpy(Settings::destination, "192.168.10.2");
 	} else {
@@ -101,22 +104,26 @@ int main(int argc, char **argv) {
 
 	Settings::mtu = 1000;
 
+	rh = new RF24Radio(primary);
+
 	// Initialise the interface
 	tunh = new TUNHandler();
 
 	// Choose a packetizer and register it
-	csp = new CharacterStuffingPacketizer();
+	csp = new SelectiveRepeatPacketizer();
 	tunh->register_packet_handler(csp);
+	rh->register_packet_handler(csp);
 
 	// Start the Radio and register it
-	// TODO: radio
+	// no action required
 
 	// Start the interface read thread
 	tunh->startThread();
 
 	// Program loop (radio loop)
 	while (running) {
-		usleep(1000);
+		rh->loop(1);
+		usleep(10);
 	}
 
 	// Close and free everything
