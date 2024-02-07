@@ -7,6 +7,9 @@
 
 #include "TUNHandler.h"
 
+#include "../utils.h"
+
+
 #include <thread>
 
 #include <linux/if.h>
@@ -72,12 +75,13 @@ void TUNHandler::startThread() {
 	std::thread read_thread([&] {
 
 		int nread = 0;
-		TUNMessage message;
-		message.data = new uint8_t[Settings::mtu + 1];
+		TUNMessage* message = new TUNMessage;
+		message->data = new uint8_t[2*Settings::mtu];
 
 		while (this->running) {
 			/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
-			nread = read(tunnel_fd, message.data, sizeof(message.data));
+			//printf("Waiting for tun packet\n");
+			nread = read(tunnel_fd, message->data, 2*Settings::mtu);
 			if (nread < 0) {
 				perror("Reading from interface");
 				close(tunnel_fd);
@@ -85,8 +89,10 @@ void TUNHandler::startThread() {
 			}
 
 			/* Do whatever with the data */
-			message.size = nread;
-			this->packet_handler->send(&message);
+			message->size = nread;
+			printf("From TUN (%i)\n",message->size);
+			print_hex(message->data, message->size);
+			this->packet_handler->send(message);
 
 		}
 
@@ -120,7 +126,8 @@ bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 	}
 
 	bytes_successful += tunmsg->size;
-	//printf("Wrote to buffer: %d bytes, sum %d, CRC %d\n", tot, (int) checksum(data, size), gencrc(data,size));
+	printf("Wrote to buffer: %d bytes, (%i)\n", tot, tunmsg->size);
+	print_hex(tunmsg->data, tunmsg->size);
 	return (true);
 }
 

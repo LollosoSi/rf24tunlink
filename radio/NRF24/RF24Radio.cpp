@@ -7,6 +7,8 @@
 
 #include "RF24Radio.h"
 
+#include "../../utils.h"
+
 RF24Radio::RF24Radio(bool primary) :
 		Telemetry("RF24Radio") {
 
@@ -35,7 +37,8 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 }
 
 void RF24Radio::check_fault() {
-	if (radio->failureDetected || (radio->getDataRate() != Settings::RF24::data_rate)
+	if (radio->failureDetected
+			|| (radio->getDataRate() != Settings::RF24::data_rate)
 			|| (!radio->isChipConnected())) {
 		radio->failureDetected = 0;
 		reset_radio();
@@ -50,6 +53,16 @@ void RF24Radio::setup() {
 	}
 
 	reset_radio();
+
+	/*if (!primary)
+	 channel_sweep();
+	 else {
+	 radio->startConstCarrier(RF24_PA_MAX, Settings::RF24::channel);
+	 usleep(5000000);
+	 radio->stopConstCarrier();
+	 radio->powerUp();
+	 reset_radio();
+	 }*/
 }
 
 void RF24Radio::loop(unsigned long delta) {
@@ -58,14 +71,21 @@ void RF24Radio::loop(unsigned long delta) {
 
 	if (primary) {
 
-		fill_buffer_tx();
+		while (fill_buffer_tx()) {
+
+		}
 		send_tx();
+		if (read()) {
+
+		}
 
 	} else {
 
 		if (read()) {
-			fill_buffer_ack();
+			while (fill_buffer_ack()) {
+			}
 		}
+		//fill_buffer_ack();
 
 	}
 
@@ -95,6 +115,11 @@ bool RF24Radio::read() {
 		rp->size = radio->getDynamicPayloadSize();
 		radio->read(rp, rp->size);
 
+		//if (rp->size > 1) {
+		//	printf("Read packet:\n");
+		//	print_hex(rp->data + 1, rp->size - 1);
+		//}
+
 		this->packet_received(rp);
 		result = true;
 		packets_in++;
@@ -109,16 +134,16 @@ void RF24Radio::send_tx() {
 		// Transmit was successful, everything is okay
 		sum_arc += radio->getARC();
 		count_arc++;
-	} else {
+	} else if (false) {
 		// Some or all packets failed to transmit. Sorry for the inconvenience
 		static bool retry_once = true;
 		radio->reUseTX();
 		if (retry_once) {
 			retry_once = false;
-			printf("Retrying to send once .....");
+			//printf("Retrying to send once .....");
 			send_tx();
 		} else {
-			printf("..... tried\n");
+			//printf("..... tried\n");
 		}
 		retry_once = true;
 	}
@@ -129,10 +154,19 @@ bool RF24Radio::fill_buffer_tx() {
 
 	// Check if radio FIFO TX is full, if yes, skip.
 	// Also check if the next packet is available
-	if (radio->isFifo(true, false) && has_next_packet()) {
-		static RadioPacket *rp = next_packet();
+	if (!radio->isFifo(true, false) && has_next_packet()) {
+		static RadioPacket *rp = nullptr;
+		rp = next_packet();
+
+		//if (rp->size > 1) {
+		//	printf("Loading packet:\n");
+		//	print_hex(rp->data + 1, rp->size - 1);
+		//}
+
 		if (radio->writeFast(rp->data, rp->size, false)) {
 			// Transfer to radio successful
+			//printf("Packet loaded (%i bytes): %s\n", rp->size, rp->data);
+
 			return (true);
 		} else {
 			// Transfer to radio failed
@@ -148,16 +182,29 @@ bool RF24Radio::fill_buffer_ack() {
 
 	// Check if radio FIFO TX is full, if yes, skip.
 	// Also check if the next packet is available
-	if (radio->isFifo(true, false) && has_next_packet()) {
-		static RadioPacket *rp = next_packet();
+	if (!radio->isFifo(true, false) && has_next_packet()) {
+		static RadioPacket *rp = nullptr;
+		rp = next_packet();
+
+		//if (rp->size > 1) {
+		//	printf("Loading packet:\n");
+		//	print_hex(rp->data + 1, rp->size - 1);
+		//}
+
 		if (radio->writeAckPayload(1, rp->data, rp->size)) {
 			// Transfer to radio successful
+			//printf("Loaded ack (s %i)\n", rp->size);
 			return (true);
 		} else {
 			// Transfer to radio failed
+			//printf("Ack load failed\n");
 			return (false);
 		}
+	} else if (radio->isFifo(true, false)) {
+		//printf("I want to load ack ... "); printf("But the radio is full\n");
+		return (false);
 	} else {
+		//printf("But I don't have a packet to send\n");
 		return (false);
 	}
 
@@ -169,19 +216,21 @@ bool RF24Radio::fill_buffer_ack() {
 void RF24Radio::channel_sweep() {
 
 	std::cout
-			<< "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)";
+			<< "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)\n";
+
+	bool found = false;
 
 	radio->startListening();
+	//while(!found)
 	for (uint8_t i = 0; i < 126; i++) {
 		radio->setChannel(i);
-		std::cout << ((unsigned int) i) << "\t|\t";
-		if (radio->testCarrier())
-			std::cout << "CCCC";
-		std::cout << "\t";
-		if (radio->isPVariant())
-			if (radio->testRPD())
-				std::cout << "RRRR";
-		std::cout << "\n";
+		bool cr = radio->testCarrier(), rpd = radio->testRPD();
+		if (cr || rpd) {
+			printf("Channel %i\t|\t%s\t%s\n", i, (cr ? "CCCC" : ""),
+					(rpd ? "RRRR" : ""));
+			found = true;
+		}
+
 	}
 	radio->stopListening();
 
@@ -232,20 +281,24 @@ void RF24Radio::reset_radio() {
 	radio->setCRCLength(Settings::RF24::crc_length);
 
 	radio->openReadingPipe(1,
-			primary ? Settings::RF24::address_2 : Settings::RF24::address_1);
+			primary ?
+					Settings::RF24::address_2[0] :
+					Settings::RF24::address_1[0]);
 	radio->openWritingPipe(
-			primary ? Settings::RF24::address_1 : Settings::RF24::address_2);
+			primary ?
+					Settings::RF24::address_1[0] :
+					Settings::RF24::address_2[0]);
+
+	radio->printPrettyDetails();
+	/*printf("Radio details! P-Variant: %s\tValid: %s\tCarrier: %s\tRPD: %s\n",
+	 radio->isPVariant() ? "YES" : "NO",
+	 radio->isValid() ? "YES" : "NO, WHAT???",
+	 radio->testCarrier() ? "BUSY" : "FREE",
+	 radio->testRPD() ? "BUSY" : "FREE");*/
 
 	if (primary)
 		radio->stopListening();
 	else
 		radio->startListening();
-
-	radio->printPrettyDetails();
-	printf("Radio details! P-Variant: %s\tValid: %s\tCarrier: %s\tRPD: %s\n",
-			radio->isPVariant() ? "YES" : "NO",
-			radio->isValid() ? "YES" : "NO, WHAT???",
-			radio->testCarrier() ? "BUSY" : "FREE",
-			radio->testRPD() ? "BUSY" : "FREE");
 
 }

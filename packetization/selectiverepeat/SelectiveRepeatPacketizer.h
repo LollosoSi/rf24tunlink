@@ -26,7 +26,7 @@ public:
 	RadioPacket* next_packet();
 	RadioPacket* get_empty_packet();
 
-	int get_mtu(){return (31*pow(2,5));}
+	int get_mtu(){return (992);}
 
 
 	uint8_t pack_info(bool first, uint8_t id, uint8_t segment){
@@ -46,7 +46,7 @@ public:
 protected:
 	unsigned int current_packet_counter = 0;
 	std::deque<RadioPacket*> resend_list;
-	void received_ok(){current_packet_counter = 0; free_frame(frames.front()); delete frames.front(); frames.pop_front();}
+	void received_ok(){current_packet_counter = 0;if(frames.empty()) return; free_frame(frames.front()); delete frames.front(); frames.pop_front();}
 
 	void free_frame(Frame<RadioPacket> *frame);
 	bool packetize(TUNMessage *tunmsg);

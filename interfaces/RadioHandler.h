@@ -39,7 +39,9 @@ protected:
 	bool has_next_packet(){return (pkt_handle->next_packet_ready());}
 	packet* next_packet(){return (pkt_handle->next_packet());}
 
-	bool packet_received(packet* pa){return (((Messenger<packet>*)pkt_handle)->send(pa));}
+	bool packet_received(packet *pa) {
+		return ((dynamic_cast<Messenger<packet>*>(pkt_handle))->send(pa));
+	}
 
 
 };

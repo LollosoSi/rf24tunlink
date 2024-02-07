@@ -16,7 +16,7 @@ char *address = new char[18] { '\0' };
 char *destination = new char[18] { '\0' };
 char *netmask = new char[18] { '\0' };
 char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
-unsigned int mtu = 9600;
+int mtu = 9600;
 bool control_packets = true;
 
 }
@@ -25,7 +25,7 @@ namespace Settings::RF24{
 
 	int ce_pin = 25;
 	int csn_pin = 0;
-	unsigned long spi_speed = RF24_SPI_SPEED;
+	unsigned long spi_speed = 5000000;
 
 	uint8_t radio_delay = 3;
 	uint8_t radio_retries = 6;

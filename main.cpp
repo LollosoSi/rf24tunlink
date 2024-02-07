@@ -5,7 +5,6 @@
 
 // Defines
 //#define UNIT_TEST
-
 // Basic
 #include <iostream>
 using namespace std;
@@ -37,6 +36,7 @@ void test_run() {
 
 	FakeRadio<RadioPacket> fr(98);
 	csp = new SelectiveRepeatPacketizer();
+	Settings::mtu = csp->get_mtu();
 
 	fr.register_packet_handler(csp);
 
@@ -66,6 +66,7 @@ int main(int argc, char **argv) {
 #ifdef UNIT_TEST
 	test_run();
 #endif
+
 
 	if (geteuid()) {
 		cout
@@ -104,13 +105,18 @@ int main(int argc, char **argv) {
 
 	Settings::mtu = 1000;
 
+	// Choose a radio
 	rh = new RF24Radio(primary);
+
+	// Choose a packetizer
+	csp = new SelectiveRepeatPacketizer();
+	Settings::mtu = csp->get_mtu();
 
 	// Initialise the interface
 	tunh = new TUNHandler();
 
-	// Choose a packetizer and register it
-	csp = new SelectiveRepeatPacketizer();
+	// Register everything
+	csp->register_tun_handler(tunh);
 	tunh->register_packet_handler(csp);
 	rh->register_packet_handler(csp);
 
