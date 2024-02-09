@@ -7,8 +7,7 @@
 
 #include "TUNHandler.h"
 
-#include "../utils.h"
-
+// #include "../utils.h"
 
 #include <thread>
 
@@ -43,10 +42,11 @@ using namespace std;
 TUNHandler::TUNHandler() :
 		Telemetry("TUNHandler") {
 
-	register_elements(new std::string[2] { "Bytes Successful", "Bytes Failed" }, 2);
+	register_elements(new std::string[5] { "Bytes Successful", "Bytes Failed",
+			"Bytes Out", "Frames Out", "Frames In" }, 5);
 
-	returnvector = new std::string[2]{std::to_string(bytes_successful), std::to_string(bytes_failed)};
-
+	returnvector = new std::string[5] { std::to_string(bytes_successful),
+			std::to_string(bytes_failed), std::to_string(0), std::to_string(0), std::to_string(0) };
 
 	tunnel_fd = interface_setup(Settings::interface_name,
 	IFF_TUN | IFF_UP | IFF_RUNNING, Settings::address, Settings::destination,
@@ -61,10 +61,13 @@ TUNHandler::~TUNHandler() {
 }
 
 std::string* TUNHandler::telemetry_collect(const unsigned long delta) {
-	returnvector[0]=(std::to_string(bytes_successful));
-	returnvector[1]=(std::to_string(bytes_failed));
+	returnvector[0] = (std::to_string(bytes_successful));
+	returnvector[1] = (std::to_string(bytes_failed));
+	returnvector[2] = (std::to_string(bytes_out));
+	returnvector[3] = (std::to_string(frames_out));
+	returnvector[4] = (std::to_string(frames_in));
 
-	bytes_successful = bytes_failed = 0;
+	//bytes_successful = bytes_failed = bytes_out = 0;
 	return (returnvector);
 }
 
@@ -75,13 +78,13 @@ void TUNHandler::startThread() {
 	std::thread read_thread([&] {
 
 		int nread = 0;
-		TUNMessage* message = new TUNMessage;
-		message->data = new uint8_t[2*Settings::mtu];
+		TUNMessage *message = new TUNMessage;
+		message->data = new uint8_t[2 * Settings::mtu];
 
 		while (this->running) {
 			/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
 			//printf("Waiting for tun packet\n");
-			nread = read(tunnel_fd, message->data, 2*Settings::mtu);
+			nread = read(tunnel_fd, message->data, 2 * Settings::mtu);
 			if (nread < 0) {
 				perror("Reading from interface");
 				close(tunnel_fd);
@@ -90,8 +93,10 @@ void TUNHandler::startThread() {
 
 			/* Do whatever with the data */
 			message->size = nread;
+			bytes_out += nread;
 			//printf("From TUN (%i)\n",message->size);
 			//print_hex(message->data, message->size);
+			frames_out++;
 			this->packet_handler->send(message);
 
 		}
@@ -126,6 +131,7 @@ bool TUNHandler::receive_message(TUNMessage *tunmsg) {
 	}
 
 	bytes_successful += tunmsg->size;
+	frames_in++;
 	//printf("Wrote to buffer: %d bytes, (%i)\n", tot, tunmsg->size);
 	//print_hex(tunmsg->data, tunmsg->size);
 	return (true);

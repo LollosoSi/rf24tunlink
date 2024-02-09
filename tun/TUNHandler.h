@@ -50,7 +50,7 @@ private:
 
 	std::string* returnvector = nullptr;
 	std::string* telemetry_collect(const unsigned long delta);
-	int bytes_successful = 0, bytes_failed = 0;
+	unsigned int bytes_successful = 0, bytes_failed = 0, bytes_out = 0, frames_out = 0, frames_in = 0;
 
 };
 

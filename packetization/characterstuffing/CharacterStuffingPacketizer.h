@@ -22,7 +22,7 @@ public:
 	CharacterStuffingPacketizer();
 	~CharacterStuffingPacketizer();
 
-	int get_mtu(){return (32*10);}
+	unsigned int get_mtu(){return (6000);}
 
 	bool next_packet_ready();
 	RadioPacket* next_packet();

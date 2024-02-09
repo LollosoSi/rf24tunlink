@@ -7,8 +7,6 @@
 
 #pragma once
 
-#include "../utils.h"
-
 #include <iostream>
 
 #include <deque>
@@ -33,10 +31,10 @@ public:
 	virtual ~PacketHandler() {
 	}
 
-	virtual bool next_packet_ready() = 0;
-	virtual packet* next_packet() = 0;
-	virtual packet* get_empty_packet() = 0;
-	virtual int get_mtu() = 0;
+	virtual inline bool next_packet_ready() = 0;
+	virtual inline packet* next_packet() = 0;
+	virtual inline packet* get_empty_packet() = 0;
+	virtual unsigned int get_mtu() = 0;
 
 	bool register_tun_handler(tun *tun_handler_pointer) {
 		if (this->tun_handle == nullptr) {
@@ -61,9 +59,9 @@ protected:
 
 	std::deque<Frame<packet>*> frames;
 
-	virtual bool packetize(TUNMessage *tunmsg) = 0;
-	virtual bool receive_packet(RadioPacket *rp) = 0;
+	virtual inline bool packetize(TUNMessage *tunmsg) = 0;
+	virtual inline bool receive_packet(RadioPacket *rp) = 0;
 
-	virtual void free_frame(Frame<packet> *frame) = 0;
+	virtual inline void free_frame(Frame<packet> *frame) = 0;
 
 };

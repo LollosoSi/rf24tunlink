@@ -14,11 +14,11 @@ RF24Radio::RF24Radio(bool primary) :
 
 	this->primary = primary;
 
-	register_elements(new std::string[3] { "AVG ARC", "Packets Out",
-			"Packets In" }, 3);
+	register_elements(new std::string[5] { "AVG ARC", "Packets Out",
+			"Packets In", "Radio Bytes Out", "Radio Bytes In" }, 5);
 
-	returnvector = new std::string[3] { std::to_string(0), std::to_string(0),
-			std::to_string(0) };
+	returnvector = new std::string[5] { std::to_string(0), std::to_string(0),
+			std::to_string(0), std::to_string(0), std::to_string(0) };
 
 	setup();
 }
@@ -31,8 +31,10 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	returnvector[0] = (std::to_string(sum_arc / count_arc));
 	returnvector[1] = (std::to_string(count_arc));
 	returnvector[2] = (std::to_string(packets_in));
+	returnvector[3] = (std::to_string(radio_bytes_out));
+	returnvector[4] = (std::to_string(radio_bytes_in));
 
-	sum_arc = count_arc = packets_in = 0;
+	sum_arc = count_arc = packets_in = radio_bytes_out = radio_bytes_in = 0;
 	return (returnvector);
 }
 
@@ -65,16 +67,30 @@ void RF24Radio::setup() {
 	 }*/
 }
 
+inline uint16_t RF24Radio::since_last_packet(){
+	return (current_millis() - last_packet);
+}
+
 void RF24Radio::loop(unsigned long delta) {
 
 	check_fault();
 
+	if(since_last_packet() > Settings::RF24::max_radio_silence){
+		printf("Radio silent for %i ms\n", since_last_packet());
+	}
+
+
 	if (primary) {
 
-		if (fill_buffer_tx()) {
+		while (!radio->isFifo(true, false)) {
+			if (fill_buffer_tx()) {
+
+			} else
+				break;
+		}
+		if (send_tx()) {
 
 		}
-		send_tx();
 		if (read()) {
 
 		}
@@ -82,10 +98,16 @@ void RF24Radio::loop(unsigned long delta) {
 	} else {
 
 		if (read()) {
-			if (fill_buffer_ack()) {
+			//radio->flush_tx();
+
+			while (!radio->isFifo(true, false)) {
+				if (fill_buffer_ack()) {
+				} else
+					break;
+
 			}
 		}
-		//fill_buffer_ack();
+//fill_buffer_ack();
 
 	}
 
@@ -115,6 +137,8 @@ bool RF24Radio::read() {
 		rp->size = radio->getDynamicPayloadSize();
 		radio->read(rp, rp->size);
 
+		radio_bytes_in += rp->size;
+
 		//if (rp->size > 1) {
 		//	printf("Read packet:\n");
 		//	print_hex(rp->data + 1, rp->size - 1);
@@ -123,56 +147,51 @@ bool RF24Radio::read() {
 		this->packet_received(rp);
 		result = true;
 		packets_in++;
+		last_packet = current_millis();
 	}
 
 	return (result);
 }
 
-void RF24Radio::send_tx() {
+bool RF24Radio::send_tx() {
 
 	if (radio->txStandBy()) {
 		// Transmit was successful, everything is okay
 		sum_arc += radio->getARC();
 		count_arc++;
-	} else if (true) {
-		// Some or all packets failed to transmit. Sorry for the inconvenience
-		static bool retry_once = true;
+		return (true);
+	} else {
 		radio->reUseTX();
-		if (retry_once) {
-			retry_once = false;
-			//printf("Retrying to send once .....");
-			send_tx();
-		} else {
-			//printf("..... tried\n");
-		}
-		retry_once = true;
+		//radio->flush_tx();
+		return (false);
 	}
 
 }
 
 bool RF24Radio::fill_buffer_tx() {
 
-	// Check if radio FIFO TX is full, if yes, skip.
-	// Also check if the next packet is available
-	if (!radio->isFifo(true, false) && has_next_packet()) {
-		static RadioPacket *rp = nullptr;
-		rp = next_packet();
+// Check if radio FIFO TX is full, if yes, skip.
+// Also check if the next packet is available
 
-		//if (rp->size > 1) {
-		//	printf("Loading packet:\n");
-		//	print_hex(rp->data + 1, rp->size - 1);
-		//}
+	static RadioPacket *rp = nullptr;
+	rp = next_packet();
+	if (!rp)
+		return (false);
 
-		if (radio->writeFast(rp->data, rp->size, false)) {
-			// Transfer to radio successful
-			//printf("Packet loaded (%i bytes): %s\n", rp->size, rp->data);
+//if (rp->size > 1) {
+//	printf("Loading packet:\n");
+//	print_hex(rp->data + 1, rp->size - 1);
+//}
 
-			return (true);
-		} else {
-			// Transfer to radio failed
-			return (false);
-		}
+	if (radio->writeFast(rp->data, rp->size)) {
+// Transfer to radio successful
+//printf("Loaded ack (s %i)\n", rp->size);
+		radio_bytes_out += rp->size;
+		return (true);
 	} else {
+
+// Transfer to radio failed
+//printf("Ack load failed\n");
 		return (false);
 	}
 
@@ -180,33 +199,37 @@ bool RF24Radio::fill_buffer_tx() {
 
 bool RF24Radio::fill_buffer_ack() {
 
-	// Check if radio FIFO TX is full, if yes, skip.
-	// Also check if the next packet is available
-	if (!radio->isFifo(true, false) && has_next_packet()) {
-		static RadioPacket *rp = nullptr;
-		rp = next_packet();
-
-		//if (rp->size > 1) {
-		//	printf("Loading packet:\n");
-		//	print_hex(rp->data + 1, rp->size - 1);
-		//}
-
-		if (radio->writeAckPayload(1, rp->data, rp->size)) {
-			// Transfer to radio successful
-			//printf("Loaded ack (s %i)\n", rp->size);
-			return (true);
-		} else {
-			// Transfer to radio failed
-			//printf("Ack load failed\n");
-			return (false);
-		}
-	} else if (radio->isFifo(true, false)) {
-		//printf("I want to load ack ... "); printf("But the radio is full\n");
+// Check if radio FIFO TX is full, if yes, skip.
+// Also check if the next packet is available
+//if (!radio->isFifo(true, false)) {
+	static RadioPacket *rp = nullptr;
+	rp = next_packet();
+	if (!rp)
 		return (false);
+
+//if (rp->size > 1) {
+//	printf("Loading packet:\n");
+//	print_hex(rp->data + 1, rp->size - 1);
+//}
+
+	if (radio->writeAckPayload(1, rp->data, rp->size)) {
+// Transfer to radio successful
+//printf("Loaded ack (s %i)\n", rp->size);
+		radio_bytes_out += rp->size;
+		count_arc++;
+		return (true);
 	} else {
-		//printf("But I don't have a packet to send\n");
+// Transfer to radio failed
+//printf("Ack load failed\n");
 		return (false);
 	}
+//} else if (radio->isFifo(true, false)) {
+//printf("I want to load ack ... "); printf("But the radio is full\n");
+//	return (false);
+//} else {
+//printf("But I don't have a packet to send\n");
+//	return (false);
+//}
 
 }
 
@@ -218,17 +241,17 @@ void RF24Radio::channel_sweep() {
 	std::cout
 			<< "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)\n";
 
-	bool found = false;
+	//bool found = false;
 
 	radio->startListening();
-	//while(!found)
+//while(!found)
 	for (uint8_t i = 0; i < 126; i++) {
 		radio->setChannel(i);
 		bool cr = radio->testCarrier(), rpd = radio->testRPD();
 		if (cr || rpd) {
 			printf("Channel %i\t|\t%s\t%s\n", i, (cr ? "CCCC" : ""),
 					(rpd ? "RRRR" : ""));
-			found = true;
+			//found = true;
 		}
 
 	}
@@ -251,7 +274,7 @@ void RF24Radio::reset_radio() {
 	while (!radio->begin()) {
 		std::cout << "NRF24 is not responsive" << std::endl;
 		usleep(10000);
-		// delay(2);
+// delay(2);
 		if (!t++) {
 			// handleRadioUnresponsiveTimeout();
 		}
@@ -264,16 +287,16 @@ void RF24Radio::reset_radio() {
 
 	set_speed_pa_retries();
 
-	// save on transmission time by setting the radio to only transmit the
-	// number of bytes we need to transmit
-	// radio->setPayloadSize(Settings::payload_size);
+// save on transmission time by setting the radio to only transmit the
+// number of bytes we need to transmit
+// radio->setPayloadSize(Settings::payload_size);
 	radio->setAutoAck(true);
 
-	// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
+// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
 	radio->enableDynamicPayloads(); // ACK payloads are dynamically sized
 
-	// Acknowledgement packets have no payloads by default. We need to enable
-	// this feature for all nodes (TX & RX) to use ACK payloads.
+// Acknowledgement packets have no payloads by default. We need to enable
+// this feature for all nodes (TX & RX) to use ACK payloads.
 	radio->enableAckPayload();
 
 	radio->setChannel(Settings::RF24::channel);

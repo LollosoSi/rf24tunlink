@@ -4,13 +4,14 @@
  */
 
 // Defines
-//#define UNIT_TEST
+// #define UNIT_TEST
 // Basic
 #include <iostream>
 using namespace std;
 
 // Utilities
 #include <cstring>
+#include <thread>
 
 // Catch CTRL+C Event
 #include <signal.h>
@@ -34,19 +35,20 @@ void test_run() {
 
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(98);
-	csp = new SelectiveRepeatPacketizer();
+	FakeRadio<RadioPacket> fr(0);
+	csp = new CharacterStuffingPacketizer();
 	Settings::mtu = csp->get_mtu();
 
 	fr.register_packet_handler(csp);
 
-	std::string st[6] =
+	std::string st[7] =
 			{ "Hello, my name is Andrea",
 					"And I am the developer behind rf24tunlink",
 					"This is a very important test in order to understand how strong and well thought the packetizer is",
 					"At the moment we have two packetizers available",
 					"One is based on the old simple character stuffing technique with no retransmission",
-					"The other is based on ARQ algorithms, in particular, Selective Retransmission" };
+					"The other is based on ARQ algorithms, in particular, Selective Retransmission. something weird is happening the longer the message. but the packetizer seems to be correct",
+			"This message should be exactly long as the MTU size, which for this test is 93, if you don't believe me, you are probably right. But who am I to argue?"};
 	int sz = sizeof(st) / sizeof(std::string);
 	fr.test(st, sz);
 
@@ -66,7 +68,6 @@ int main(int argc, char **argv) {
 #ifdef UNIT_TEST
 	test_run();
 #endif
-
 
 	if (geteuid()) {
 		cout
@@ -103,8 +104,6 @@ int main(int argc, char **argv) {
 	}
 	strcpy(Settings::netmask, "255.255.255.0");
 
-	Settings::mtu = 1000;
-
 	// Choose a radio
 	rh = new RF24Radio(primary);
 
@@ -126,10 +125,60 @@ int main(int argc, char **argv) {
 	// Start the interface read thread
 	tunh->startThread();
 
+	std::thread lp(
+			[&] {
+				while (running) {
+					std::system("clear");
+					const std::string *telemetrydata =
+							((dynamic_cast<Telemetry*>(rh)))->telemetry_collect(
+									1000);
+					const std::string *elementnames =
+							((dynamic_cast<Telemetry*>(rh)))->get_element_names();
+					printf("\t\tRadio Telemetry entries\n");
+					for (int i = 0;
+							i < ((dynamic_cast<Telemetry*>(rh)))->size(); i++) {
+						printf("%s: %s\t", elementnames[i].c_str(),
+								telemetrydata[i].c_str());
+					}
+					printf("\n\n");
+
+					telemetrydata =
+							((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(
+									1000);
+					elementnames =
+							((dynamic_cast<Telemetry*>(csp)))->get_element_names();
+					printf("\t\tPacketHandler Telemetry entries\n");
+					for (int i = 0;
+							i < ((dynamic_cast<Telemetry*>(csp)))->size();
+							i++) {
+						printf("%s: %s\t", elementnames[i].c_str(),
+								telemetrydata[i].c_str());
+					}
+					printf("\n\n");
+
+					telemetrydata =
+							((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(
+									1000);
+					elementnames =
+							((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
+					printf("\t\tTUN Telemetry entries\n");
+					for (int i = 0;
+							i < ((dynamic_cast<Telemetry*>(tunh)))->size();
+							i++) {
+						printf("%s: %s\t", elementnames[i].c_str(),
+								telemetrydata[i].c_str());
+					}
+					printf("\n\n");
+
+					usleep(1000000);
+				}
+			});
+	lp.detach();
+
 	// Program loop (radio loop)
 	while (running) {
 		rh->loop(1);
-		usleep(1);
+		usleep(100);
 	}
 
 	// Close and free everything

@@ -30,7 +30,7 @@ public:
 	std::string* telemetry_collect(const unsigned long delta);
 
 protected:
-	void send_tx();
+	bool send_tx();
 	bool fill_buffer_tx();
 	bool fill_buffer_ack();
 	bool read();
@@ -51,6 +51,11 @@ private:
 	unsigned long sum_arc = 0;
 	unsigned int count_arc = 0;
 	unsigned int packets_in = 0;
+	unsigned long radio_bytes_out = 0;
+	unsigned long radio_bytes_in = 0;
+
+	inline uint16_t since_last_packet();
+	uint64_t last_packet = 0;
 
 };
 

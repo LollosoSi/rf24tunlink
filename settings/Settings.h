@@ -15,7 +15,7 @@ extern char* address;			// Address of the interface		NOTE: Address and destinati
 extern char* destination;		// Destination of the interface
 extern char* netmask;			// Network address mask
 extern char* interface_name;	// Interface name (arocc)
-extern int mtu;		// MTU, must be determined later
+extern unsigned int mtu;		// MTU, must be determined later
 extern bool control_packets;		// Whether or not to send empty packets as keepalive
 
 const unsigned int max_pkt_size = 32;
@@ -25,6 +25,8 @@ const unsigned int max_pkt_size = 32;
 }
 
 namespace Settings::RF24{
+
+	extern uint16_t max_radio_silence;
 
 	extern int ce_pin;
 	extern int csn_pin;
@@ -40,5 +42,6 @@ namespace Settings::RF24{
 	extern uint8_t address_bytes;
 	extern uint8_t* address_1;
 	extern uint8_t* address_2;
+	extern uint8_t* address_3;
 
 }
