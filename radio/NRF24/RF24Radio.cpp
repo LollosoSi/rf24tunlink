@@ -30,7 +30,10 @@ RF24Radio::~RF24Radio() {
 }
 
 std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
-	returnvector[0] = (std::to_string(sum_arc / count_arc));
+	if(count_arc != 0)
+		returnvector[0] = (std::to_string(sum_arc / count_arc));
+	else
+		returnvector[0] = (std::to_string(0));
 	returnvector[1] = (std::to_string(count_arc));
 	returnvector[2] = (std::to_string(packets_in));
 	returnvector[3] = (std::to_string(radio_bytes_out));
