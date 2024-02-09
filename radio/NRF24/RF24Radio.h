@@ -16,6 +16,8 @@
 #include <iostream>
 #include <unistd.h>
 
+
+
 class RF24Radio: public RadioHandler<RadioPacket>, public Telemetry {
 public:
 	RF24Radio(bool primary);
@@ -34,6 +36,8 @@ protected:
 	bool fill_buffer_tx();
 	bool fill_buffer_ack();
 	bool read();
+	inline void process_control_packet(RadioPacket *cp);
+	inline void try_change_speed(RadioPacket *cp);
 
 	void check_fault();
 
@@ -56,6 +60,7 @@ private:
 
 	inline uint16_t since_last_packet();
 	uint64_t last_packet = 0;
+	uint64_t last_speed_change = 0;
 
 };
 

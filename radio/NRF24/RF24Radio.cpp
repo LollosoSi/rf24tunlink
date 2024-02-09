@@ -14,11 +14,13 @@ RF24Radio::RF24Radio(bool primary) :
 
 	this->primary = primary;
 
-	register_elements(new std::string[5] { "AVG ARC", "Packets Out",
-			"Packets In", "Radio Bytes Out", "Radio Bytes In" }, 5);
+	register_elements(new std::string[6] { "AVG ARC", "Packets Out",
+			"Packets In", "Radio Bytes Out", "Radio Bytes In", "Data Rate" },
+			6);
 
-	returnvector = new std::string[5] { std::to_string(0), std::to_string(0),
-			std::to_string(0), std::to_string(0), std::to_string(0) };
+	returnvector = new std::string[6] { std::to_string(0), std::to_string(0),
+			std::to_string(0), std::to_string(0), std::to_string(0),
+			std::to_string(0) };
 
 	setup();
 }
@@ -33,6 +35,7 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	returnvector[2] = (std::to_string(packets_in));
 	returnvector[3] = (std::to_string(radio_bytes_out));
 	returnvector[4] = (std::to_string(radio_bytes_in));
+	returnvector[5] = (std::to_string(radio->getDataRate()));
 
 	sum_arc = count_arc = packets_in = radio_bytes_out = radio_bytes_in = 0;
 	return (returnvector);
@@ -67,7 +70,7 @@ void RF24Radio::setup() {
 	 }*/
 }
 
-inline uint16_t RF24Radio::since_last_packet(){
+inline uint16_t RF24Radio::since_last_packet() {
 	return (current_millis() - last_packet);
 }
 
@@ -75,10 +78,16 @@ void RF24Radio::loop(unsigned long delta) {
 
 	check_fault();
 
-	if(since_last_packet() > Settings::RF24::max_radio_silence){
+	if (since_last_packet() > Settings::RF24::max_radio_silence) {
+		if(current_millis() % 100 == 0)
 		printf("Radio silent for %i ms\n", since_last_packet());
-	}
 
+		if (Settings::RF24::variable_rate)
+			if (radio->getDataRate() != 2) {
+				static RadioPacket *cp = new RadioPacket { { 2 }, 1 };
+				process_control_packet(cp);
+			}
+	}
 
 	if (primary) {
 
@@ -94,6 +103,13 @@ void RF24Radio::loop(unsigned long delta) {
 		if (read()) {
 
 		}
+		if (Settings::RF24::variable_rate)
+			if ((since_last_packet() < 30)
+					&& (current_millis() - last_speed_change > 5000)
+					&& radio->getDataRate() != 1) {
+				static RadioPacket *cp = new RadioPacket { { 1 }, 1 };
+				try_change_speed(cp);
+			}
 
 	} else {
 
@@ -128,26 +144,87 @@ void RF24Radio::interrupt_routine() {
 	}
 }
 
+inline void RF24Radio::process_control_packet(RadioPacket *cp) {
+
+	if (cp->data[0] != radio->getDataRate() && cp->data[0] < 3
+			&& cp->data[0] > 0) {
+		printf("-----> Moving to datarate: %i\n", cp->data[0]);
+		Settings::RF24::data_rate = (rf24_datarate_e) cp->data[0];
+
+		//this->set_speed_pa_retries();
+		reset_radio();
+	}
+
+}
+
+inline void RF24Radio::try_change_speed(RadioPacket *cp) {
+	//radio->flush_rx();
+	//radio->flush_tx();
+	radio->openWritingPipe(Settings::RF24::address_3[0]);
+	//radio->stopListening();
+	//usleep(100000);
+	if (radio->write(cp->data, 1)) {
+		if (read()) {
+		}
+		printf("-----> Moving to %i\n", cp->data[0]);
+
+		last_speed_change = current_millis();
+		process_control_packet(cp);
+	} else {
+		std::cout << "Failed to send change datarate message\n";
+	}
+	radio->openWritingPipe(Settings::RF24::address_1[0]);
+
+}
+
 bool RF24Radio::read() {
 
 	bool result = false;
+	uint8_t pipe = 0;
 
-	while (radio->available()) {
-		static RadioPacket *rp = new RadioPacket;
-		rp->size = radio->getDynamicPayloadSize();
-		radio->read(rp, rp->size);
+	while (radio->available(&pipe)) {
+		switch (pipe) {
+		default:
+			static RadioPacket *rp = new RadioPacket;
+			rp->size = radio->getDynamicPayloadSize();
+			radio->read(rp, rp->size);
 
-		radio_bytes_in += rp->size;
+			radio_bytes_in += rp->size;
 
-		//if (rp->size > 1) {
-		//	printf("Read packet:\n");
-		//	print_hex(rp->data + 1, rp->size - 1);
-		//}
+			//if (rp->size > 1) {
+			//	printf("Read packet:\n");
+			//	print_hex(rp->data + 1, rp->size - 1);
+			//}
 
-		this->packet_received(rp);
+			this->packet_received(rp);
+
+			break;
+
+		case 2:
+
+			// Secondary radio received a control packet!
+			static RadioPacket *cp = new RadioPacket;
+			radio->read(cp, 1);
+
+			radio_bytes_in += 1;
+			printf("-----> Move request to %i\n", cp->data[0]);
+			radio->flush_rx();
+			radio->flush_tx();
+			process_control_packet(cp);
+
+			//if (rp->size > 1) {
+			//	printf("Read packet:\n");
+			//	print_hex(rp->data + 1, rp->size - 1);
+			//}
+
+			break;
+		}
+		if (pipe != 0 && pipe != 1)
+			printf("Pipe %i\n", pipe);
 		result = true;
 		packets_in++;
 		last_packet = current_millis();
+
 	}
 
 	return (result);
@@ -161,8 +238,8 @@ bool RF24Radio::send_tx() {
 		count_arc++;
 		return (true);
 	} else {
-		radio->reUseTX();
-		//radio->flush_tx();
+		//radio->reUseTX();
+		radio->flush_tx();
 		return (false);
 	}
 
@@ -262,6 +339,9 @@ void RF24Radio::channel_sweep() {
 }
 
 void RF24Radio::set_speed_pa_retries() {
+	Settings::RF24::radio_delay = Settings::RF24::select_delay();
+	Settings::RF24::radio_retries = Settings::RF24::select_retries();
+
 	radio->setPALevel(Settings::RF24::radio_power);
 	radio->setDataRate(Settings::RF24::data_rate);
 	radio->setRetries(Settings::RF24::radio_delay,
@@ -307,6 +387,11 @@ void RF24Radio::reset_radio() {
 			primary ?
 					Settings::RF24::address_2[0] :
 					Settings::RF24::address_1[0]);
+
+	if (!primary) {
+		radio->openReadingPipe(2, Settings::RF24::address_3[0]);
+	}
+
 	radio->openWritingPipe(
 			primary ?
 					Settings::RF24::address_1[0] :

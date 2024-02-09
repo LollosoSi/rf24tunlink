@@ -77,16 +77,7 @@ inline RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 	return (rs);
 }
 
-inline void SelectiveRepeatPacketizer::free_frame(Frame<RadioPacket> *frame) {
 
-	delete frame;
-
-	//frame->cl
-	//while (!frame->packets.empty()) {
-	//	frame->packets.pop_front();
-	//}
-
-}
 
 inline RadioPacket* SelectiveRepeatPacketizer::get_empty_packet() {
 	static RadioPacket *rp = new RadioPacket { { 0 }, 1 };

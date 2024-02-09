@@ -48,7 +48,10 @@ protected:
 	std::deque<RadioPacket*> resend_list;
 	inline void received_ok(){current_packet_counter = 0;if(frames.empty()) return; free_frame(frames.front()); frames.pop_front();}
 
-	inline void free_frame(Frame<RadioPacket> *frame);
+	inline void free_frame(Frame<RadioPacket> *frame){
+		delete frame;
+	}
+
 	inline bool packetize(TUNMessage *tunmsg);
 
 	inline bool request_missing_packets(bool *array, unsigned int size);

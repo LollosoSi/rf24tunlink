@@ -7,6 +7,7 @@
 
 #pragma once
 
+
 #include <RF24/RF24.h>
 
 namespace Settings{
@@ -26,6 +27,8 @@ const unsigned int max_pkt_size = 32;
 
 namespace Settings::RF24{
 
+	extern bool variable_rate;
+
 	extern uint16_t max_radio_silence;
 
 	extern int ce_pin;
@@ -43,5 +46,19 @@ namespace Settings::RF24{
 	extern uint8_t* address_1;
 	extern uint8_t* address_2;
 	extern uint8_t* address_3;
+
+	extern uint8_t *radio_delay_tuned;
+	extern uint8_t *radio_retries_tuned;
+
+	inline uint8_t select_delay() {
+		return (data_rate == RF24_2MBPS ? radio_delay_tuned[2] :
+				data_rate == RF24_1MBPS ?
+						radio_delay_tuned[1] : radio_delay_tuned[0]);
+	}
+	inline uint8_t select_retries() {
+		return (data_rate == RF24_2MBPS ? radio_retries_tuned[2] :
+				data_rate == RF24_1MBPS ?
+						radio_retries_tuned[1] : radio_retries_tuned[0]);
+	}
 
 }
