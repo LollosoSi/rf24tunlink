@@ -29,10 +29,12 @@ public:
 
 	virtual void setup() = 0;
 	virtual void loop(unsigned long delta) = 0;
+	bool is_receiving_data(){return (receiving_data);}
 
 protected:
 	PacketHandler<packet>* pkt_handle = nullptr;
 
+	bool receiving_data = false;
 
 	virtual void stop() = 0;
 

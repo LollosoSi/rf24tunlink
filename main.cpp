@@ -48,7 +48,7 @@ void test_run() {
 					"At the moment we have two packetizers available",
 					"One is based on the old simple character stuffing technique with no retransmission",
 					"The other is based on ARQ algorithms, in particular, Selective Retransmission. something weird is happening the longer the message. but the packetizer seems to be correct",
-			"This message should be exactly long as the MTU size, which for this test is 93, if you don't believe me, you are probably right. But who am I to argue?"};
+					"This message should be exactly long as the MTU size, which for this test is 93, if you don't believe me, you are probably right. But who am I to argue?" };
 	int sz = sizeof(st) / sizeof(std::string);
 	fr.test(st, sz);
 
@@ -125,62 +125,66 @@ int main(int argc, char **argv) {
 	// Start the interface read thread
 	tunh->startThread();
 
-	std::thread lp(
-			[&] {
-				while (running) {
-					std::system("clear");
-					const std::string *telemetrydata =
-							((dynamic_cast<Telemetry*>(rh)))->telemetry_collect(
-									1000);
-					const std::string *elementnames =
-							((dynamic_cast<Telemetry*>(rh)))->get_element_names();
-					printf("\t\tRadio Telemetry entries\n");
-					for (int i = 0;
-							i < ((dynamic_cast<Telemetry*>(rh)))->size(); i++) {
-						printf("%s: %s\t", elementnames[i].c_str(),
-								telemetrydata[i].c_str());
-					}
-					printf("\n\n");
+	std::thread lp([&] {
+		while (running) {
+			std::system("clear");
+			const std::string *telemetrydata = ((dynamic_cast<Telemetry*>(rh)))->telemetry_collect(
+			1000);
+			const std::string *elementnames =
+					((dynamic_cast<Telemetry*>(rh)))->get_element_names();
+			printf("\t\tRadio Telemetry entries\n");
+			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh)))->size(); i++) {
+				printf("%s: %s\t", elementnames[i].c_str(),
+						telemetrydata[i].c_str());
+			}
+			printf("\n\n");
 
-					telemetrydata =
-							((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(
-									1000);
-					elementnames =
-							((dynamic_cast<Telemetry*>(csp)))->get_element_names();
-					printf("\t\tPacketHandler Telemetry entries\n");
-					for (int i = 0;
-							i < ((dynamic_cast<Telemetry*>(csp)))->size();
-							i++) {
-						printf("%s: %s\t", elementnames[i].c_str(),
-								telemetrydata[i].c_str());
-					}
-					printf("\n\n");
+			telemetrydata =
+					((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(1000);
+			elementnames =
+					((dynamic_cast<Telemetry*>(csp)))->get_element_names();
+			printf("\t\tPacketHandler Telemetry entries\n");
+			for (int i = 0; i < ((dynamic_cast<Telemetry*>(csp)))->size();
+					i++) {
+				printf("%s: %s\t", elementnames[i].c_str(),
+						telemetrydata[i].c_str());
+			}
+			printf("\n\n");
 
-					telemetrydata =
-							((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(
-									1000);
-					elementnames =
-							((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
-					printf("\t\tTUN Telemetry entries\n");
-					for (int i = 0;
-							i < ((dynamic_cast<Telemetry*>(tunh)))->size();
-							i++) {
-						printf("%s: %s\t", elementnames[i].c_str(),
-								telemetrydata[i].c_str());
-					}
-					printf("\n\n");
+			telemetrydata =
+					((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(1000);
+			elementnames =
+					((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
+			printf("\t\tTUN Telemetry entries\n");
+			for (int i = 0; i < ((dynamic_cast<Telemetry*>(tunh)))->size();
+					i++) {
+				printf("%s: %s\t", elementnames[i].c_str(),
+						telemetrydata[i].c_str());
+			}
+			printf("\n\n");
 
-					usleep(1000000);
-				}
-			});
+			usleep(1000000);
+			std::this_thread::yield();
+		}
+	});
 	lp.detach();
 
 	// Program loop (radio loop)
 	while (running) {
-		rh->loop(1);
-		usleep(25);
-	}
+		//do{
+			rh->loop(1);
+		//}while(rh->is_receiving_data() || !csp->empty());
+		// usleep(10000); // 14% cpu
+		//if(csp->empty())
+		//	usleep(10000);
+		//if(!rh->is_receiving_data() && csp->empty()){
+		//	usleep(10000);
+		//usleep(10000);
+		///	usleep(2);
+		//std::this_thread::yield();
+		//}
 
+	}
 	// Close and free everything
 	tunh->stopThread();
 

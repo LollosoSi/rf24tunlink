@@ -156,6 +156,9 @@ inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 	} else if (!Settings::RF24::variable_rate) {
 		reset_radio();
 		printf("Variable rate is not enabled. Radio reset\n");
+	} else if (cp->data[0] >= 3 && cp->data[0] <= 0) {
+		reset_radio();
+		printf("Bad data received. Radio reset\n");
 	}
 
 }
@@ -185,41 +188,42 @@ bool RF24Radio::read() {
 	bool result = false;
 	uint8_t pipe = 0;
 
+	static RadioPacket *rp = new RadioPacket;
+
 	if ((result = (radio->available(&pipe)))) {
+
+		rp->size = radio->getDynamicPayloadSize();
+		radio->read(rp, rp->size);
+
 		switch (pipe) {
 		default:
-			static RadioPacket *rp = new RadioPacket;
-			rp->size = radio->getDynamicPayloadSize();
-			radio->read(rp, rp->size);
-
-			radio_bytes_in += rp->size;
-
-			//if (rp->size > 1) {
-			//	printf("Read packet:\n");
-			//	print_hex(rp->data + 1, rp->size - 1);
-			//}
-
-			this->packet_received(rp);
+			// Radio isn't working properly, try reset
+			result = false;
+			reset_radio();
+			printf("Bad pipe received. Radio reset\n");
 
 			break;
 
+		case 0:
+		case 1:
+			radio_bytes_in += rp->size;
+
+			receiving_data = !(rp->size == 1 && rp->data[0] == 0);
+
+			if (!receiving_data) {
+				break;
+			}
+			this->packet_received(rp);
+			break;
+
 		case 2:
-
 			// Secondary radio received a control packet!
-			static RadioPacket *cp = new RadioPacket;
-			radio->read(cp, 1);
+			printf("-----> Move request to %i\n", rp->data[0]);
+			//radio->flush_rx();
+			//radio->flush_tx();
 
-			radio_bytes_in += 1;
-			printf("-----> Move request to %i\n", cp->data[0]);
-			radio->flush_rx();
-			radio->flush_tx();
-			process_control_packet(cp);
-
-			//if (rp->size > 1) {
-			//	printf("Read packet:\n");
-			//	print_hex(rp->data + 1, rp->size - 1);
-			//}
-
+			radio_bytes_in += rp->size;
+			process_control_packet(rp);
 			break;
 		}
 		if (pipe != 0 && pipe != 1)

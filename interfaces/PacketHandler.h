@@ -35,6 +35,7 @@ public:
 	virtual packet* next_packet() = 0;
 	virtual inline packet* get_empty_packet() = 0;
 	virtual unsigned int get_mtu() = 0;
+	bool empty(){return (frames.empty());}
 
 	bool register_tun_handler(tun *tun_handler_pointer) {
 		if (this->tun_handle == nullptr) {
