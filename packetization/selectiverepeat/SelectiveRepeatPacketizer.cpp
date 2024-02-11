@@ -49,10 +49,10 @@ inline bool SelectiveRepeatPacketizer::next_packet_ready() {
 	return (Settings::control_packets || !frames.empty() || !resend_list.empty());
 }
 
-inline RadioPacket* SelectiveRepeatPacketizer::next_packet() {
+RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 	bool frames_empty = frames.empty(), resend_list_empty = resend_list.empty();
 
-	RadioPacket *rs = resend_list.front();
+	RadioPacket *rs = nullptr; // resend_list.front();
 	if (resend_list_empty) {
 
 		if (frames_empty) {
@@ -63,7 +63,11 @@ inline RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 			}
 		} else {
 			if (current_packet_counter == frames.front()->packets.size() - 1) {
-				rs = (frames.front()->packets[current_packet_counter]);
+				static uint8_t cnt = 0;
+				if (cnt++ % 5 == 0)
+					rs = (frames.front()->packets[current_packet_counter]);
+				else
+					rs = (get_empty_packet());
 			} else {
 				fragments_sent++;
 				rs = (frames.front()->packets[current_packet_counter++]);
@@ -77,14 +81,12 @@ inline RadioPacket* SelectiveRepeatPacketizer::next_packet() {
 	return (rs);
 }
 
-
-
 inline RadioPacket* SelectiveRepeatPacketizer::get_empty_packet() {
 	static RadioPacket *rp = new RadioPacket { { 0 }, 1 };
 	return (rp);
 }
 
-inline bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
+bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 
 	static uint8_t id = 0;
 	if (++id == 4) {
@@ -124,7 +126,7 @@ inline bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 	return (true);
 }
 
-inline bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
+bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
 		unsigned int size) {
 
 	unsigned int findings = 0;
@@ -166,7 +168,7 @@ inline uint8_t SelectiveRepeatPacketizer::get_pack_id(RadioPacket *rp) {
 	return (id);
 }
 
-inline bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
+bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 
 	//printf("[Packetizer] received (s %i) %s\n", rp->size, rp->data);
 
@@ -262,7 +264,7 @@ inline bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 	static bool *received_packets_boolean = nullptr;
 	static unsigned int packet_bool_length = ceil(this->get_mtu() / 31);
 	if (buffer == nullptr) {
-		buffer = new uint8_t[this->get_mtu()*2] { 0 };
+		buffer = new uint8_t[this->get_mtu() * 2] { 0 };
 		received_packets_boolean = new bool[packet_bool_length] { 0 };
 	}
 
@@ -272,48 +274,48 @@ inline bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 
 	//if (id != last_id) {
 
-		/*if (current_id != id) {
-			printf("Packet %i was discarded\n", current_id);
-			current_id = id;
-			for (unsigned int b = 0; b <= packet_bool_length; b++) {
-				if (received_packets_boolean[b])
-					bytes_discarded += 31;
-				received_packets_boolean[b] = false;
-			}
+	/*if (current_id != id) {
+	 printf("Packet %i was discarded\n", current_id);
+	 current_id = id;
+	 for (unsigned int b = 0; b <= packet_bool_length; b++) {
+	 if (received_packets_boolean[b])
+	 bytes_discarded += 31;
+	 received_packets_boolean[b] = false;
+	 }
 
-		}*/
+	 }*/
 
-		unsigned int data_size = ((char) (rp->size - 1));
-		static unsigned int count_size = 0;
+	unsigned int data_size = ((char) (rp->size - 1));
+	static unsigned int count_size = 0;
 
-		if (first)
-			leftover = 31 - data_size;
+	if (first)
+		leftover = 31 - data_size;
 
-		//unsigned int copyposition = (unsigned int) (first ? leftover : 0)
-		//		+ ((unsigned int) 31 * (first ? 0 : (unsigned int) seg));
+	//unsigned int copyposition = (unsigned int) (first ? leftover : 0)
+	//		+ ((unsigned int) 31 * (first ? 0 : (unsigned int) seg));
 
-		unsigned int copyposition = first ? leftover : 31 * seg;
+	unsigned int copyposition = first ? leftover : 31 * seg;
 
-		for (unsigned int i = 0; i < data_size; i++) {
-			buffer[copyposition + i] = rp->data[i + 1];
-			count_size++;
-		}
+	for (unsigned int i = 0; i < data_size; i++) {
+		buffer[copyposition + i] = rp->data[i + 1];
+		count_size++;
+	}
 
-		//strncpy((char*) (buffer + copyposition), (const char*) (rp->data + 1),
-		//		copylength);
-		/*if (first) {
-			printf(
-					"Copied in position (%i, +%i), first packet, expected total size (%i packets, %i chars, %i counted) \n\n",
-					copyposition, data_size, seg,
-					(31 * seg) + 31 - leftover, count_size);
-			count_size = 0;
-		} else
-			printf("Copied in position (%i, +%i), pack index %i \n\n",
-					copyposition, data_size, seg);
-		print_hex((rp->data + 1), data_size);*/
+	//strncpy((char*) (buffer + copyposition), (const char*) (rp->data + 1),
+	//		copylength);
+	/*if (first) {
+	 printf(
+	 "Copied in position (%i, +%i), first packet, expected total size (%i packets, %i chars, %i counted) \n\n",
+	 copyposition, data_size, seg,
+	 (31 * seg) + 31 - leftover, count_size);
+	 count_size = 0;
+	 } else
+	 printf("Copied in position (%i, +%i), pack index %i \n\n",
+	 copyposition, data_size, seg);
+	 print_hex((rp->data + 1), data_size);*/
 
-		unsigned int pos = first ? 0 : seg;
-		received_packets_boolean[pos] = 1;
+	unsigned int pos = first ? 0 : seg;
+	received_packets_boolean[pos] = 1;
 	//}
 
 // Was this the last packet

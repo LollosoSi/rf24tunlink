@@ -178,7 +178,7 @@ int main(int argc, char **argv) {
 	// Program loop (radio loop)
 	while (running) {
 		rh->loop(1);
-		usleep(100);
+		usleep(25);
 	}
 
 	// Close and free everything

@@ -23,7 +23,7 @@ public:
 	virtual ~SelectiveRepeatPacketizer();
 
 	inline bool next_packet_ready();
-	inline RadioPacket* next_packet();
+	RadioPacket* next_packet();
 	inline RadioPacket* get_empty_packet();
 
 	unsigned int get_mtu(){return (961);}
@@ -39,7 +39,7 @@ public:
 		segment = data & 0x1F;
 	}
 
-	inline bool receive_packet(RadioPacket *rp);
+	bool receive_packet(RadioPacket *rp);
 	std::string* telemetry_collect(const unsigned long delta);
 	uint8_t *buffer = nullptr;
 
@@ -52,7 +52,7 @@ protected:
 		delete frame;
 	}
 
-	inline bool packetize(TUNMessage *tunmsg);
+	bool packetize(TUNMessage *tunmsg);
 
 	inline bool request_missing_packets(bool *array, unsigned int size);
 	inline void response_packet_ok(uint8_t id);

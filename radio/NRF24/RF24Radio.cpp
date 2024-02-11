@@ -30,7 +30,7 @@ RF24Radio::~RF24Radio() {
 }
 
 std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
-	if(count_arc != 0)
+	if (count_arc != 0)
 		returnvector[0] = (std::to_string(sum_arc / count_arc));
 	else
 		returnvector[0] = (std::to_string(0));
@@ -38,15 +38,16 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	returnvector[2] = (std::to_string(packets_in));
 	returnvector[3] = (std::to_string(radio_bytes_out));
 	returnvector[4] = (std::to_string(radio_bytes_in));
-	returnvector[5] = (std::to_string(radio->getDataRate()));
+	// implemented in check_fault() - returnvector[5] = (std::to_string(radio->getDataRate()));
 
 	sum_arc = count_arc = packets_in = radio_bytes_out = radio_bytes_in = 0;
 	return (returnvector);
 }
 
 void RF24Radio::check_fault() {
-	if (radio->failureDetected
-			|| (radio->getDataRate() != Settings::RF24::data_rate)
+	rf24_datarate_e dt = radio->getDataRate();
+	returnvector[5] = std::to_string(dt);
+	if (radio->failureDetected || (dt != Settings::RF24::data_rate)
 			|| (!radio->isChipConnected())) {
 		radio->failureDetected = 0;
 		reset_radio();
@@ -82,8 +83,8 @@ void RF24Radio::loop(unsigned long delta) {
 	check_fault();
 
 	if (since_last_packet() > Settings::RF24::max_radio_silence) {
-		if(current_millis() % 100 == 0)
-		printf("Radio silent for %i ms\n", since_last_packet());
+		if (current_millis() % 100 == 0)
+			printf("Radio silent for %i ms\n", since_last_packet());
 
 		if (Settings::RF24::variable_rate)
 			if (radio->getDataRate() != 2) {
@@ -94,18 +95,16 @@ void RF24Radio::loop(unsigned long delta) {
 
 	if (primary) {
 
-		while (!radio->isFifo(true, false)) {
-			if (fill_buffer_tx()) {
+		while (fill_buffer_tx()) {
 
-			} else
-				break;
 		}
 		if (send_tx()) {
 
 		}
-		if (read()) {
+		while (read()) {
 
 		}
+
 		if (Settings::RF24::variable_rate)
 			if ((since_last_packet() < 30)
 					&& (current_millis() - last_speed_change > 5000)
@@ -116,17 +115,15 @@ void RF24Radio::loop(unsigned long delta) {
 
 	} else {
 
-		if (read()) {
-			//radio->flush_tx();
+		//uint8_t cnt = 0;
+		while (read()) {
+			//if (cnt++ >= 6)
+			//	radio->flush_rx();
 
-			while (!radio->isFifo(true, false)) {
-				if (fill_buffer_ack()) {
-				} else
-					break;
-
-			}
 		}
-//fill_buffer_ack();
+		while (fill_buffer_ack()) {
+
+		}
 
 	}
 
@@ -149,13 +146,16 @@ void RF24Radio::interrupt_routine() {
 
 inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 
-	if (cp->data[0] != radio->getDataRate() && cp->data[0] < 3
-			&& cp->data[0] > 0) {
+	if (Settings::RF24::variable_rate && cp->data[0] != radio->getDataRate()
+			&& cp->data[0] < 3 && cp->data[0] > 0) {
 		printf("-----> Moving to datarate: %i\n", cp->data[0]);
 		Settings::RF24::data_rate = (rf24_datarate_e) cp->data[0];
 
 		//this->set_speed_pa_retries();
 		reset_radio();
+	} else if (!Settings::RF24::variable_rate) {
+		reset_radio();
+		printf("Variable rate is not enabled. Radio reset\n");
 	}
 
 }
@@ -185,7 +185,7 @@ bool RF24Radio::read() {
 	bool result = false;
 	uint8_t pipe = 0;
 
-	while (radio->available(&pipe)) {
+	if ((result = (radio->available(&pipe)))) {
 		switch (pipe) {
 		default:
 			static RadioPacket *rp = new RadioPacket;
@@ -224,7 +224,6 @@ bool RF24Radio::read() {
 		}
 		if (pipe != 0 && pipe != 1)
 			printf("Pipe %i\n", pipe);
-		result = true;
 		packets_in++;
 		last_packet = current_millis();
 
@@ -242,7 +241,7 @@ bool RF24Radio::send_tx() {
 		return (true);
 	} else {
 		//radio->reUseTX();
-		radio->flush_tx();
+		//radio->flush_tx();
 		return (false);
 	}
 
@@ -252,23 +251,30 @@ bool RF24Radio::fill_buffer_tx() {
 
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
+	static uint8_t pk = 0;
+	if (radio->isFifo(true, false)) {
+		pk = 0;
+		return (false);
+	}
 
-	static RadioPacket *rp = nullptr;
-	rp = next_packet();
-	if (!rp)
+	RadioPacket *rp = nullptr;
+	if (!(rp = next_packet()))
 		return (false);
 
 //if (rp->size > 1) {
 //	printf("Loading packet:\n");
 //	print_hex(rp->data + 1, rp->size - 1);
 //}
-
-	if (radio->writeFast(rp->data, rp->size)) {
+	//usleep(10000);
+	radio->startFastWrite(rp->data, rp->size, false, ++pk == 3);
+	radio_bytes_out += rp->size;
+	if (pk < 3) {
 // Transfer to radio successful
 //printf("Loaded ack (s %i)\n", rp->size);
-		radio_bytes_out += rp->size;
+		//radio_bytes_out += rp->size;
 		return (true);
 	} else {
+		pk = 0;
 
 // Transfer to radio failed
 //printf("Ack load failed\n");
@@ -282,9 +288,12 @@ bool RF24Radio::fill_buffer_ack() {
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
 //if (!radio->isFifo(true, false)) {
-	static RadioPacket *rp = nullptr;
-	rp = next_packet();
-	if (!rp)
+
+	if (radio->isFifo(true, false))
+		return (false);
+
+	RadioPacket *rp = nullptr;
+	if (!(rp = next_packet()))
 		return (false);
 
 //if (rp->size > 1) {

@@ -32,7 +32,7 @@ public:
 	}
 
 	virtual inline bool next_packet_ready() = 0;
-	virtual inline packet* next_packet() = 0;
+	virtual packet* next_packet() = 0;
 	virtual inline packet* get_empty_packet() = 0;
 	virtual unsigned int get_mtu() = 0;
 
@@ -59,8 +59,8 @@ protected:
 
 	std::deque<Frame<packet>*> frames;
 
-	virtual inline bool packetize(TUNMessage *tunmsg) = 0;
-	virtual inline bool receive_packet(RadioPacket *rp) = 0;
+	virtual bool packetize(TUNMessage *tunmsg) = 0;
+	virtual bool receive_packet(RadioPacket *rp) = 0;
 
 	virtual inline void free_frame(Frame<packet> *frame) = 0;
 

@@ -29,24 +29,26 @@ bool variable_rate = true;
 
 int ce_pin = 25;
 int csn_pin = 0;
-unsigned long spi_speed = 6000000; //(10000000-4000000);
+//unsigned long spi_speed = 6000000; //(10000000-4000000);
+//unsigned long spi_speed = 5300000; //(10000000-4000000);
+unsigned long spi_speed = 4000000; //(10000000-4000000);
 
 
 rf24_datarate_e data_rate = RF24_2MBPS;
-rf24_pa_dbm_e radio_power = RF24_PA_LOW;
+rf24_pa_dbm_e radio_power = RF24_PA_MIN;
 rf24_crclength_e crc_length = RF24_CRC_8;
 
-uint8_t radio_delay = 5;
-uint8_t radio_retries = 5;
+uint8_t radio_delay = 1;
+uint8_t radio_retries = 15;
 
-uint8_t channel = 1;
+uint8_t channel = 124;
 uint8_t address_bytes = 3;
 uint8_t *address_1 = new uint8_t[3] { '1', 'N', 'o' };
 uint8_t *address_2 = new uint8_t[3] { '2', 'N', 'o' };
 uint8_t *address_3 = new uint8_t[3] { '3', 'N', 'o' };
 
-uint8_t *radio_delay_tuned = new uint8_t[3]{ 5, 4, 1 };
-uint8_t *radio_retries_tuned = new uint8_t[3]{ 10, 3, 15 };
+uint8_t *radio_delay_tuned = new uint8_t[3]{ 6, 4, 1 };
+uint8_t *radio_retries_tuned = new uint8_t[3]{ 15, 3, 15 };
 
 
 
