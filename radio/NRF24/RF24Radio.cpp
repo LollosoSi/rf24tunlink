@@ -51,6 +51,7 @@ void RF24Radio::check_fault() {
 			|| (!radio->isChipConnected())) {
 		radio->failureDetected = 0;
 		reset_radio();
+		printf("Reset after radio failure detected\n");
 		return;
 	}
 }
@@ -62,6 +63,7 @@ void RF24Radio::setup() {
 	}
 
 	reset_radio();
+	printf("Reset after setup\n");
 
 	/*if (!primary)
 	 channel_sweep();
@@ -153,6 +155,7 @@ inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 
 		//this->set_speed_pa_retries();
 		reset_radio();
+		printf("Reset after changing datarate settings\n");
 	} else if (!Settings::RF24::variable_rate) {
 		reset_radio();
 		printf("Variable rate is not enabled. Radio reset\n");
@@ -351,6 +354,7 @@ void RF24Radio::channel_sweep() {
 	radio->stopListening();
 
 	reset_radio();
+	printf("Reset after channel sweep\n");
 
 }
 

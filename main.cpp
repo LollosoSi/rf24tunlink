@@ -24,6 +24,7 @@ using namespace std;
 #include "tun/TUNHandler.h"
 #include "packetization/characterstuffing/CharacterStuffingPacketizer.h"
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
+#include "packetization/throughputtester/ThroughputTester.h"
 #include "radio/NRF24/RF24Radio.h"
 
 TUNHandler *tunh = nullptr;
@@ -108,7 +109,7 @@ int main(int argc, char **argv) {
 	rh = new RF24Radio(primary);
 
 	// Choose a packetizer
-	csp = new SelectiveRepeatPacketizer();
+	csp = new ThroughputTester();
 	Settings::mtu = csp->get_mtu();
 
 	// Initialise the interface
@@ -180,7 +181,7 @@ int main(int argc, char **argv) {
 		//if(!rh->is_receiving_data() && csp->empty()){
 		//	usleep(10000);
 		//usleep(10000);
-		///	usleep(2);
+		//	usleep(2);
 		//std::this_thread::yield();
 		//}
 

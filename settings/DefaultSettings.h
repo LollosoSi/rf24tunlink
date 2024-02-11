@@ -31,7 +31,7 @@ int ce_pin = 25;
 int csn_pin = 0;
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
-unsigned long spi_speed = 4000000; //(10000000-4000000);
+unsigned long spi_speed = 6000000; //(10000000-4000000);
 
 
 rf24_datarate_e data_rate = RF24_2MBPS;
