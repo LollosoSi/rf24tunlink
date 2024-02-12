@@ -84,16 +84,17 @@ void RF24Radio::loop(unsigned long delta) {
 
 	check_fault();
 
-	if (since_last_packet() > Settings::RF24::max_radio_silence) {
-		if (current_millis() % 100 == 0)
-			printf("Radio silent for %i ms\n", since_last_packet());
+	if (Settings::RF24::variable_rate)
+		if (since_last_packet() > Settings::RF24::max_radio_silence) {
+			if (current_millis() % 100 == 0)
+				printf("Radio silent for %i ms\n", since_last_packet());
 
-		if (Settings::RF24::variable_rate)
-			if (radio->getDataRate() != 2) {
-				static RadioPacket *cp = new RadioPacket { { 2 }, 1 };
-				process_control_packet(cp);
-			}
-	}
+			if (Settings::RF24::variable_rate)
+				if (radio->getDataRate() != 2) {
+					static RadioPacket *cp = new RadioPacket { { 2 }, 1 };
+					process_control_packet(cp);
+				}
+		}
 
 	if (primary) {
 
@@ -273,8 +274,14 @@ bool RF24Radio::fill_buffer_tx() {
 //	print_hex(rp->data + 1, rp->size - 1);
 //}
 	//usleep(10000);
-	radio->startFastWrite(rp->data, rp->size, false, ++pk == 3);
-	radio_bytes_out += rp->size;
+
+	if (radio->writeFast(rp->data, rp->size, false)) {
+		radio_bytes_out += rp->size;
+		return (true);
+	} else {
+		return (false);
+	}
+
 	if (pk < 3) {
 // Transfer to radio successful
 //printf("Loaded ack (s %i)\n", rp->size);
