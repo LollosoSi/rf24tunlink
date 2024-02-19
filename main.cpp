@@ -134,7 +134,7 @@ int main(int argc, char **argv) {
 			1000);
 			const std::string *elementnames =
 					((dynamic_cast<Telemetry*>(rh)))->get_element_names();
-			printf("\t\tRadio Telemetry entries\n");
+			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(rh))->get_name().c_str());
 			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh)))->size(); i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
 						telemetrydata[i].c_str());
@@ -145,7 +145,7 @@ int main(int argc, char **argv) {
 					((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(1000);
 			elementnames =
 					((dynamic_cast<Telemetry*>(csp)))->get_element_names();
-			printf("\t\tPacketHandler Telemetry entries\n");
+			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(csp))->get_name().c_str());
 			for (int i = 0; i < ((dynamic_cast<Telemetry*>(csp)))->size();
 					i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
@@ -157,7 +157,7 @@ int main(int argc, char **argv) {
 					((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(1000);
 			elementnames =
 					((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
-			printf("\t\tTUN Telemetry entries\n");
+			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(tunh))->get_name().c_str());
 			for (int i = 0; i < ((dynamic_cast<Telemetry*>(tunh)))->size();
 					i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
