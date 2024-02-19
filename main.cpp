@@ -26,6 +26,7 @@ using namespace std;
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
 #include "packetization/throughputtester/ThroughputTester.h"
 #include "radio/NRF24/RF24Radio.h"
+#include "radio/NRF24_DUAL/RF24DualRadio.h"
 
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
@@ -106,7 +107,7 @@ int main(int argc, char **argv) {
 	strcpy(Settings::netmask, "255.255.255.0");
 
 	// Choose a radio
-	rh = new RF24Radio(primary);
+	rh = new RF24DualRadio(primary);
 
 	// Choose a packetizer
 	csp = new SelectiveRepeatPacketizer();
