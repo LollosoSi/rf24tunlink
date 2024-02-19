@@ -129,6 +129,10 @@ bool RF24DualRadio::read() {
 			radio_bytes_in += rp->size;
 			//process_control_packet(rp);
 			break;
+
+		case 7:
+			printf("Bad pipe: %i, ignored\n", pipe);
+			break;
 		}
 		if (pipe != 0 && pipe != 1)
 			printf("Pipe %i\n", pipe);
@@ -246,9 +250,6 @@ void RF24DualRadio::reset_radio() {
 // this feature for all nodes (TX & RX) to use ACK payloads.
 	//radio->enableAckPayload();
 
-	radio_0->setChannel(Settings::DUAL_RF24::channel_0);
-	radio_1->setChannel(Settings::DUAL_RF24::channel_1);
-
 	radio_0->setCRCLength(Settings::DUAL_RF24::crc_length);
 	radio_1->setCRCLength(Settings::DUAL_RF24::crc_length);
 
@@ -258,11 +259,17 @@ void RF24DualRadio::reset_radio() {
 
 		radio_1->openWritingPipe(Settings::DUAL_RF24::address_0_2[0]);
 
+		radio_0->setChannel(Settings::DUAL_RF24::channel_0);
+		radio_1->setChannel(Settings::DUAL_RF24::channel_1);
+
 	} else {
 		radio_0->openReadingPipe(1, Settings::DUAL_RF24::address_0_2[0]);
 		radio_1->openReadingPipe(1, Settings::DUAL_RF24::address_1_2[0]);
 
 		radio_1->openWritingPipe(Settings::DUAL_RF24::address_0_1[0]);
+
+		radio_0->setChannel(Settings::DUAL_RF24::channel_1);
+		radio_1->setChannel(Settings::DUAL_RF24::channel_0);
 	}
 
 	radio_0->printPrettyDetails();

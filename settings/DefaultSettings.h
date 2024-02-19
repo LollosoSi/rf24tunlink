@@ -67,11 +67,11 @@ int ce_1_pin = 25;
 int csn_1_pin = 1;
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
-unsigned long spi_speed = 5200000; //(10000000-4000000);
+unsigned long spi_speed = 5000000; //(10000000-4000000);
 
 
 rf24_datarate_e data_rate = RF24_2MBPS;
-rf24_pa_dbm_e radio_power = RF24_PA_MAX;
+rf24_pa_dbm_e radio_power = RF24_PA_MIN;
 rf24_crclength_e crc_length = RF24_CRC_8;
 
 uint8_t radio_delay = 1;

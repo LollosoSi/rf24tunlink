@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 	rh = new RF24DualRadio(primary);
 
 	// Choose a packetizer
-	csp = new SelectiveRepeatPacketizer();
+	csp = new ThroughputTester();
 	Settings::mtu = csp->get_mtu();
 
 	// Initialise the interface
@@ -173,9 +173,9 @@ int main(int argc, char **argv) {
 
 	// Program loop (radio loop)
 	while (running) {
-		do {
+		//do {
 			rh->loop(1);
-		} while (rh->is_receiving_data() || !csp->empty());
+		//} while (rh->is_receiving_data() || !csp->empty());
 		std::this_thread::yield();
 		// usleep(10000); // 14% cpu
 		//if(csp->empty())
