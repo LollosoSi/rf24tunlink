@@ -12,6 +12,8 @@
 #include <iostream>
 #include <unistd.h>
 
+#include <thread>
+
 #include "../../telemetry/Telemetry.h"
 
 #include "../../interfaces/RadioHandler.h"
@@ -51,6 +53,8 @@ private:
 	unsigned int packets_in = 0;
 	unsigned long radio_bytes_out = 0;
 	unsigned long radio_bytes_in = 0;
+
+	bool read_thread_running = false;
 
 };
 

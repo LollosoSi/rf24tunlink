@@ -78,13 +78,26 @@ void RF24DualRadio::loop(unsigned long delta) {
 	if (send_tx()) {
 
 	}
-	while (read()) {
+
+	if (!read_thread_running) {
+
+		std::thread lp([&] {
+			read_thread_running = true;
+			while (read_thread_running) {
+				if (read()) {
+
+				}
+				std::this_thread::yield();
+			}
+		});
+		lp.detach();
 
 	}
 
 }
 
 void RF24DualRadio::stop() {
+	read_thread_running = false;
 }
 
 bool RF24DualRadio::read() {
@@ -103,7 +116,7 @@ bool RF24DualRadio::read() {
 		default:
 			// Radio isn't working properly, try reset
 			result = false;
-			reset_radio();
+			//reset_radio();
 			printf("Bad pipe received. Radio reset\n");
 
 			break;
@@ -130,9 +143,6 @@ bool RF24DualRadio::read() {
 			//process_control_packet(rp);
 			break;
 
-		case 7:
-			printf("Bad pipe: %i, ignored\n", pipe);
-			break;
 		}
 		if (pipe != 0 && pipe != 1)
 			printf("Pipe %i\n", pipe);
@@ -163,9 +173,7 @@ bool RF24DualRadio::fill_buffer_tx() {
 
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
-	static uint8_t pk = 0;
 	if (radio_1->isFifo(true, false)) {
-		pk = 0;
 		return (false);
 	}
 
@@ -204,6 +212,8 @@ void RF24DualRadio::check_fault() {
 }
 
 void RF24DualRadio::reset_radio() {
+
+	read_thread_running = false;
 
 	uint8_t t = 1;
 	while (!radio_0->begin()) {

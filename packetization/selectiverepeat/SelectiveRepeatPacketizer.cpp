@@ -192,7 +192,7 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 			if (rp->size > 1) {
 				int counter = 1;
 				if (!frames.empty()) {
-					printf("Requested packets: ");
+					//printf("Requested packets: ");
 					while (counter < rp->size) {
 
 						bool pkt_boolean = 0;
@@ -223,15 +223,15 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 						unpack_info(frames.front()->packets[position]->data[0],
 								dbg_pkt_boolean, dbg_pkt_id, dbg_pkt_seg);
 
-						printf("| (SEG: %i, carried: %i) %s ", pkt_seg,
-								dbg_pkt_seg,
-								frames.front()->packets[position]->data);
-						resend_list.push_back(
-								frames.front()->packets[position]);
+						//printf("| (SEG: %i, carried: %i) %s ", pkt_seg,
+						//		dbg_pkt_seg,
+						//		frames.front()->packets[position]->data);
+						//resend_list.push_back(
+						//		frames.front()->packets[position]);
 
 						counter++;
 					}
-					printf("\n");
+					//printf("\n");
 				} else {
 					printf("Frames requested but request can't be fulfilled\n");
 				}
@@ -327,6 +327,7 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 		} else {
 
 			if (request_missing_packets(received_packets_boolean, seg)) {
+
 				printf("Reception is not okay, trying packet request\n");
 
 			} else {

@@ -110,7 +110,7 @@ int main(int argc, char **argv) {
 	rh = new RF24DualRadio(primary);
 
 	// Choose a packetizer
-	csp = new ThroughputTester();
+	csp = new SelectiveRepeatPacketizer();
 	Settings::mtu = csp->get_mtu();
 
 	// Initialise the interface
@@ -193,6 +193,7 @@ int main(int argc, char **argv) {
 
 	delete tunh;
 	delete csp;
+	delete rh;
 
 	return (0);
 }
