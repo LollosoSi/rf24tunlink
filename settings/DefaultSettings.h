@@ -19,6 +19,12 @@ char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
 unsigned int mtu = 9600;
 bool control_packets = true;
 
+uint16_t minimum_ARQ_wait = 3;
+
+uint16_t maximum_frame_time = 30;
+
+char *csv_out_filename = nullptr;	// CSV output, NULLPTR for no output
+
 }
 
 namespace Settings::RF24 {
@@ -31,7 +37,7 @@ int ce_pin = 24;
 int csn_pin = 0;
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
-unsigned long spi_speed = 5200000; //(10000000-4000000);
+unsigned long spi_speed = 6000000; //(10000000-4000000);
 
 
 rf24_datarate_e data_rate = RF24_2MBPS;
@@ -60,6 +66,8 @@ uint16_t max_radio_silence = 600;
 
 bool variable_rate = true;
 
+bool auto_ack = true;
+
 int ce_0_pin = 24;
 int csn_0_pin = 0;
 
@@ -67,11 +75,11 @@ int ce_1_pin = 25;
 int csn_1_pin = 1;
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
-unsigned long spi_speed = 5300000; //(10000000-4000000);
+unsigned long spi_speed = 1000000; //(10000000-4000000);
 
 
 rf24_datarate_e data_rate = RF24_2MBPS;
-rf24_pa_dbm_e radio_power = RF24_PA_MAX;
+rf24_pa_dbm_e radio_power = RF24_PA_LOW;
 rf24_crclength_e crc_length = RF24_CRC_8;
 
 uint8_t radio_delay = 0;

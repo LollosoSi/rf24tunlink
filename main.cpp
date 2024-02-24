@@ -30,7 +30,8 @@ using namespace std;
 
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
-RadioHandler<RadioPacket> *rh = nullptr;
+RadioHandler<RadioPacket> *rh0 = nullptr;
+RadioHandler<RadioPacket> *rh1 = nullptr;
 
 #include "unit_tests/FakeRadio.h"
 void test_run() {
@@ -107,7 +108,11 @@ int main(int argc, char **argv) {
 	strcpy(Settings::netmask, "255.255.255.0");
 
 	// Choose a radio
-	rh = new RF24DualRadio(primary);
+	rh0 = new RF24Radio(primary, Settings::DUAL_RF24::ce_0_pin,
+			Settings::DUAL_RF24::csn_0_pin, Settings::DUAL_RF24::channel_0);
+	//rh1 = new RF24Radio(primary, Settings::DUAL_RF24::ce_1_pin,
+	//		Settings::DUAL_RF24::csn_1_pin, Settings::DUAL_RF24::channel_1);
+	//rh0 = new RF24DualRadio(primary);
 
 	// Choose a packetizer
 	csp = new SelectiveRepeatPacketizer();
@@ -119,7 +124,8 @@ int main(int argc, char **argv) {
 	// Register everything
 	csp->register_tun_handler(tunh);
 	tunh->register_packet_handler(csp);
-	rh->register_packet_handler(csp);
+	rh0->register_packet_handler(csp);
+	//rh1->register_packet_handler(csp);
 
 	// Start the Radio and register it
 	// no action required
@@ -130,22 +136,38 @@ int main(int argc, char **argv) {
 	std::thread lp([&] {
 		while (running) {
 			std::system("clear");
-			const std::string *telemetrydata = ((dynamic_cast<Telemetry*>(rh)))->telemetry_collect(
+			std::string *telemetrydata = ((dynamic_cast<Telemetry*>(rh0)))->telemetry_collect(
 			1000);
 			const std::string *elementnames =
-					((dynamic_cast<Telemetry*>(rh)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(rh))->get_name().c_str());
-			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh)))->size(); i++) {
+					((dynamic_cast<Telemetry*>(rh0)))->get_element_names();
+			printf("\t\t%s Telemetry entries\n",
+					(dynamic_cast<Telemetry*>(rh0))->get_name().c_str());
+			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh0)))->size();
+					i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
 						telemetrydata[i].c_str());
 			}
 			printf("\n\n");
 
+			/*telemetrydata =
+					((dynamic_cast<Telemetry*>(rh1)))->telemetry_collect(1000);
+			elementnames =
+					((dynamic_cast<Telemetry*>(rh1)))->get_element_names();
+			printf("\t\t%s Telemetry entries\n",
+					(dynamic_cast<Telemetry*>(rh1))->get_name().c_str());
+			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh1)))->size();
+					i++) {
+				printf("%s: %s\t", elementnames[i].c_str(),
+						telemetrydata[i].c_str());
+			}
+			printf("\n\n");*/
+
 			telemetrydata =
 					((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(1000);
 			elementnames =
 					((dynamic_cast<Telemetry*>(csp)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(csp))->get_name().c_str());
+			printf("\t\t%s Telemetry entries\n",
+					(dynamic_cast<Telemetry*>(csp))->get_name().c_str());
 			for (int i = 0; i < ((dynamic_cast<Telemetry*>(csp)))->size();
 					i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
@@ -157,7 +179,8 @@ int main(int argc, char **argv) {
 					((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(1000);
 			elementnames =
 					((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n", (dynamic_cast<Telemetry*>(tunh))->get_name().c_str());
+			printf("\t\t%s Telemetry entries\n",
+					(dynamic_cast<Telemetry*>(tunh))->get_name().c_str());
 			for (int i = 0; i < ((dynamic_cast<Telemetry*>(tunh)))->size();
 					i++) {
 				printf("%s: %s\t", elementnames[i].c_str(),
@@ -165,21 +188,34 @@ int main(int argc, char **argv) {
 			}
 			printf("\n\n");
 
-			usleep(1000000);
+			 usleep(1000000); // 1 second
+			//usleep(500000);
 			std::this_thread::yield();
 		}
 	});
 	lp.detach();
 
+
+	/*
+	std::thread lr([&] {
+			while (running) {
+				rh1->loop(1);
+				std::this_thread::yield();
+			}
+		});
+		lr.detach();*/
+
 	// Program loop (radio loop)
 	while (running) {
 		//do {
-			rh->loop(1);
-		//} while (rh->is_receiving_data() || !csp->empty());
+			rh0->loop(1);
+			//rh1->loop(1);
+
+		//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
 		std::this_thread::yield();
-		// usleep(10000); // 14% cpu
+		//usleep(10000); // 14% cpu
 		//if(csp->empty())
-		//	usleep(10000);
+		//	usleep(3000);
 		//if(!rh->is_receiving_data() && csp->empty()){
 		//	usleep(10000);
 		//usleep(10000);
@@ -193,7 +229,8 @@ int main(int argc, char **argv) {
 
 	delete tunh;
 	delete csp;
-	delete rh;
+	delete rh0;
+	delete rh1;
 
 	return (0);
 }

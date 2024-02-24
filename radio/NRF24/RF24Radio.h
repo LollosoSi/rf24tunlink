@@ -20,7 +20,7 @@
 
 class RF24Radio: public RadioHandler<RadioPacket>, public Telemetry {
 public:
-	RF24Radio(bool primary);
+	RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t channel);
 	virtual ~RF24Radio();
 
 	void loop(unsigned long delta);
@@ -49,8 +49,10 @@ protected:
 	bool primary = false;
 
 	RF24* radio = nullptr;
+	uint8_t ce_pin, csn_pin, channel;
 
 private:
+
 	std::string* returnvector = nullptr;
 	unsigned long sum_arc = 0;
 	unsigned int count_arc = 0;

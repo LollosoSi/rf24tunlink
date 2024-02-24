@@ -11,14 +11,19 @@
 
 namespace Settings {
 
-extern char *address;// Address of the interface		NOTE: Address and destination must be swapped based on the radio role
+extern char *address;           // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
 extern char *destination;		// Destination of the interface
 extern char *netmask;			// Network address mask
 extern char *interface_name;	// Interface name (arocc)
 extern unsigned int mtu;		// MTU, must be determined later
-extern bool control_packets;// Whether or not to send empty packets as keepalive
+extern bool control_packets;    // Whether or not to send empty packets as keepalive
+extern uint16_t minimum_ARQ_wait;
+
+extern uint16_t maximum_frame_time;
 
 const unsigned int max_pkt_size = 32;
+
+extern char *csv_out_filename;	// CSV output, NULLPTR for no output
 
 }
 
@@ -65,6 +70,8 @@ namespace Settings::DUAL_RF24 {
 extern uint16_t max_radio_silence;
 
 extern bool variable_rate;
+
+extern bool auto_ack;
 
 extern int ce_0_pin;
 extern int csn_0_pin;

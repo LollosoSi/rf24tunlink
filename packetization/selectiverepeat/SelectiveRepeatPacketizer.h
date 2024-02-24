@@ -14,6 +14,8 @@
 
 #include "../../telemetry/Telemetry.h"
 
+#include "../../utils.h"
+
 #include <cmath>
 #include <cstring>
 
@@ -46,7 +48,7 @@ public:
 protected:
 	unsigned int current_packet_counter = 0;
 	std::deque<RadioPacket*> resend_list;
-	inline void received_ok(){current_packet_counter = 0;if(frames.empty()) return; free_frame(frames.front()); frames.pop_front();}
+	inline void received_ok(){current_packet_counter = 0;if(frames.empty()) return; last_frame_change = current_millis(); free_frame(frames.front()); frames.pop_front();}
 
 	inline void free_frame(Frame<RadioPacket> *frame){
 		delete frame;
@@ -54,13 +56,14 @@ protected:
 
 	bool packetize(TUNMessage *tunmsg);
 
-	inline bool request_missing_packets(bool *array, unsigned int size);
+	inline RadioPacket* request_missing_packets(bool *array, unsigned int size);
 	inline void response_packet_ok(uint8_t id);
 	inline uint8_t get_pack_id(RadioPacket *rp);
 
 	std::string* returnvector = nullptr;
-	unsigned long fragments_received = 0, fragments_sent = 0, fragments_resent = 0, frames_completed = 0, fragments_control = 0, bytes_discarded = 0;
+	unsigned long fragments_received = 0, fragments_sent = 0, fragments_resent = 0, frames_completed = 0, fragments_control = 0, bytes_discarded = 0, frames_dropped = 0;;
 
+	uint64_t last_frame_change = 0;
 
 
 };

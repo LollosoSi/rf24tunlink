@@ -7,19 +7,19 @@
 
 #include "SelectiveRepeatPacketizer.h"
 
-#include "../../utils.h"
-
 SelectiveRepeatPacketizer::SelectiveRepeatPacketizer() :
 		Telemetry("SelectiveRepeatPacketizer") {
 
-	returnvector = new std::string[6] { std::to_string(fragments_received),
+	returnvector = new std::string[7] { std::to_string(fragments_received),
 			std::to_string(fragments_sent), std::to_string(fragments_resent),
 			std::to_string(frames_completed), std::to_string(fragments_control),
-			std::to_string(bytes_discarded) };
+			std::to_string(bytes_discarded), std::to_string(frames_dropped) };
 
-	register_elements(new std::string[6] { "Fragments Received",
+	register_elements(new std::string[7] { "Fragments Received",
 			"Fragments Sent", "Fragments Resent", "Frames Completed",
-			"Control Fragments", "Bytes Discarded" }, 6);
+			"Control Fragments", "Bytes Discarded", "Dropped (timeout)" }, 7);
+
+	last_frame_change = current_millis();
 
 }
 
@@ -36,6 +36,8 @@ std::string* SelectiveRepeatPacketizer::telemetry_collect(
 	returnvector[3] = (std::to_string(frames_completed));
 	returnvector[4] = (std::to_string(fragments_control));
 	returnvector[5] = (std::to_string(bytes_discarded));
+	returnvector[6] = (std::to_string(frames_dropped));
+
 	//returnvector = { std::to_string(fragments_received), std::to_string( fragments_sent), std::to_string(fragments_resent), std::to_string(frames_completed), std::to_string(fragments_control) };
 
 //	fragments_received = fragments_sent = fragments_resent = frames_completed =
@@ -50,6 +52,19 @@ inline bool SelectiveRepeatPacketizer::next_packet_ready() {
 }
 
 RadioPacket* SelectiveRepeatPacketizer::next_packet() {
+
+	if (!frames.empty()) {
+		uint64_t cm;
+		if ((cm = current_millis()) - last_frame_change
+				> Settings::maximum_frame_time) {
+			printf("Dropping packet (timeout)\n");
+			//free_frame(frames.front());
+			//frames.pop_front();
+			received_ok();
+			frames_dropped++;
+		}
+	}
+
 	bool frames_empty = frames.empty(), resend_list_empty = resend_list.empty();
 
 	RadioPacket *rs = nullptr; // resend_list.front();
@@ -121,12 +136,16 @@ bool SelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 	//printf("Packetizing message (size %i), CRC: %i\n", tunmsg->size,
 	//		(int) gencrc(tunmsg->data, tunmsg->size));
 
+	if (frames.empty()) {
+		last_frame_change = current_millis();
+	}
+
 	frames.push_back(frm);
 
 	return (true);
 }
 
-bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
+RadioPacket* SelectiveRepeatPacketizer::request_missing_packets(bool *array,
 		unsigned int size) {
 
 	unsigned int findings = 0;
@@ -139,16 +158,18 @@ bool SelectiveRepeatPacketizer::request_missing_packets(bool *array,
 			findings++;
 
 			rp_answer->data[1 + rp_cursor++] = pack_info(0, 0, i);
+			printf("%i ", i);
 		}
 	}
 	if (findings > 0) {
+		printf("are missing packets\n");
 		fragments_resent += findings;
 		rp_answer->data[0] = pack_info(true, 0, findings);
 		rp_answer->size = 1 + findings;
-		resend_list.push_front(rp_answer);
-		return (true);
+		//resend_list.push_front(rp_answer);
+		return (rp_answer);
 	} else
-		return (false);
+		return (nullptr);
 
 }
 
@@ -192,7 +213,14 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 			if (rp->size > 1) {
 				int counter = 1;
 				if (!frames.empty()) {
-					//printf("Requested packets: ");
+					static uint64_t last_request = 0;
+					uint64_t cm;
+					if ((cm = current_millis()) - last_request
+							< Settings::minimum_ARQ_wait) {
+						printf("Too many packet requests, denying\n");
+						return (true);
+					}
+					printf("Requested packets: ");
 					while (counter < rp->size) {
 
 						bool pkt_boolean = 0;
@@ -223,15 +251,15 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 						unpack_info(frames.front()->packets[position]->data[0],
 								dbg_pkt_boolean, dbg_pkt_id, dbg_pkt_seg);
 
-						//printf("| (SEG: %i, carried: %i) %s ", pkt_seg,
-						//		dbg_pkt_seg,
-						//		frames.front()->packets[position]->data);
-						//resend_list.push_back(
-						//		frames.front()->packets[position]);
+						printf("| (SEG: %i, carried: %i) ", pkt_seg,
+								dbg_pkt_seg);
+						//frames.front()->packets[position]->data);
+						resend_list.push_back(
+								frames.front()->packets[position]);
 
 						counter++;
 					}
-					//printf("\n");
+					printf("\n");
 				} else {
 					printf("Frames requested but request can't be fulfilled\n");
 				}
@@ -326,9 +354,17 @@ bool SelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 			response_packet_ok(id);
 		} else {
 
-			if (request_missing_packets(received_packets_boolean, seg)) {
-
-				printf("Reception is not okay, trying packet request\n");
+			static RadioPacket *rp_answer = nullptr;
+			if ((rp_answer = request_missing_packets(received_packets_boolean,
+					seg))) {
+				static uint64_t last_request = 0;
+				uint64_t cm;
+				if ((cm = current_millis()) - last_request
+						> Settings::minimum_ARQ_wait) {
+					last_request = cm;
+					resend_list.push_front(rp_answer);
+					printf("Reception is not okay, trying packet request\n");
+				}
 
 			} else {
 

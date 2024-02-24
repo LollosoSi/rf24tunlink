@@ -73,26 +73,28 @@ void RF24DualRadio::set_speed_pa_retries() {
 void RF24DualRadio::loop(unsigned long delta) {
 
 	while (fill_buffer_tx()) {
+		//if (send_tx()) {
+
+		//}
+	}
+	while (read()) {
 
 	}
-	if (send_tx()) {
 
-	}
+	/*if (!read_thread_running) {
 
-	if (!read_thread_running) {
+	 std::thread lp([&] {
+	 read_thread_running = true;
+	 while (read_thread_running) {
+	 while (read()) {
 
-		std::thread lp([&] {
-			read_thread_running = true;
-			while (read_thread_running) {
-				if (read()) {
-
-				}
-				std::this_thread::yield();
-			}
-		});
-		lp.detach();
-
-	}
+	 }
+	 std::this_thread::yield();
+	 usleep(10);
+	 }
+	 });
+	 lp.detach();
+	 }*/
 
 }
 
@@ -115,9 +117,9 @@ bool RF24DualRadio::read() {
 		switch (pipe) {
 		default:
 			// Radio isn't working properly, try reset
-			result = false;
+			//result = false;
 			//reset_radio();
-			printf("Bad pipe received. Radio reset\n");
+			//printf("Bad pipe received. Radio reset\n");
 
 			break;
 
@@ -144,8 +146,8 @@ bool RF24DualRadio::read() {
 			break;
 
 		}
-		if (pipe != 0 && pipe != 1)
-			printf("Pipe %i\n", pipe);
+		//if (pipe != 0 && pipe != 1)
+		//	printf("Pipe %i\n", pipe);
 		packets_in++;
 		//last_packet = current_millis();
 
@@ -171,26 +173,29 @@ bool RF24DualRadio::send_tx() {
 
 bool RF24DualRadio::fill_buffer_tx() {
 
+	static uint8_t pk = 0;
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
 	if (radio_1->isFifo(true, false)) {
-		return (false);
+		pk = 0;
+		//send_tx();
+		//return (false);
 	}
 
 	RadioPacket *rp = nullptr;
-	if (!(rp = next_packet()))
+	if (!(rp = next_packet())) {
+		pk = 0;
+		send_tx();
 		return (false);
+	}
 
-//if (rp->size > 1) {
-//	printf("Loading packet:\n");
-//	print_hex(rp->data + 1, rp->size - 1);
-//}
-	//usleep(10000);
+	if (radio_1->writeFast(rp->data, rp->size,
+			!Settings::DUAL_RF24::auto_ack)) {
 
-	if (radio_1->writeFast(rp->data, rp->size, false)) {
 		radio_bytes_out += rp->size;
 		return (true);
 	} else {
+		send_tx();
 		return (false);
 	}
 
@@ -249,8 +254,8 @@ void RF24DualRadio::reset_radio() {
 // save on transmission time by setting the radio to only transmit the
 // number of bytes we need to transmit
 // radio->setPayloadSize(Settings::payload_size);
-	radio_0->setAutoAck(false);
-	radio_1->setAutoAck(false);
+	radio_0->setAutoAck(Settings::DUAL_RF24::auto_ack);
+	radio_1->setAutoAck(Settings::DUAL_RF24::auto_ack);
 
 // to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
 	radio_0->enableDynamicPayloads(); // ACK payloads are dynamically sized

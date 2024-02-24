@@ -9,10 +9,13 @@
 
 #include "../../utils.h"
 
-RF24Radio::RF24Radio(bool primary) :
+RF24Radio::RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t channel) :
 		Telemetry("RF24Radio") {
 
 	this->primary = primary;
+	this->ce_pin = ce_pin;
+	this->csn_pin = csn_pin;
+	this->channel = channel;
 
 	register_elements(new std::string[6] { "AVG ARC", "Packets Out",
 			"Packets In", "Radio Bytes Out", "Radio Bytes In", "Data Rate" },
@@ -58,7 +61,7 @@ void RF24Radio::check_fault() {
 
 void RF24Radio::setup() {
 	if (!radio) {
-		radio = new RF24(Settings::RF24::ce_pin, Settings::RF24::csn_pin,
+		radio = new RF24(ce_pin, csn_pin,
 				Settings::RF24::spi_speed);
 	}
 
@@ -406,7 +409,7 @@ void RF24Radio::reset_radio() {
 // this feature for all nodes (TX & RX) to use ACK payloads.
 	radio->enableAckPayload();
 
-	radio->setChannel(Settings::RF24::channel);
+	radio->setChannel(channel);
 
 	radio->setCRCLength(Settings::RF24::crc_length);
 
