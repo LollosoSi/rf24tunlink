@@ -46,14 +46,29 @@ void TelemetryPrinter::tick() {
 
 		it = elements.begin();
 
-		std::system("clear");
-
 		while (it != elements.end()) {
 
 			std::string *telemetrydata = (*it)->telemetry_collect(1000);
 			const std::string *elementnames = (*it)->get_element_names();
 
 			(*outfile) << (*it)->get_name().c_str() << Settings::csv_divider;
+
+			for (int i = 0; i < (*it)->size()-1; i++) {
+				(*outfile) << Settings::csv_divider;
+			}
+
+			++it;
+		}
+		(*outfile) << "\n";
+
+		it = elements.begin();
+
+		while (it != elements.end()) {
+
+			std::string *telemetrydata = (*it)->telemetry_collect(1000);
+			const std::string *elementnames = (*it)->get_element_names();
+
+			//(*outfile) << Settings::csv_divider;
 
 			for (int i = 0; i < (*it)->size(); i++) {
 				(*outfile) << elementnames[i].c_str() << Settings::csv_divider;
@@ -72,8 +87,8 @@ void TelemetryPrinter::tick() {
 
 	while (it != elements.end()) {
 
-		if (outfile)
-			(*outfile) << Settings::csv_divider;
+		//if (outfile)
+		//	(*outfile) << Settings::csv_divider;
 
 		std::string *telemetrydata = (*it)->telemetry_collect(1000);
 		const std::string *elementnames = (*it)->get_element_names();

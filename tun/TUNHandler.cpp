@@ -67,7 +67,7 @@ std::string* TUNHandler::telemetry_collect(const unsigned long delta) {
 	returnvector[3] = (std::to_string(frames_out));
 	returnvector[4] = (std::to_string(frames_in));
 
-	//bytes_successful = bytes_failed = bytes_out = 0;
+	bytes_successful = bytes_failed = bytes_out = frames_out = frames_in = 0;
 	return (returnvector);
 }
 

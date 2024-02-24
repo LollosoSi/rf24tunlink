@@ -31,6 +31,8 @@ using namespace std;
 #include "telemetry/TelemetryPrinter.h"
 #include "telemetry/TimeTelemetryElement.h"
 
+#include "interfaces/UARTHandler.h"
+
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
 RadioHandler<RadioPacket> *rh0 = nullptr;
