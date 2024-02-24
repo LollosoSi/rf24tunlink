@@ -24,6 +24,7 @@ uint16_t minimum_ARQ_wait = 3;
 uint16_t maximum_frame_time = 30;
 
 char *csv_out_filename = nullptr;	// CSV output, NULLPTR for no output
+char csv_divider = ',';
 
 }
 

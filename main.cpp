@@ -28,6 +28,9 @@ using namespace std;
 #include "radio/NRF24/RF24Radio.h"
 #include "radio/NRF24_DUAL/RF24DualRadio.h"
 
+#include "telemetry/TelemetryPrinter.h"
+#include "telemetry/TimeTelemetryElement.h"
+
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
 RadioHandler<RadioPacket> *rh0 = nullptr;
@@ -133,83 +136,38 @@ int main(int argc, char **argv) {
 	// Start the interface read thread
 	tunh->startThread();
 
+	TimeTelemetryElement tte;
+	TelemetryPrinter tp(Settings::csv_out_filename);
+	tp.add_element(dynamic_cast<Telemetry*>(&tte));
+	tp.add_element(dynamic_cast<Telemetry*>(rh0));
+	tp.add_element(dynamic_cast<Telemetry*>(csp));
+	tp.add_element(dynamic_cast<Telemetry*>(tunh));
+
 	std::thread lp([&] {
 		while (running) {
-			std::system("clear");
-			std::string *telemetrydata = ((dynamic_cast<Telemetry*>(rh0)))->telemetry_collect(
-			1000);
-			const std::string *elementnames =
-					((dynamic_cast<Telemetry*>(rh0)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n",
-					(dynamic_cast<Telemetry*>(rh0))->get_name().c_str());
-			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh0)))->size();
-					i++) {
-				printf("%s: %s\t", elementnames[i].c_str(),
-						telemetrydata[i].c_str());
-			}
-			printf("\n\n");
+			tp.tick();
 
-			/*telemetrydata =
-					((dynamic_cast<Telemetry*>(rh1)))->telemetry_collect(1000);
-			elementnames =
-					((dynamic_cast<Telemetry*>(rh1)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n",
-					(dynamic_cast<Telemetry*>(rh1))->get_name().c_str());
-			for (int i = 0; i < ((dynamic_cast<Telemetry*>(rh1)))->size();
-					i++) {
-				printf("%s: %s\t", elementnames[i].c_str(),
-						telemetrydata[i].c_str());
-			}
-			printf("\n\n");*/
-
-			telemetrydata =
-					((dynamic_cast<Telemetry*>(csp)))->telemetry_collect(1000);
-			elementnames =
-					((dynamic_cast<Telemetry*>(csp)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n",
-					(dynamic_cast<Telemetry*>(csp))->get_name().c_str());
-			for (int i = 0; i < ((dynamic_cast<Telemetry*>(csp)))->size();
-					i++) {
-				printf("%s: %s\t", elementnames[i].c_str(),
-						telemetrydata[i].c_str());
-			}
-			printf("\n\n");
-
-			telemetrydata =
-					((dynamic_cast<Telemetry*>(tunh)))->telemetry_collect(1000);
-			elementnames =
-					((dynamic_cast<Telemetry*>(tunh)))->get_element_names();
-			printf("\t\t%s Telemetry entries\n",
-					(dynamic_cast<Telemetry*>(tunh))->get_name().c_str());
-			for (int i = 0; i < ((dynamic_cast<Telemetry*>(tunh)))->size();
-					i++) {
-				printf("%s: %s\t", elementnames[i].c_str(),
-						telemetrydata[i].c_str());
-			}
-			printf("\n\n");
-
-			 usleep(1000000); // 1 second
+			usleep(1000000); // 1 second
 			//usleep(500000);
 			std::this_thread::yield();
 		}
 	});
 	lp.detach();
 
-
 	/*
-	std::thread lr([&] {
-			while (running) {
-				rh1->loop(1);
-				std::this_thread::yield();
-			}
-		});
-		lr.detach();*/
+	 std::thread lr([&] {
+	 while (running) {
+	 rh1->loop(1);
+	 std::this_thread::yield();
+	 }
+	 });
+	 lr.detach();*/
 
 	// Program loop (radio loop)
 	while (running) {
 		//do {
-			rh0->loop(1);
-			//rh1->loop(1);
+		rh0->loop(1);
+		//rh1->loop(1);
 
 		//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
 		std::this_thread::yield();
@@ -230,7 +188,7 @@ int main(int argc, char **argv) {
 	delete tunh;
 	delete csp;
 	delete rh0;
-	delete rh1;
+	//delete rh1;
 
 	return (0);
 }
