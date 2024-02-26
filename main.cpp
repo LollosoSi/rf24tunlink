@@ -179,8 +179,8 @@ int main(int argc, char **argv) {
 		//usleep(10000); // 14% cpu
 		//if(csp->empty())
 		//	usleep(3000);
-		//if(!rh->is_receiving_data() && csp->empty()){
-		//	usleep(10000);
+		//if(!rh0->is_receiving_data() && csp->empty())
+		//	usleep(100);
 		//usleep(10000);
 		//	usleep(2);
 		//std::this_thread::yield();
