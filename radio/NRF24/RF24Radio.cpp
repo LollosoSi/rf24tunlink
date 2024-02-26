@@ -43,7 +43,7 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	returnvector[2] = (std::to_string(packets_in));
 	returnvector[3] = (std::to_string(radio_bytes_out));
 	returnvector[4] = (std::to_string(radio_bytes_in));
-	returnvector[5] = (std::to_string((radio_bytes_out+radio_bytes_in)*8/1000.0));
+	returnvector[6] = (std::to_string((radio_bytes_out+radio_bytes_in)*8/1000.0));
 	// implemented in check_fault() - returnvector[5] = (std::to_string(radio->getDataRate()));
 
 	sum_arc = count_arc = packets_in = radio_bytes_out = radio_bytes_in = 0;
