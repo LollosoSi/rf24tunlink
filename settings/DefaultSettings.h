@@ -28,6 +28,10 @@ uint16_t maximum_frame_time = 30;
 char *csv_out_filename = nullptr;	// CSV output, NULLPTR for no output
 char csv_divider = ',';
 
+bool test_bits = false;
+
+uint8_t mode = 1; // 0 character stuffing, 1 selective repeat, 2 throughput tester
+
 void apply_settings(std::string &name, std::string &value) {
 
 	if (name == "addr") {
@@ -45,6 +49,10 @@ void apply_settings(std::string &name, std::string &value) {
 		strcpy(csv_out_filename, value.c_str());
 	} else if (name == "display_telemetry") {
 		display_telemetry = (value == "yes");
+	} else if (name == "test_bits") {
+		test_bits = (value == "yes");
+	} else if (name == "mode") {
+		mode = atoi(value.c_str());
 	}
 
 }
@@ -102,7 +110,7 @@ void apply_settings(std::string &name, std::string &value) {
 		max_radio_silence = atoi(value.c_str());
 	} else if (name == "primary") {
 		primary = value == "yes";
-	}else if (name == "auto_ack") {
+	} else if (name == "auto_ack") {
 		auto_ack = value == "yes";
 	}
 

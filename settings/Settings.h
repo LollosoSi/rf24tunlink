@@ -31,6 +31,10 @@ const unsigned int max_pkt_size = 32;
 extern char *csv_out_filename;	// CSV output, NULLPTR for no output
 extern char csv_divider;
 
+extern bool test_bits;
+
+extern uint8_t mode;  // 0 character stuffing, 1 selective repeat, 2 throughput tester
+
 extern void apply_settings(std::string& name, std::string& value);
 
 }

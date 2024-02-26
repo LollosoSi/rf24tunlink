@@ -96,7 +96,8 @@ int main(int argc, char **argv) {
 
 	printf("Radio is: %i\n", (int) Settings::RF24::primary);
 	//bool primary = argv[1][0] == '1';
-	cout << "Radio is " << (Settings::RF24::primary ? "Primary" : "Secondary") << endl;
+	cout << "Radio is " << (Settings::RF24::primary ? "Primary" : "Secondary")
+			<< endl;
 
 	// CTRL+C Handler
 	struct sigaction sigIntHandler;
@@ -123,7 +124,21 @@ int main(int argc, char **argv) {
 	//rh0 = new RF24DualRadio(primary);
 
 	// Choose a packetizer
-	csp = new SelectiveRepeatPacketizer();
+	switch (Settings::mode) {
+	default:
+		csp = new SelectiveRepeatPacketizer();
+		break;
+	case 0:
+		csp = new CharacterStuffingPacketizer();
+		break;
+	case 1:
+		csp = new SelectiveRepeatPacketizer();
+		break;
+	case 2:
+		csp = new ThroughputTester();
+		break;
+	}
+
 	Settings::mtu = csp->get_mtu();
 
 	// Initialise the interface

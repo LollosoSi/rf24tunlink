@@ -13,3 +13,4 @@ variable_rate=yes
 max_radio_silence=600
 auto_ack=yes
 display_telemetry=yes
+test_bits=yes
