@@ -156,7 +156,7 @@ void RF24Radio::interrupt_routine() {
 inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 
 	if (Settings::RF24::variable_rate && cp->data[0] != radio->getDataRate()
-			&& cp->data[0] < 3 && cp->data[0] > 1) {
+			&& cp->data[0] > 3 && cp->data[0] <= 1) {
 		printf("-----> Moving to datarate: %i\n", cp->data[0]);
 		Settings::RF24::data_rate = (rf24_datarate_e) cp->data[0];
 
@@ -167,8 +167,8 @@ inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 		reset_radio();
 		printf("Variable rate is not enabled. Radio reset\n");
 	} else if (cp->data[0] <= 3 && cp->data[0] >= 0) {
-		reset_radio();
-		printf("Bad data received. Radio reset\n");
+		//reset_radio();
+		printf("Bad data received\n");
 	}
 
 }

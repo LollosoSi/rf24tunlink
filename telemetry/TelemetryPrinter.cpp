@@ -53,7 +53,7 @@ void TelemetryPrinter::tick() {
 
 			(*outfile) << (*it)->get_name().c_str() << Settings::csv_divider;
 
-			for (int i = 0; i < (*it)->size()-1; i++) {
+			for (int i = 0; i < (*it)->size() - 1; i++) {
 				(*outfile) << Settings::csv_divider;
 			}
 
@@ -83,7 +83,8 @@ void TelemetryPrinter::tick() {
 
 	it = elements.begin();
 
-	std::system("clear");
+	if (Settings::display_telemetry)
+		std::system("clear");
 
 	while (it != elements.end()) {
 
@@ -92,16 +93,18 @@ void TelemetryPrinter::tick() {
 
 		std::string *telemetrydata = (*it)->telemetry_collect(1000);
 		const std::string *elementnames = (*it)->get_element_names();
-		printf("\t\t%s Telemetry entries\n", (*it)->get_name().c_str());
+		if (Settings::display_telemetry)
+			printf("\t\t%s Telemetry entries\n", (*it)->get_name().c_str());
 		for (int i = 0; i < (*it)->size(); i++) {
 
 			if (outfile)
 				(*outfile) << telemetrydata[i].c_str() << Settings::csv_divider;
-
-			printf("%s: %s\t", elementnames[i].c_str(),
-					telemetrydata[i].c_str());
+			if (Settings::display_telemetry)
+				printf("%s: %s\t", elementnames[i].c_str(),
+						telemetrydata[i].c_str());
 		}
-		printf("\n\n");
+		if (Settings::display_telemetry)
+			printf("\n\n");
 
 		++it;
 	}

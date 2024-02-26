@@ -12,6 +12,8 @@
 
 namespace Settings {
 
+bool display_telemetry = true;
+
 char *address = new char[18] { '\0' };
 char *destination = new char[18] { '\0' };
 char *netmask = new char[18] { '\0' };
@@ -41,6 +43,8 @@ void apply_settings(std::string &name, std::string &value) {
 	} else if (name == "csv_filename") {
 		csv_out_filename = new char[value.length() + 1];
 		strcpy(csv_out_filename, value.c_str());
+	} else if (name == "display_telemetry") {
+		display_telemetry = (value == "yes");
 	}
 
 }

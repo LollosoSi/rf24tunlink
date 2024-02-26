@@ -14,6 +14,8 @@
 
 namespace Settings {
 
+extern bool display_telemetry;
+
 extern char *address; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
 extern char *destination;		// Destination of the interface
 extern char *netmask;			// Network address mask

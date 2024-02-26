@@ -12,3 +12,4 @@ spi_speed=6000000
 variable_rate=yes
 max_radio_silence=600
 auto_ack=yes
+display_telemetry=yes
