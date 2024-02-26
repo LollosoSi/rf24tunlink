@@ -280,7 +280,7 @@ bool RF24Radio::fill_buffer_tx() {
 //}
 	//usleep(10000);
 
-	if (radio->writeFast(rp->data, rp->size, false)) {
+	if (radio->writeFast(rp->data, rp->size, !Settings::RF24::auto_ack)) {
 		radio_bytes_out += rp->size;
 		return (true);
 	} else {
@@ -402,7 +402,7 @@ void RF24Radio::reset_radio() {
 // save on transmission time by setting the radio to only transmit the
 // number of bytes we need to transmit
 // radio->setPayloadSize(Settings::payload_size);
-	radio->setAutoAck(true);
+	radio->setAutoAck(Settings::RF24::auto_ack);
 
 // to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
 	radio->enableDynamicPayloads(); // ACK payloads are dynamically sized

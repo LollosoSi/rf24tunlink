@@ -44,6 +44,7 @@ extern uint16_t max_radio_silence;
 extern int ce_pin;
 extern int csn_pin;
 extern uint32_t spi_speed;
+extern bool auto_ack;
 
 extern uint8_t radio_delay;
 extern uint8_t radio_retries;

@@ -60,6 +60,7 @@ int csn_pin = 0; // Possible values: 0 1 for spi1: 10 11 12
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
 uint32_t spi_speed = 6000000; //(10000000-4000000);
+bool auto_ack = true;
 
 rf24_datarate_e data_rate = RF24_2MBPS;
 rf24_pa_dbm_e radio_power = RF24_PA_MAX;
@@ -97,6 +98,8 @@ void apply_settings(std::string &name, std::string &value) {
 		max_radio_silence = atoi(value.c_str());
 	} else if (name == "primary") {
 		primary = value == "yes";
+	}else if (name == "auto_ack") {
+		auto_ack = value == "yes";
 	}
 
 }
