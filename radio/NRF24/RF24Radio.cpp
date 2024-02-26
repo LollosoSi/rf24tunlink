@@ -17,13 +17,13 @@ RF24Radio::RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t chan
 	this->csn_pin = csn_pin;
 	this->channel = channel;
 
-	register_elements(new std::string[6] { "AVG ARC", "Packets Out",
-			"Packets In", "Radio Bytes Out", "Radio Bytes In", "Data Rate" },
-			6);
+	register_elements(new std::string[7] { "AVG ARC", "Packets Out",
+			"Packets In", "Radio Bytes Out", "Radio Bytes In", "Data Rate", "Kbps" },
+			7);
 
-	returnvector = new std::string[6] { std::to_string(0), std::to_string(0),
+	returnvector = new std::string[7] { std::to_string(0), std::to_string(0),
 			std::to_string(0), std::to_string(0), std::to_string(0),
-			std::to_string(0) };
+			std::to_string(0), std::to_string(0) };
 
 
 
@@ -43,6 +43,7 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	returnvector[2] = (std::to_string(packets_in));
 	returnvector[3] = (std::to_string(radio_bytes_out));
 	returnvector[4] = (std::to_string(radio_bytes_in));
+	returnvector[5] = (std::to_string((radio_bytes_out+radio_bytes_in)*8/1000.0));
 	// implemented in check_fault() - returnvector[5] = (std::to_string(radio->getDataRate()));
 
 	sum_arc = count_arc = packets_in = radio_bytes_out = radio_bytes_in = 0;
