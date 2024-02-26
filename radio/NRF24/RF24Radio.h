@@ -17,7 +17,6 @@
 #include <unistd.h>
 
 
-
 class RF24Radio: public RadioHandler<RadioPacket>, public Telemetry {
 public:
 	RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t channel);

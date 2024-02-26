@@ -9,6 +9,9 @@
 
 #include <RF24/RF24.h>
 
+#include <string>
+#include <vector>
+
 namespace Settings {
 
 extern char *address; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
@@ -25,9 +28,14 @@ const unsigned int max_pkt_size = 32;
 
 extern char *csv_out_filename;	// CSV output, NULLPTR for no output
 extern char csv_divider;
+
+extern void apply_settings(std::string& name, std::string& value);
+
 }
 
 namespace Settings::RF24 {
+
+extern bool primary;
 
 extern bool variable_rate;
 
@@ -35,7 +43,7 @@ extern uint16_t max_radio_silence;
 
 extern int ce_pin;
 extern int csn_pin;
-extern unsigned long spi_speed;
+extern uint32_t spi_speed;
 
 extern uint8_t radio_delay;
 extern uint8_t radio_retries;
@@ -63,6 +71,8 @@ inline uint8_t select_retries() {
 					radio_retries_tuned[1] : radio_retries_tuned[0]);
 }
 
+extern void apply_settings(std::string& name, std::string& value);
+
 }
 
 namespace Settings::DUAL_RF24 {
@@ -79,7 +89,7 @@ extern int csn_0_pin;
 extern int ce_1_pin;
 extern int csn_1_pin;
 
-extern unsigned long spi_speed;
+extern uint32_t spi_speed;
 
 extern rf24_datarate_e data_rate;
 extern rf24_pa_dbm_e radio_power;

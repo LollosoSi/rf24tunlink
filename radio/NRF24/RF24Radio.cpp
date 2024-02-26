@@ -25,6 +25,8 @@ RF24Radio::RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t chan
 			std::to_string(0), std::to_string(0), std::to_string(0),
 			std::to_string(0) };
 
+
+
 	setup();
 }
 

@@ -33,6 +33,8 @@ using namespace std;
 
 #include "interfaces/UARTHandler.h"
 
+#include "settings/SettingsFileReader.h"
+
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
 RadioHandler<RadioPacket> *rh0 = nullptr;
@@ -86,14 +88,15 @@ int main(int argc, char **argv) {
 
 	if (argc < 2) {
 		printf(
-				"You need to specify primary or secondary role (./thisprogram [1 or 2])");
-		return 0;
+				"You need to include the settings file (./thisprogram settings.txt)\n");
+		return (0);
 	}
 
-	printf("Radio is: %d\n", (int) argv[1][0]);
+	SettingsFileReader sfr(argv[1]);
 
-	bool primary = argv[1][0] == '1';
-	cout << "Radio is " << (primary ? "Primary" : "Secondary") << endl;
+	printf("Radio is: %i\n", (int) Settings::RF24::primary);
+	//bool primary = argv[1][0] == '1';
+	cout << "Radio is " << (Settings::RF24::primary ? "Primary" : "Secondary") << endl;
 
 	// CTRL+C Handler
 	struct sigaction sigIntHandler;
@@ -103,7 +106,7 @@ int main(int argc, char **argv) {
 	sigaction(SIGINT, &sigIntHandler, NULL);
 
 	// Initial Setup
-	if (primary) {
+	if (Settings::RF24::primary) {
 		strcpy(Settings::address, "192.168.10.1");
 		strcpy(Settings::destination, "192.168.10.2");
 	} else {
@@ -113,7 +116,7 @@ int main(int argc, char **argv) {
 	strcpy(Settings::netmask, "255.255.255.0");
 
 	// Choose a radio
-	rh0 = new RF24Radio(primary, Settings::DUAL_RF24::ce_0_pin,
+	rh0 = new RF24Radio(Settings::RF24::primary, Settings::DUAL_RF24::ce_0_pin,
 			Settings::DUAL_RF24::csn_0_pin, Settings::DUAL_RF24::channel_0);
 	//rh1 = new RF24Radio(primary, Settings::DUAL_RF24::ce_1_pin,
 	//		Settings::DUAL_RF24::csn_1_pin, Settings::DUAL_RF24::channel_1);

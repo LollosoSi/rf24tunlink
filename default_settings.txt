@@ -1,0 +1,13 @@
+addr=192.168.10.1
+dest_addr=192.168.10.2
+netmask=255.255.255.0
+primary=yes
+iname=arocc
+control_packets=yes
+csv_filename=output.csv
+channel=124
+ce_pin=24
+csn_pin=0
+spi_speed=6000000
+variable_rate=yes
+max_radio_silence=600

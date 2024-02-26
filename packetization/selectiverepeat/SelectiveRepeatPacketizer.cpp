@@ -40,7 +40,7 @@ std::string* SelectiveRepeatPacketizer::telemetry_collect(
 
 	//returnvector = { std::to_string(fragments_received), std::to_string( fragments_sent), std::to_string(fragments_resent), std::to_string(frames_completed), std::to_string(fragments_control) };
 
-	fragments_received = fragments_sent = fragments_resent = frames_completed =	fragments_control = bytes_discarded = bytes_discarded = frames_dropped = 0;
+	fragments_received = fragments_sent = fragments_resent = frames_completed =	fragments_control = bytes_discarded = frames_dropped = 0;
 
 	return (returnvector);
 
