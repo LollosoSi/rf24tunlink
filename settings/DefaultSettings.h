@@ -112,6 +112,15 @@ void apply_settings(std::string &name, std::string &value) {
 		primary = value == "yes";
 	} else if (name == "auto_ack") {
 		auto_ack = value == "yes";
+	} else if (name == "crc_length") {
+		crc_length = atoi(value.c_str()) == 0 ? RF24_CRC_DISABLED :
+						atoi(value.c_str()) == 1 ? RF24_CRC_8 : RF24_CRC_16;
+	}else if (name == "data_rate") {
+		data_rate = atoi(value.c_str()) == 2 ? RF24_250KBPS :
+						atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
+	}else if (name == "radio_power") {
+		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
+						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
 	}
 
 }

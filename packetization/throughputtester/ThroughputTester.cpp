@@ -12,12 +12,12 @@
 ThroughputTester::ThroughputTester() :
 		Telemetry("Throughput Tester") {
 
-	returnvector = new std::string[11] { "0" };
+	returnvector = new std::string[13] { "0" };
 
-	register_elements(new std::string[11] { "Sequential Packets",
+	register_elements(new std::string[13] { "Sequential Packets",
 			"Unsequential Packets", "Valid Packets", "Invalid Packets",
 			"Total Bytes", "Valid Bytes", "Kbps", "Representation",
-			"Valid Bits", "Invalid Bits", "Error bursts" }, 11);
+			"Valid Bits", "Flipped Bits", "Error bursts", "Packets with flips", "Bursts in a single packet" }, 13);
 
 	for (int i = 0; i < 10; i++) {
 		test_packets[i].size = 32;
@@ -46,9 +46,14 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	unsigned long bits_valid = 0;
 	unsigned long bits_invalid = 0;
 
+	unsigned long packets_broken = 0;
+
 	// Each position means m+1 length of error bursts: 1 error in a row, 2 errors in a row, etc
 	unsigned long error_bursts[31] = { 0 };
 	std::stringstream error_bursts_output_string;
+
+	unsigned long bursts_in_packet[32] = { 0 };
+	std::stringstream bursts_in_packet_output_string;
 
 	unsigned int last_valid_packet = 0;
 
@@ -64,6 +69,7 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 				packets_invalid++;
 			}
 			int error_burst_count = 0;
+			int separate_burst_count = 0;
 			bool error_trig = 0;
 			for (int j = 0; j < received_packets[i].size; j++) {
 				if (received_packets[i].data[j] == test_packets[0].data[j]) {
@@ -72,7 +78,7 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 					if (error_burst_count > 0) {
 						error_bursts[error_burst_count - 1]++;
 						error_burst_count = 0;
-
+						separate_burst_count++;
 					}
 
 				} else {
@@ -85,13 +91,18 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 			if (error_burst_count > 0) {
 				error_bursts[error_burst_count - 1]++;
 				error_burst_count = 0;
+				separate_burst_count++;
 			}
+			bursts_in_packet[separate_burst_count]++;
+
 
 			symb[i] = received_packets[i].size != 32 ? 'z' :
 						error_trig ? 'i' : 'o';
 			bytes_in += received_packets[i].size;
 			if (received_packets[i].size == 32 && !error_trig)
 				packets_valid++;
+			else if(error_trig)
+				packets_broken++;
 
 		}
 
@@ -136,14 +147,29 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 
 		if (error_bursts[i] > 0) {
 			found_one = 1;
-			error_bursts_output_string << (int) (i + 1) << " bursts: "
-					<< error_bursts[i] << "\t";
+			error_bursts_output_string << "Bursts of " << (int) (i + 1) << ": "
+					<< error_bursts[i] << "  ";
 		}
 
 	}
 	if (!found_one)
 		error_bursts_output_string
 				<< (Settings::test_bits ? " none!" : " not checked");
+
+	bool found_one_burst_in_packet = 0;
+	bursts_in_packet_output_string << "";
+		for (int i = 0; i < 32; i++) {
+
+			if (bursts_in_packet[i] > 0) {
+				found_one_burst_in_packet = 1;
+				bursts_in_packet_output_string << "Had " << (int) (i) << " separate bursts: "
+						<< bursts_in_packet[i] << "  ";
+			}
+
+		}
+		if (!found_one_burst_in_packet)
+			bursts_in_packet_output_string
+					<< (Settings::test_bits ? " none!" : " not checked");
 
 	returnvector[0] = std::to_string(packets_sequential);
 	returnvector[1] = std::to_string(packets_unsequential);
@@ -156,6 +182,8 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	returnvector[8] = std::to_string(bits_valid);
 	returnvector[9] = std::to_string(bits_invalid);
 	returnvector[10] = error_bursts_output_string.str();
+	returnvector[11] = std::to_string(packets_broken);
+	returnvector[12] = bursts_in_packet_output_string.str();
 
 	received_packets_length = 0;
 
