@@ -124,13 +124,13 @@ int main(int argc, char **argv) {
 				Settings::RF24::csn_pin, Settings::RF24::channel);
 		break;
 	case 1:
-			rh0 = new RF24Radio(Settings::RF24::primary,
-					Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin,
-					Settings::DUAL_RF24::channel_0);
-			rh1 = new RF24Radio(Settings::RF24::primary,
-					Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin,
-					Settings::DUAL_RF24::channel_1);
-			break;
+		rh0 = new RF24Radio(Settings::RF24::primary,
+				Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin,
+				Settings::DUAL_RF24::channel_0);
+		rh1 = new RF24Radio(Settings::RF24::primary,
+				Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin,
+				Settings::DUAL_RF24::channel_1);
+		break;
 	case 2:
 		rh0 = new RF24DualRadio(Settings::RF24::primary);
 		break;
@@ -168,8 +168,8 @@ int main(int argc, char **argv) {
 	csp->register_tun_handler(tunh);
 	tunh->register_packet_handler(csp);
 	rh0->register_packet_handler(csp);
-
-	rh1->register_packet_handler(csp);
+	if (rh1 != nullptr)
+		rh1->register_packet_handler(csp);
 
 	// Start the Radio and register it
 	// no action required
