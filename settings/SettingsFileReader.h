@@ -41,6 +41,7 @@ public:
 
 			Settings::apply_settings(a,b);
 			Settings::RF24::apply_settings(a,b);
+			Settings::DUAL_RF24::apply_settings(a,b);
 
 		}
 

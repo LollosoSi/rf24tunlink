@@ -127,7 +127,7 @@ int main(int argc, char **argv) {
 		rh0 = new RF24Radio(Settings::RF24::primary,
 				Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin,
 				Settings::DUAL_RF24::channel_0);
-		rh1 = new RF24Radio(Settings::RF24::primary,
+		rh1 = new RF24Radio(!Settings::RF24::primary,
 				Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin,
 				Settings::DUAL_RF24::channel_1);
 		break;
@@ -181,6 +181,8 @@ int main(int argc, char **argv) {
 	TelemetryPrinter tp(Settings::csv_out_filename);
 	tp.add_element(dynamic_cast<Telemetry*>(&tte));
 	tp.add_element(dynamic_cast<Telemetry*>(rh0));
+	if (rh1 != nullptr)
+		tp.add_element(dynamic_cast<Telemetry*>(rh1));
 	tp.add_element(dynamic_cast<Telemetry*>(csp));
 	tp.add_element(dynamic_cast<Telemetry*>(tunh));
 
