@@ -35,6 +35,8 @@ extern bool test_bits;
 
 extern uint8_t mode;  // 0 character stuffing, 1 selective repeat, 2 throughput tester
 
+extern uint8_t radio_handler;
+
 extern void apply_settings(std::string& name, std::string& value);
 
 }

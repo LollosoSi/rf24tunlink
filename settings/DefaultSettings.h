@@ -32,6 +32,9 @@ bool test_bits = false;
 
 uint8_t mode = 1; // 0 character stuffing, 1 selective repeat, 2 throughput tester
 
+uint8_t radio_handler = 0; // 0 RF24, 1 Double RF24, 2 DualRF24 special handler, 3 LORA
+
+
 void apply_settings(std::string &name, std::string &value) {
 
 	if (name == "addr") {
@@ -53,8 +56,10 @@ void apply_settings(std::string &name, std::string &value) {
 		test_bits = (value == "yes");
 	} else if (name == "mode") {
 		mode = atoi(value.c_str());
-	}else if (name == "maximum_frame_time") {
+	} else if (name == "maximum_frame_time") {
 		maximum_frame_time = atol(value.c_str());
+	} else if (name == "radio_handler") {
+		radio_handler = atoi(value.c_str());
 	}
 
 }

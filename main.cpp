@@ -117,11 +117,31 @@ int main(int argc, char **argv) {
 	strcpy(Settings::netmask, "255.255.255.0");
 
 	// Choose a radio
-	rh0 = new RF24Radio(Settings::RF24::primary, Settings::DUAL_RF24::ce_0_pin,
-			Settings::DUAL_RF24::csn_0_pin, Settings::DUAL_RF24::channel_0);
-	//rh1 = new RF24Radio(primary, Settings::DUAL_RF24::ce_1_pin,
-	//		Settings::DUAL_RF24::csn_1_pin, Settings::DUAL_RF24::channel_1);
-	//rh0 = new RF24DualRadio(primary);
+	switch (Settings::radio_handler) {
+	default:
+	case 0:
+		rh0 = new RF24Radio(Settings::RF24::primary, Settings::RF24::ce_pin,
+				Settings::RF24::csn_pin, Settings::RF24::channel);
+		break;
+	case 1:
+			rh0 = new RF24Radio(Settings::RF24::primary,
+					Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin,
+					Settings::DUAL_RF24::channel_0);
+			rh1 = new RF24Radio(Settings::RF24::primary,
+					Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin,
+					Settings::DUAL_RF24::channel_1);
+			break;
+	case 2:
+		rh0 = new RF24DualRadio(Settings::RF24::primary);
+		break;
+
+	case 3:
+		// Not yet implemented
+		printf(
+				"This Radio handler is not available! Please either finish implementation or pick another radio\n");
+		exit(1);
+		break;
+	}
 
 	// Choose a packetizer
 	switch (Settings::mode) {
@@ -148,7 +168,8 @@ int main(int argc, char **argv) {
 	csp->register_tun_handler(tunh);
 	tunh->register_packet_handler(csp);
 	rh0->register_packet_handler(csp);
-	//rh1->register_packet_handler(csp);
+
+	rh1->register_packet_handler(csp);
 
 	// Start the Radio and register it
 	// no action required
@@ -184,24 +205,44 @@ int main(int argc, char **argv) {
 	 lr.detach();*/
 
 	// Program loop (radio loop)
-	while (running) {
-		//do {
-		rh0->loop(1);
-		//rh1->loop(1);
+	if (rh1 != nullptr)
+		while (running) {
+			//do {
+			rh0->loop(1);
+			rh1->loop(1);
 
-		//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
-		std::this_thread::yield();
-		//usleep(10000); // 14% cpu
-		//if(csp->empty())
-		//	usleep(3000);
-		//if(!rh0->is_receiving_data() && csp->empty())
-		//	usleep(100);
-		//usleep(10000);
-		//	usleep(2);
-		//std::this_thread::yield();
-		//}
+			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
+			std::this_thread::yield();
+			//usleep(10000); // 14% cpu
+			//if(csp->empty())
+			//	usleep(3000);
+			//if(!rh0->is_receiving_data() && csp->empty())
+			//	usleep(100);
+			//usleep(10000);
+			//	usleep(2);
+			//std::this_thread::yield();
+			//}
 
-	}
+		}
+	else
+		while (running) {
+			//do {
+			rh0->loop(1);
+			//rh1->loop(1);
+
+			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
+			std::this_thread::yield();
+			//usleep(10000); // 14% cpu
+			//if(csp->empty())
+			//	usleep(3000);
+			//if(!rh0->is_receiving_data() && csp->empty())
+			//	usleep(100);
+			//usleep(10000);
+			//	usleep(2);
+			//std::this_thread::yield();
+			//}
+
+		}
 	// Close and free everything
 	tunh->stopThread();
 
