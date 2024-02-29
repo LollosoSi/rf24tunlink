@@ -53,6 +53,8 @@ void apply_settings(std::string &name, std::string &value) {
 		test_bits = (value == "yes");
 	} else if (name == "mode") {
 		mode = atoi(value.c_str());
+	}else if (name == "maximum_frame_time") {
+		maximum_frame_time = atol(value.c_str());
 	}
 
 }
@@ -142,7 +144,7 @@ int ce_1_pin = 25;
 int csn_1_pin = 1;
 //unsigned long spi_speed = 6000000; //(10000000-4000000);
 //unsigned long spi_speed = 5300000; //(10000000-4000000);
-uint32_t spi_speed = 1000000; //(10000000-4000000);
+uint32_t spi_speed = 4000000; //(10000000-4000000);
 
 rf24_datarate_e data_rate = RF24_2MBPS;
 rf24_pa_dbm_e radio_power = RF24_PA_LOW;
@@ -164,6 +166,46 @@ uint8_t *address_1_3 = new uint8_t[3] { '9', 'N', 'o' };
 
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
+
+
+void apply_settings(std::string &name, std::string &value) {
+
+	if (name == "radio_delay") {
+		radio_delay = atoi(value.c_str());
+	} else if (name == "radio_retries") {
+		radio_retries = atoi(value.c_str());
+	} else if (name == "channel_0") {
+		channel_0 = atoi(value.c_str());
+	} else if (name == "ce_0_pin") {
+		ce_0_pin = atoi(value.c_str());
+	} else if (name == "csn_0_pin") {
+		csn_0_pin = atoi(value.c_str());
+	} else if (name == "channel_1") {
+		channel_1 = atoi(value.c_str());
+	} else if (name == "ce_1_pin") {
+		ce_1_pin = atoi(value.c_str());
+	} else if (name == "csn_1_pin") {
+		csn_1_pin = atoi(value.c_str());
+	} else if (name == "spi_speed") {
+		spi_speed = atol(value.c_str());
+	} else if (name == "variable_rate") {
+		variable_rate = value == "yes";
+	} else if (name == "max_radio_silence") {
+		max_radio_silence = atoi(value.c_str());
+	} else if (name == "auto_ack") {
+		auto_ack = value == "yes";
+	} else if (name == "crc_length") {
+		crc_length = atoi(value.c_str()) == 0 ? RF24_CRC_DISABLED :
+						atoi(value.c_str()) == 1 ? RF24_CRC_8 : RF24_CRC_16;
+	}else if (name == "data_rate") {
+		data_rate = atoi(value.c_str()) == 2 ? RF24_250KBPS :
+						atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
+	}else if (name == "radio_power") {
+		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
+						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
+	}
+
+}
 
 }
 

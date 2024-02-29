@@ -130,4 +130,6 @@ inline uint8_t select_retries() {
 					radio_retries_tuned[1] : radio_retries_tuned[0]);
 }
 
+extern void apply_settings(std::string& name, std::string& value);
+
 }
