@@ -47,6 +47,7 @@ protected:
 	bool send_tx();
 	bool fill_buffer_tx();
 
+	int ce_0_pin, ce_1_pin, csn_0_pin, csn_1_pin;
 
 private:
 	std::string *returnvector = nullptr;

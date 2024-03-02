@@ -64,6 +64,7 @@ void RF24Radio::check_fault() {
 
 void RF24Radio::setup() {
 	if (!radio) {
+		printf("Opening radio in CE:%i CSN:%i\n", ce_pin, csn_pin);
 		radio = new RF24(ce_pin, csn_pin, Settings::RF24::spi_speed);
 	}
 
@@ -384,8 +385,8 @@ void RF24Radio::set_speed_pa_retries() {
 void RF24Radio::reset_radio() {
 
 	uint8_t t = 1;
-	while (!radio->begin()) {
-		std::cout << "NRF24 is not responsive" << std::endl;
+	while (!radio->begin(this->ce_pin,this->csn_pin)) {
+		printf("NRF24 is not responsive (CE: %i, CSN: %i)\n", ce_pin, csn_pin);
 		usleep(10000);
 // delay(2);
 		if (!t++) {
