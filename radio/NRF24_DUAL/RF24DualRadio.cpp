@@ -44,20 +44,22 @@ std::string* RF24DualRadio::telemetry_collect(const unsigned long delta) {
 
 void RF24DualRadio::setup() {
 	if (!radio_0) {
-		printf("Opening radio 0 in CE:%i CSN:%i\n", Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin);
+		printf("Opening radio 0 in CE:%i CSN:%i\n",
+				Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin);
 
 		radio_0 = new RF24(Settings::DUAL_RF24::ce_0_pin,
 				Settings::DUAL_RF24::csn_0_pin, Settings::DUAL_RF24::spi_speed);
-		this->ce_0_pin=Settings::DUAL_RF24::ce_0_pin;
-		this->csn_0_pin=Settings::DUAL_RF24::csn_0_pin;
+		this->ce_0_pin = Settings::DUAL_RF24::ce_0_pin;
+		this->csn_0_pin = Settings::DUAL_RF24::csn_0_pin;
 	}
 	if (!radio_1) {
-		printf("Opening radio 1 in CE:%i CSN:%i\n", Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin);
+		printf("Opening radio 1 in CE:%i CSN:%i\n",
+				Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin);
 
 		radio_1 = new RF24(Settings::DUAL_RF24::ce_1_pin,
 				Settings::DUAL_RF24::csn_1_pin, Settings::DUAL_RF24::spi_speed);
-		this->ce_1_pin=Settings::DUAL_RF24::ce_1_pin;
-		this->csn_1_pin=Settings::DUAL_RF24::csn_1_pin;
+		this->ce_1_pin = Settings::DUAL_RF24::ce_1_pin;
+		this->csn_1_pin = Settings::DUAL_RF24::csn_1_pin;
 	}
 
 	reset_radio();
@@ -79,6 +81,14 @@ void RF24DualRadio::set_speed_pa_retries() {
 }
 
 void RF24DualRadio::loop(unsigned long delta) {
+
+	if (reset)
+		reset_radio();
+	else
+		check_fault();
+
+	if (reset)
+		return;
 
 	while (fill_buffer_tx()) {
 		//if (send_tx()) {
@@ -229,26 +239,31 @@ void RF24DualRadio::reset_radio() {
 	read_thread_running = false;
 
 	uint8_t t = 1;
-	while (!radio_0->begin(this->ce_0_pin,this->csn_0_pin)) {
-		printf("Radio 0 is not responsive (CE: %i, CSN: %i)\n", ce_0_pin, csn_0_pin);
-
+	while (!radio_0->begin(this->ce_0_pin, this->csn_0_pin)) {
+		printf("Radio 0 is not responsive (CE: %i, CSN: %i)\n", ce_0_pin,
+				csn_0_pin);
+		reset = true;
+		return;
 		usleep(10000);
 // delay(2);
 		if (!t++) {
 			// handleRadioUnresponsiveTimeout();
 		}
 	}
-
+	reset = false;
 	t = 1;
-	while (!radio_1->begin(this->ce_1_pin,this->csn_1_pin)) {
-		printf("Radio 1 is not responsive (CE: %i, CSN: %i)\n", ce_1_pin, csn_1_pin);
-
+	while (!radio_1->begin(this->ce_1_pin, this->csn_1_pin)) {
+		printf("Radio 1 is not responsive (CE: %i, CSN: %i)\n", ce_1_pin,
+				csn_1_pin);
+		reset = true;
+		return;
 		usleep(10000);
 		// delay(2);
 		if (!t++) {
 			// handleRadioUnresponsiveTimeout();
 		}
 	}
+	reset = false;
 
 	radio_0->flush_rx();
 	radio_0->flush_tx();

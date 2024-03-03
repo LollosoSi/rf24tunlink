@@ -16,7 +16,6 @@
 #include <iostream>
 #include <unistd.h>
 
-
 class RF24Radio: public RadioHandler<RadioPacket>, public Telemetry {
 public:
 	RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin, uint8_t channel);
@@ -40,19 +39,17 @@ protected:
 
 	void check_fault();
 
-
-
 	void reset_radio();
 	virtual void setup() override;
 	virtual void stop() override;
 	bool primary = false;
 
-	RF24* radio = nullptr;
+	RF24 *radio = nullptr;
 	uint8_t ce_pin, csn_pin, channel;
 
 private:
 
-	std::string* returnvector = nullptr;
+	std::string *returnvector = nullptr;
 	unsigned long sum_arc = 0;
 	unsigned int count_arc = 0;
 	unsigned int packets_in = 0;
@@ -62,6 +59,7 @@ private:
 	inline uint16_t since_last_packet();
 	uint64_t last_packet = 0;
 	uint64_t last_speed_change = 0;
+	bool reset = false;
 
 };
 

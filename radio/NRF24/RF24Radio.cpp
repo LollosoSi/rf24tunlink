@@ -51,6 +51,7 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 }
 
 void RF24Radio::check_fault() {
+
 	rf24_datarate_e dt = radio->getDataRate();
 	returnvector[5] = std::to_string(dt);
 	if (radio->failureDetected || (dt != Settings::RF24::data_rate)
@@ -87,8 +88,13 @@ inline uint16_t RF24Radio::since_last_packet() {
 }
 
 void RF24Radio::loop(unsigned long delta) {
+	if (reset)
+		reset_radio();
+	else
+		check_fault();
 
-	check_fault();
+	if (reset)
+		return;
 
 	if (Settings::RF24::variable_rate)
 		if (since_last_packet() > Settings::RF24::max_radio_silence) {
@@ -385,14 +391,17 @@ void RF24Radio::set_speed_pa_retries() {
 void RF24Radio::reset_radio() {
 
 	uint8_t t = 1;
-	while (!radio->begin(this->ce_pin,this->csn_pin)) {
+	while (!radio->begin(this->ce_pin, this->csn_pin)) {
 		printf("NRF24 is not responsive (CE: %i, CSN: %i)\n", ce_pin, csn_pin);
+		reset = true;
+		return;
 		usleep(10000);
 // delay(2);
 		if (!t++) {
 			// handleRadioUnresponsiveTimeout();
 		}
 	}
+	reset = false;
 
 	radio->flush_rx();
 	radio->flush_tx();

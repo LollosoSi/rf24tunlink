@@ -12,8 +12,6 @@
 #include <iostream>
 #include <unistd.h>
 
-
-
 #include <thread>
 
 #include "../../telemetry/Telemetry.h"
@@ -58,6 +56,7 @@ private:
 	unsigned long radio_bytes_in = 0;
 
 	bool read_thread_running = false;
+	bool reset = false;
 
 };
 
