@@ -207,31 +207,30 @@ int main(int argc, char **argv) {
 	 lr.detach();*/
 
 	// Program loop (radio loop)
-	if (rh1 != nullptr)
-		while (running) {
-			//do {
-			rh0->loop(1);
-			rh1->loop(1);
+	if (rh1 != nullptr) {
 
-			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
+		std::thread lrh1([&] {
+			while (running) {
+				rh1->loop(1);
+				usleep(100);
+				std::this_thread::yield();
+			}
+		});
+		lrh1.detach();
+		while (running) {
+			rh0->loop(1);
+			usleep(100);
 			std::this_thread::yield();
-			//usleep(10000); // 14% cpu
-			//if(csp->empty())
-			//	usleep(3000);
-			//if(!rh0->is_receiving_data() && csp->empty())
-			//	usleep(100);
-			//usleep(10000);
-			//	usleep(2);
-			//std::this_thread::yield();
-			//}
 
 		}
-	else
+	} else
 		while (running) {
 			//do {
 			rh0->loop(1);
 			//rh1->loop(1);
-
+			//if (Settings::RF24::primary) {
+			//	usleep(10000); // 14% cpu
+			//}
 			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
 			std::this_thread::yield();
 			//usleep(10000); // 14% cpu

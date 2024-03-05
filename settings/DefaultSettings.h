@@ -90,9 +90,9 @@ uint8_t radio_retries = 15;
 
 uint8_t channel = 124;
 uint8_t address_bytes = 3;
-uint8_t *address_1 = new uint8_t[3] { '1', 'N', 'o' };
-uint8_t *address_2 = new uint8_t[3] { '2', 'N', 'o' };
-uint8_t *address_3 = new uint8_t[3] { '3', 'N', 'o' };
+uint8_t *address_1 = new uint8_t[5] { '1', 'N', 'o', 'o', 'o' };
+uint8_t *address_2 = new uint8_t[5] { '2', 'N', 'o', 'o', 'o' };
+uint8_t *address_3 = new uint8_t[5] { '3', 'N', 'o', 'o', 'o' };
 
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
@@ -128,6 +128,15 @@ void apply_settings(std::string &name, std::string &value) {
 	}else if (name == "radio_power") {
 		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
 						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
+	}else if(name == "address_1"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_1[i] = value[i];
+	}else if(name == "address_2"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_2[i] = value[i];
+	}else if(name == "address_3"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_3[i] = value[i];
 	}
 
 }
@@ -161,13 +170,13 @@ uint8_t radio_retries = 15;
 uint8_t channel_0 = 2;
 uint8_t channel_1 = 124;
 uint8_t address_bytes = 3;
-uint8_t *address_0_1 = new uint8_t[3] { '4', 'N', 'o' };
-uint8_t *address_0_2 = new uint8_t[3] { '5', 'N', 'o' };
-uint8_t *address_0_3 = new uint8_t[3] { '6', 'N', 'o' };
+uint8_t *address_0_1 = new uint8_t[5] { '4', 'N', 'o', 'o', 'o' };
+uint8_t *address_0_2 = new uint8_t[5] { '5', 'N', 'o', 'o', 'o' };
+uint8_t *address_0_3 = new uint8_t[5] { '6', 'N', 'o', 'o', 'o' };
 
-uint8_t *address_1_1 = new uint8_t[3] { '7', 'N', 'o' };
-uint8_t *address_1_2 = new uint8_t[3] { '8', 'N', 'o' };
-uint8_t *address_1_3 = new uint8_t[3] { '9', 'N', 'o' };
+uint8_t *address_1_1 = new uint8_t[5] { '7', 'N', 'o', 'o', 'o' };
+uint8_t *address_1_2 = new uint8_t[5] { '8', 'N', 'o', 'o', 'o' };
+uint8_t *address_1_3 = new uint8_t[5] { '9', 'N', 'o', 'o', 'o' };
 
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
@@ -208,6 +217,24 @@ void apply_settings(std::string &name, std::string &value) {
 	}else if (name == "radio_power") {
 		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
 						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
+	}else if(name == "address_0_1"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_0_1[i] = value[i];
+	}else if(name == "address_0_2"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_0_2[i] = value[i];
+	}else if(name == "address_0_3"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_0_3[i] = value[i];
+	}else if(name == "address_1_1"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_1_1[i] = value[i];
+	}else if(name == "address_1_2"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_1_2[i] = value[i];
+	}else if(name == "address_1_3"){
+		for(int i = 0; i < address_bytes && i < value.length(); i++)
+			address_1_3[i] = value[i];
 	}
 
 }

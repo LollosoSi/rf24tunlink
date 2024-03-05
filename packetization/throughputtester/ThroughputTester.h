@@ -14,6 +14,18 @@
 
 #include "../../telemetry/Telemetry.h"
 
+#include "../../rs_codec/RSCodec.h"
+
+#include <vector>
+#include <array>
+#include <functional>
+#include <algorithm>
+
+struct error_test{
+	bool representation[32*8]={1};
+	uint32_t popularity = 1;
+};
+
 class ThroughputTester: public PacketHandler<RadioPacket>, public Telemetry {
 public:
 	ThroughputTester();
@@ -35,10 +47,14 @@ public:
 
 	std::string* telemetry_collect(const unsigned long delta);
 
+	RSCodec* rsc = nullptr;
+
 protected:
 	RadioPacket test_packets[10];
 
 	std::string* returnvector = nullptr;
+
+	std::vector<error_test*> error_structs;
 
 	unsigned long received_packets_length = 0;
 	RadioPacket received_packets[10000];

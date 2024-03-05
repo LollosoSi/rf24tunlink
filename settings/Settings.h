@@ -26,7 +26,7 @@ extern uint16_t minimum_ARQ_wait;
 
 extern uint16_t maximum_frame_time;
 
-const unsigned int max_pkt_size = 32;
+const unsigned int max_pkt_size = 26;
 
 extern char *csv_out_filename;	// CSV output, NULLPTR for no output
 extern char csv_divider;

@@ -110,7 +110,11 @@ void RF24Radio::loop(unsigned long delta) {
 
 	if (primary) {
 
-		while (fill_buffer_tx()) {
+		if (fill_buffer_tx()) {
+
+		}if (fill_buffer_tx()) {
+
+		}if (fill_buffer_tx()) {
 
 		}
 		if (send_tx()) {
@@ -239,8 +243,12 @@ bool RF24Radio::read() {
 			//radio->flush_tx();
 
 			radio_bytes_in += rp->size;
-			if (Settings::RF24::variable_rate)
-				process_control_packet(rp);
+			if (rp->size == 32)
+				this->packet_received(rp);
+			else if (rp->size == 1)
+				if (Settings::RF24::variable_rate)
+					process_control_packet(rp);
+
 			break;
 		}
 		if (pipe != 0 && pipe != 1)

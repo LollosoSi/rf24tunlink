@@ -12,21 +12,27 @@
 ThroughputTester::ThroughputTester() :
 		Telemetry("Throughput Tester") {
 
-	returnvector = new std::string[13] { "0" };
+	returnvector = new std::string[15] { "0" };
 
-	register_elements(new std::string[13] { "Sequential Packets",
+	register_elements(new std::string[15] { "Sequential Packets",
 			"Unsequential Packets", "Valid Packets", "Invalid Packets",
 			"Total Bytes", "Valid Bytes", "Kbps", "Representation",
-			"Valid Bits", "Flipped Bits", "Error bursts", "Packets with flips", "Bursts in a single packet" }, 13);
+			"Valid Bits", "Flipped Bits", "Error bursts", "Packets with flips",
+			"Bursts in a single packet", "Error representation", "Valid Kbps" }, 15);
 
-	for (int i = 0; i < 10; i++) {
+	printf("Initializing RSCodec\n");
+	rsc = new RSCodec();
+
+	printf("Preparing send packets\n");
+	for (unsigned int i = 0; i < 10; i++) {
 		test_packets[i].size = 32;
-		for (int j = 0; j < 32; j++)
+		for (unsigned int j = 0; j < Settings::max_pkt_size; j++)
 			if (Settings::test_bits) {
 				test_packets[i].data[j] = 0x55;
 			} else {
 				test_packets[i].data[j] = i;
 			}
+
 	}
 
 }
@@ -36,6 +42,9 @@ ThroughputTester::~ThroughputTester() {
 }
 
 std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
+
+	std::stringstream bursts_representation;
+
 	unsigned long packets_sequential = 0;
 	unsigned long packets_unsequential = 0;
 	unsigned long packets_valid = 0;
@@ -62,18 +71,20 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	if (Settings::test_bits) {
 
 		for (unsigned int i = 0; i < received_packets_length; i++) {
-
+			error_test *ets = new error_test;
 			if (received_packets[i].size != 32) {
 
 				printf("Wrong packet size: %i\n", received_packets[i].size);
 				packets_invalid++;
 			}
+			int etest_bit_count = 0;
 			int error_burst_count = 0;
 			int separate_burst_count = 0;
 			bool error_trig = 0;
-			for (int j = 0; j < received_packets[i].size; j++) {
+			for (int j = 0; j < Settings::max_pkt_size; j++) {
 				if (received_packets[i].data[j] == test_packets[0].data[j]) {
 					bits_valid++;
+					ets->representation[etest_bit_count++] = 0;
 
 					if (error_burst_count > 0) {
 						error_bursts[error_burst_count - 1]++;
@@ -84,27 +95,78 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 				} else {
 					error_burst_count++;
 					bits_invalid++;
+					ets->representation[etest_bit_count++] = 1;
 					error_trig = 1;
 				}
 
 			}
 			if (error_burst_count > 0) {
 				error_bursts[error_burst_count - 1]++;
+				ets->representation[etest_bit_count++] = 1;
 				error_burst_count = 0;
 				separate_burst_count++;
 			}
 			bursts_in_packet[separate_burst_count]++;
 
-
 			symb[i] = received_packets[i].size != 32 ? 'z' :
 						error_trig ? 'i' : 'o';
 			bytes_in += received_packets[i].size;
-			if (received_packets[i].size == 32 && !error_trig)
+			if (received_packets[i].size == Settings::max_pkt_size
+					&& !error_trig)
 				packets_valid++;
-			else if(error_trig)
+			else if (error_trig)
 				packets_broken++;
 
+			bool found = false;
+			std::vector<error_test*>::iterator ite = error_structs.begin();
+			while (ite != error_structs.end()) {
+				bool equal = true;
+				for (int i = 0; i < 32 * 8; i++) {
+					if ((*ite)->representation[i] != ets->representation[i]) {
+						equal = false;
+						break;
+					}
+
+				}
+				if (equal) {
+					found = true;
+					(*ite)->popularity++;
+					break;
+				}
+				ite++;
+			}
+			if (found) {
+				delete ets;
+			} else {
+				error_structs.push_back(ets);
+			}
+
 		}
+
+		std::sort(begin(error_structs), end(error_structs),
+				[](error_test *a, error_test *b) {
+					return (a->popularity > b->popularity);
+				});
+
+		std::vector<error_test*>::iterator ite = error_structs.begin();
+		bursts_representation << "\"";
+		while (ite != error_structs.end()) {
+
+			for (int i = 0; i < 32 * 8; i++) {
+				if (i % 8 == 0)
+					bursts_representation << " ";
+				bursts_representation
+						<< (((*ite)->representation[i] == 1) ? '_' : '|');
+			}
+
+			bursts_representation << "  hits: " << (*ite)->popularity << "\n";
+			delete (*ite);
+			ite++;
+			//error_structs.pop_back();
+		}
+		bursts_representation << "\"";
+		if (!error_structs.empty())
+			error_structs.clear();
 
 	} else {
 
@@ -142,34 +204,41 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	}
 
 	bool found_one = 0;
-	error_bursts_output_string << "";
+	error_bursts_output_string << "\"";
 	for (int i = 0; i < 31; i++) {
 
 		if (error_bursts[i] > 0) {
 			found_one = 1;
 			error_bursts_output_string << "Bursts of " << (int) (i + 1) << ": "
-					<< error_bursts[i] << "  ";
+					<< error_bursts[i] << "\n";
 		}
 
 	}
 	if (!found_one)
 		error_bursts_output_string
-				<< (Settings::test_bits ? " none!" : " not checked");
+				<< (Settings::test_bits ? "None!" : "Not tested");
+	error_bursts_output_string << "\"";
 
 	bool found_one_burst_in_packet = 0;
-	bursts_in_packet_output_string << "";
-		for (int i = 0; i < 32; i++) {
+	bursts_in_packet_output_string << "\"";
+	if (bursts_in_packet[0] > 0) {
+		found_one_burst_in_packet = 1;
+		bursts_in_packet_output_string << "Perfect packets: "
+				<< bursts_in_packet[0] << "\n";
+	}
+	for (int i = 1; i < 32; i++) {
 
-			if (bursts_in_packet[i] > 0) {
-				found_one_burst_in_packet = 1;
-				bursts_in_packet_output_string << "Had " << (int) (i) << " separate bursts: "
-						<< bursts_in_packet[i] << "  ";
-			}
-
+		if (bursts_in_packet[i] > 0) {
+			found_one_burst_in_packet = 1;
+			bursts_in_packet_output_string << "Had " << (int) (i) << " bursts: "
+					<< bursts_in_packet[i] << "\n";
 		}
-		if (!found_one_burst_in_packet)
-			bursts_in_packet_output_string
-					<< (Settings::test_bits ? " none!" : " not checked");
+
+	}
+	if (!found_one_burst_in_packet)
+		bursts_in_packet_output_string
+				<< (Settings::test_bits ? "None!" : "Not tested");
+	bursts_in_packet_output_string << "\"";
 
 	returnvector[0] = std::to_string(packets_sequential);
 	returnvector[1] = std::to_string(packets_unsequential);
@@ -184,6 +253,8 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	returnvector[10] = error_bursts_output_string.str();
 	returnvector[11] = std::to_string(packets_broken);
 	returnvector[12] = bursts_in_packet_output_string.str();
+	returnvector[13] = bursts_representation.str();
+	returnvector[14] = std::to_string((bursts_in_packet[0]*8*Settings::max_pkt_size)/1000.0);
 
 	received_packets_length = 0;
 
@@ -196,8 +267,22 @@ RadioPacket* ThroughputTester::next_packet() {
 
 	if (iterator >= 10)
 		iterator = 0;
+	static RadioPacket *rp = new RadioPacket;
+	rp->size = 32;
 
-	return (test_packets + (iterator++));
+	static unsigned char *dt = new unsigned char[32];
+	int s = 32;
+	rsc->encode(&dt, s, (unsigned char*) (test_packets + (iterator++))->data,
+			Settings::max_pkt_size);
+
+	//printf("MSG: ");
+	for (int i = 0; i < s; i++) {
+		rp->data[i]=dt[i];
+	//	printf("%i ", rp->data[i]);
+	}
+	//printf("\n");
+
+	return rp;
 }
 
 bool ThroughputTester::receive_packet(RadioPacket *rp) {
@@ -206,6 +291,22 @@ bool ThroughputTester::receive_packet(RadioPacket *rp) {
 		received_packets_length = 0;
 		printf("Too many packets received and no request of telemetry\n");
 	}
+
+	static unsigned char *out = new unsigned char[32] { 0 };
+	int outsize = Settings::max_pkt_size;
+
+	rsc->decode(&out, outsize, rp->data, 32);
+	//printf("MSG: ");
+	//for (int i = 0; i < rp->size; i++) {
+	//	printf("%i ", rp->data[i]);
+	//}
+	//printf("\n");
+	//printf("DECODED: ");
+	for (int i = 0; i < outsize; i++) {
+		rp->data[i] = out[i];
+	//	printf("%i ", out[i]);
+	}
+	//printf("\n");
 
 	memcpy((unsigned char*) (received_packets + received_packets_length++),
 			(unsigned char*) rp, 33);

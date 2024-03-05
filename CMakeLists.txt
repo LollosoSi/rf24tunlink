@@ -29,10 +29,62 @@ else() # not using MRAA or wiringPi drivers (or pigpio lib was found)
 endif()
 
 
-    #make a target
+set(rs_codec
+    rs_codec/RSCodec.h
+    rs_codec/RSCodec.cpp
+)
+set(reedsolomon
+    ReedSolomon/ReedSolomon.h
+	ReedSolomon/ReedSolomon.cpp
+)
+set(settings
+    settings/SettingsFileReader.h
+    settings/Settings.h
+    settings/DefaultSettings.h
+)
+set(interfaces
+    interfaces/RadioHandler.h
+    interfaces/Messenger.h
+    interfaces/PacketHandler.h
+    interfaces/UARTHandler.h
+)
+set(structures
+    structures/RadioPacket.h
+)
+set(tun
+    tun/TUNHandler.h
+    tun/TUNHandler.cpp
+)
+set(packetizers
+    packetization/selectiverepeat/SelectiveRepeatPacketizer.h
+    packetization/selectiverepeat/SelectiveRepeatPacketizer.cpp
+    packetization/characterstuffing/CharacterStuffingPacketizer.h
+    packetization/characterstuffing/CharacterStuffingPacketizer.cpp
+    packetization/throughputtester/ThroughputTester.h
+    packetization/throughputtester/ThroughputTester.cpp
+)
+set(unit_tests
+    unit_tests/FakeRadio.h
+    unit_tests/FakeRadio.cpp
+)
+set(telemetry
+    telemetry/Telemetry.h
+    telemetry/TelemetryPrinter.h
+    telemetry/TelemetryPrinter.cpp
+    telemetry/TimeTelemetryElement.h
+    telemetry/TimeTelemetryElement.cpp
+)
+set(radio
+    radio/NRF24/RF24Radio.h
+    radio/NRF24/RF24Radio.cpp
+    radio/NRF24_DUAL/RF24DualRadio.h
+    radio/NRF24_DUAL/RF24DualRadio.cpp
+    radio/LORA/LoraRadio.h
+    radio/LORA/LoraRadio.cpp
+)
     
 # This project will output an executable file
-add_executable(${PROJECT_NAME} main.cpp settings/SettingsFileReader.h settings/Settings.h settings/DefaultSettings.h interfaces/Messenger.h interfaces/PacketHandler.h structures/RadioPacket.h tun/TUNHandler.h tun/TUNHandler.cpp packetization/selectiverepeat/SelectiveRepeatPacketizer.h packetization/selectiverepeat/SelectiveRepeatPacketizer.cpp packetization/characterstuffing/CharacterStuffingPacketizer.h packetization/characterstuffing/CharacterStuffingPacketizer.cpp unit_tests/FakeRadio.h unit_tests/FakeRadio.cpp telemetry/Telemetry.h telemetry/TelemetryPrinter.h telemetry/TelemetryPrinter.cpp telemetry/TimeTelemetryElement.h telemetry/TimeTelemetryElement.cpp interfaces/RadioHandler.h radio/NRF24/RF24Radio.h radio/NRF24/RF24Radio.cpp radio/NRF24_DUAL/RF24DualRadio.h radio/NRF24_DUAL/RF24DualRadio.cpp radio/LORA/LoraRadio.h radio/LORA/LoraRadio.cpp utils.h packetization/throughputtester/ThroughputTester.h packetization/throughputtester/ThroughputTester.cpp interfaces/UARTHandler.h)
+add_executable(${PROJECT_NAME} main.cpp utils.h ${settings} ${interfaces} ${settings} ${structures} ${tun} ${packetizers} ${unit_tests} ${telemetry} ${radio} ${reedsolomon} ${rs_codec})
 
 # Include the configuration header in the build
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
