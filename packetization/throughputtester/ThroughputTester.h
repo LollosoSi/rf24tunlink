@@ -28,7 +28,8 @@ struct error_test{
 
 class ThroughputTester: public PacketHandler<RadioPacket>, public Telemetry {
 public:
-	ThroughputTester();
+	bool use_rs = true;
+	ThroughputTester(bool rs);
 	virtual ~ThroughputTester();
 
 	inline bool next_packet_ready() {

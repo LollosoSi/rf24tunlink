@@ -1,17 +1,17 @@
 /*
- * RF24Radio.cpp
+ * RF24CSMARadio.cpp
  *
  *  Created on: 6 Feb 2024
  *      Author: Andrea Roccaccino
  */
 
-#include "RF24Radio.h"
+#include "RF24CSMARadio.h"
 
 #include "../../utils.h"
 
-RF24Radio::RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin,
+RF24CSMARadio::RF24CSMARadio(bool primary, uint8_t ce_pin, uint8_t csn_pin,
 		uint8_t channel) :
-		Telemetry("RF24Radio") {
+		Telemetry("RF24CSMARadio") {
 
 	this->primary = primary;
 	this->ce_pin = ce_pin;
@@ -29,11 +29,11 @@ RF24Radio::RF24Radio(bool primary, uint8_t ce_pin, uint8_t csn_pin,
 	setup();
 }
 
-RF24Radio::~RF24Radio() {
+RF24CSMARadio::~RF24CSMARadio() {
 	stop();
 }
 
-std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
+std::string* RF24CSMARadio::telemetry_collect(const unsigned long delta) {
 	if (count_arc != 0)
 		returnvector[0] = (std::to_string(sum_arc / count_arc));
 	else
@@ -50,7 +50,7 @@ std::string* RF24Radio::telemetry_collect(const unsigned long delta) {
 	return (returnvector);
 }
 
-void RF24Radio::check_fault() {
+void RF24CSMARadio::check_fault() {
 
 	rf24_datarate_e dt = radio->getDataRate();
 	returnvector[5] = std::to_string(dt);
@@ -63,7 +63,7 @@ void RF24Radio::check_fault() {
 	}
 }
 
-void RF24Radio::setup() {
+void RF24CSMARadio::setup() {
 	if (!radio) {
 		printf("Opening radio in CE:%i CSN:%i\n", ce_pin, csn_pin);
 		radio = new RF24(ce_pin, csn_pin, Settings::RF24::spi_speed);
@@ -83,16 +83,18 @@ void RF24Radio::setup() {
 	 }*/
 }
 
-inline uint16_t RF24Radio::since_last_packet() {
+inline uint16_t RF24CSMARadio::since_last_packet() {
 	return (current_millis() - last_packet);
 }
 
-void RF24Radio::loop(unsigned long delta) {
-	check_fault();
-	if (reset) {
+void RF24CSMARadio::loop(unsigned long delta) {
+	if (reset)
 		reset_radio();
+	else
+		check_fault();
+
+	if (reset)
 		return;
-	}
 
 	if (Settings::RF24::variable_rate)
 		if (since_last_packet() > Settings::RF24::max_radio_silence) {
@@ -105,20 +107,47 @@ void RF24Radio::loop(unsigned long delta) {
 					process_control_packet(cp);
 				}
 		}
-
+	//static int n = 0;
 	if (primary) {
 
+		radio->stopListening();
+		delayMicroseconds(2000);
 		while (fill_buffer_tx()) {
 			// Do nothing, just fill
+
 		}
 
 		send_tx();
-
-		//delayMicroseconds(200);
+		radio->startListening();
+		long ms = current_millis();
+		while (!read()) {
+			if (current_millis() - ms > 20)
+				break;
+		}
 		while (read()) {
 			//delayMicroseconds(200);
+
 		}
 
+	} else {
+		while (read()) {
+			//delayMicroseconds(200);
+
+		}
+
+		radio->stopListening();
+		delayMicroseconds(2000);
+		while (fill_buffer_tx()) {
+			// Do nothing, just fill
+
+		}
+
+		send_tx();
+		radio->startListening();
+
+	}
+
+	if (primary) {
 		if (Settings::RF24::variable_rate)
 			if ((since_last_packet() < 30)
 					&& (current_millis() - last_speed_change > 5000)
@@ -127,31 +156,15 @@ void RF24Radio::loop(unsigned long delta) {
 				try_change_speed(cp);
 			}
 
-	} else {
-
-		//uint8_t cnt = 0;
-		//delayMicroseconds(200);
-		while (read()) {
-
-			//if (cnt++ >= 6)
-			//	radio->flush_rx();
-
-			//delayMicroseconds(200);
-		}
-		if (Settings::RF24::ack_payloads)
-			while (fill_buffer_ack()) {
-				// Do nothing, just fill
-			}
-
 	}
 
 }
 
-void RF24Radio::stop() {
+void RF24CSMARadio::stop() {
 
 }
 
-void RF24Radio::interrupt_routine() {
+void RF24CSMARadio::interrupt_routine() {
 	bool tx_ok, tx_fail, rx_ready;
 	radio->whatHappened(tx_ok, tx_fail, rx_ready);
 
@@ -162,7 +175,7 @@ void RF24Radio::interrupt_routine() {
 	}
 }
 
-inline void RF24Radio::process_control_packet(RadioPacket *cp) {
+inline void RF24CSMARadio::process_control_packet(RadioPacket *cp) {
 
 	if (Settings::RF24::variable_rate && cp->data[0] != radio->getDataRate()
 			&& cp->data[0] > 3 && cp->data[0] <= 1) {
@@ -182,7 +195,7 @@ inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 
 }
 
-inline void RF24Radio::try_change_speed(RadioPacket *cp) {
+inline void RF24CSMARadio::try_change_speed(RadioPacket *cp) {
 	//radio->flush_rx();
 	//radio->flush_tx();
 	radio->openWritingPipe(Settings::RF24::address_3[0]);
@@ -202,7 +215,7 @@ inline void RF24Radio::try_change_speed(RadioPacket *cp) {
 
 }
 
-bool RF24Radio::read() {
+bool RF24CSMARadio::read() {
 
 	bool result = false;
 	uint8_t pipe = 0;
@@ -260,8 +273,7 @@ bool RF24Radio::read() {
 	return (result);
 }
 
-bool RF24Radio::send_tx() {
-
+bool RF24CSMARadio::send_tx() {
 	if (radio->txStandBy()) {
 		// Transmit was successful, everything is okay
 		sum_arc += radio->getARC();
@@ -275,7 +287,7 @@ bool RF24Radio::send_tx() {
 
 }
 
-bool RF24Radio::fill_buffer_tx() {
+bool RF24CSMARadio::fill_buffer_tx() {
 
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
@@ -285,32 +297,18 @@ bool RF24Radio::fill_buffer_tx() {
 		return (false);
 	}
 
-	RadioPacket *rp = next_packet();
-	if (!rp)
+	RadioPacket *rp = nullptr;
+	if (!(rp = next_packet()))
 		return (false);
-
-	RadioPacket rpp;
-	try {
-		memcpy(&rpp, rp, 33);
-	} catch (...) {
-		return (false);
-	}
-	if (rpp.size == 0) {
-		printf("Packet outbound of size 0!\n");
-		return (false);
-	}
 
 //if (rp->size > 1) {
 //	printf("Loading packet:\n");
 //	print_hex(rp->data + 1, rp->size - 1);
 //}
-	//usleep(2);
+	//usleep(10000);
 
-	if (radio->writeFast(rpp.data,
-			Settings::RF24::dynamic_payloads ?
-					rpp.size : Settings::RF24::payload_size,
-			!Settings::RF24::auto_ack)) {
-		radio_bytes_out += rpp.size;
+	if (radio->writeFast(rp->data, rp->size, !Settings::RF24::auto_ack)) {
+		radio_bytes_out += rp->size;
 		//return (true);
 	} else {
 		return (false);
@@ -331,7 +329,7 @@ bool RF24Radio::fill_buffer_tx() {
 
 }
 
-bool RF24Radio::fill_buffer_ack() {
+bool RF24CSMARadio::fill_buffer_ack() {
 
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
@@ -373,7 +371,7 @@ bool RF24Radio::fill_buffer_ack() {
 /**
  *  Sweeps all channels to find less disturbance
  */
-void RF24Radio::channel_sweep() {
+void RF24CSMARadio::channel_sweep() {
 
 	std::cout
 			<< "Channel sweep 0-125\nCCCC -> distrbance, RRRR -> Radio activity (P-Variant only)\n";
@@ -399,7 +397,7 @@ void RF24Radio::channel_sweep() {
 
 }
 
-void RF24Radio::set_speed_pa_retries() {
+void RF24CSMARadio::set_speed_pa_retries() {
 	Settings::RF24::radio_delay = Settings::RF24::select_delay();
 	Settings::RF24::radio_retries = Settings::RF24::select_retries();
 
@@ -409,9 +407,8 @@ void RF24Radio::set_speed_pa_retries() {
 			Settings::RF24::radio_retries);
 }
 
-void RF24Radio::reset_radio() {
+void RF24CSMARadio::reset_radio() {
 
-	reset = true;
 	uint8_t t = 1;
 	while (!radio->begin(this->ce_pin, this->csn_pin)) {
 		printf("NRF24 is not responsive (CE: %i, CSN: %i)\n", ce_pin, csn_pin);
@@ -477,9 +474,6 @@ void RF24Radio::reset_radio() {
 	 radio->testCarrier() ? "BUSY" : "FREE",
 	 radio->testRPD() ? "BUSY" : "FREE");*/
 
-	if (primary)
-		radio->stopListening();
-	else
-		radio->startListening();
+	radio->startListening();
 
 }

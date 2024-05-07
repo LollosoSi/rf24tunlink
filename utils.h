@@ -10,6 +10,7 @@
 #include <RF24/RF24.h>
 #include <iostream>
 
+/*
 static void print_hex(uint8_t* data, unsigned int size){
 	for(unsigned int i = 0; i < size; i++){
 		std::cout << std::hex << data[i] << std::dec
@@ -30,7 +31,7 @@ static uint8_t gencrc(uint8_t *data, size_t len) {
 		}
 	}
 	return crc;
-}
+}*/
 
 #include <chrono>
 #include <time.h>      // CLOCK_MONOTONIC_RAW, timespec, clock_gettime()

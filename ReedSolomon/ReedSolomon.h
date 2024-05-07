@@ -10,7 +10,7 @@
 
 #define MAX(x, y) (x > y ? x : y)
 #define MIN(x, y) (x < y ? x : y)
-#define NULL 0
+// #define NULL 0
 
 //defining prime polynomials in GF^x for your use
 #define PRIM(x) PRIM_ ## x

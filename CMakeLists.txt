@@ -58,6 +58,8 @@ set(tun
 set(packetizers
     packetization/selectiverepeat/SelectiveRepeatPacketizer.h
     packetization/selectiverepeat/SelectiveRepeatPacketizer.cpp
+    packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h
+    packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.cpp
     packetization/characterstuffing/CharacterStuffingPacketizer.h
     packetization/characterstuffing/CharacterStuffingPacketizer.cpp
     packetization/throughputtester/ThroughputTester.h
@@ -77,6 +79,8 @@ set(telemetry
 set(radio
     radio/NRF24/RF24Radio.h
     radio/NRF24/RF24Radio.cpp
+    radio/NRF24_CSMA/RF24CSMARadio.cpp
+    radio/NRF24_CSMA/RF24CSMARadio.h
     radio/NRF24_DUAL/RF24DualRadio.h
     radio/NRF24_DUAL/RF24DualRadio.cpp
     radio/LORA/LoraRadio.h

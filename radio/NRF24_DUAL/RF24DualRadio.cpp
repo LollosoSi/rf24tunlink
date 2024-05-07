@@ -95,8 +95,10 @@ void RF24DualRadio::loop(unsigned long delta) {
 
 		//}
 	}
-	while (read()) {
 
+	delayMicroseconds(200);
+	while (read()) {
+		delayMicroseconds(200);
 	}
 
 	/*if (!read_thread_running) {
@@ -104,8 +106,9 @@ void RF24DualRadio::loop(unsigned long delta) {
 	 std::thread lp([&] {
 	 read_thread_running = true;
 	 while (read_thread_running) {
+	 delayMicroseconds(200);
 	 while (read()) {
-
+	 delayMicroseconds(200);
 	 }
 	 std::this_thread::yield();
 	 usleep(10);
@@ -207,7 +210,7 @@ bool RF24DualRadio::fill_buffer_tx() {
 		return (false);
 	}
 
-	if (radio_1->writeFast(rp->data, rp->size,
+	if (radio_1->writeFast(rp->data, Settings::RF24::dynamic_payloads ? rp->size : Settings::RF24::payload_size,
 			!Settings::DUAL_RF24::auto_ack)) {
 
 		radio_bytes_out += rp->size;
@@ -276,19 +279,33 @@ void RF24DualRadio::reset_radio() {
 
 	set_speed_pa_retries();
 
-// save on transmission time by setting the radio to only transmit the
-// number of bytes we need to transmit
-// radio->setPayloadSize(Settings::payload_size);
+	// save on transmission time by setting the radio to only transmit the
+	// number of bytes we need to transmit
+	radio_0->setPayloadSize(Settings::RF24::payload_size);
+	radio_1->setPayloadSize(Settings::RF24::payload_size);
+
 	radio_0->setAutoAck(Settings::DUAL_RF24::auto_ack);
 	radio_1->setAutoAck(Settings::DUAL_RF24::auto_ack);
 
-// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
-	radio_0->enableDynamicPayloads(); // ACK payloads are dynamically sized
-	radio_1->enableDynamicPayloads();
-
-// Acknowledgement packets have no payloads by default. We need to enable
-// this feature for all nodes (TX & RX) to use ACK payloads.
-	//radio->enableAckPayload();
+	// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
+	// ACK payloads are dynamically sized
+	if (Settings::RF24::dynamic_payloads) {
+		// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
+		radio_0->enableDynamicPayloads(); // ACK payloads are dynamically sized
+		radio_1->enableDynamicPayloads();
+	} else {
+		radio_0->disableDynamicPayloads();
+		radio_1->disableDynamicPayloads();
+	}
+	// Acknowledgement packets have no payloads by default. We need to enable
+	// this feature for all nodes (TX & RX) to use ACK payloads.
+	if (Settings::RF24::ack_payloads) {
+		radio_0->enableAckPayload();
+		radio_1->enableAckPayload();
+	} else {
+		radio_0->disableAckPayload();
+		radio_1->disableAckPayload();
+	}
 
 	radio_0->setCRCLength(Settings::DUAL_RF24::crc_length);
 	radio_1->setCRCLength(Settings::DUAL_RF24::crc_length);

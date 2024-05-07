@@ -75,8 +75,9 @@ RadioPacket* CharacterStuffingPacketizer::next_packet() {
 
 		if (frames.empty()) {
 			// Undefined behaviour
-			std::cout << "Requested frame when no one is available\n";
-			exit(2);
+			return (nullptr);
+			//std::cout << "Requested frame when no one is available\n";
+			//exit(2);
 		} else {
 			RadioPacket *rp =
 					(frames.front()->packets[current_packet_counter++]);

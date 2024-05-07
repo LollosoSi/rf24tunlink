@@ -5,12 +5,13 @@
  *      Author: Andrea Roccaccino
  */
 
+#include <sstream>
 #include "ThroughputTester.h"
 
-#include <sstream>
-
-ThroughputTester::ThroughputTester() :
+ThroughputTester::ThroughputTester(bool rs) :
 		Telemetry("Throughput Tester") {
+
+	use_rs = rs;
 
 	returnvector = new std::string[15] { "0" };
 
@@ -18,7 +19,8 @@ ThroughputTester::ThroughputTester() :
 			"Unsequential Packets", "Valid Packets", "Invalid Packets",
 			"Total Bytes", "Valid Bytes", "Kbps", "Representation",
 			"Valid Bits", "Flipped Bits", "Error bursts", "Packets with flips",
-			"Bursts in a single packet", "Error representation", "Valid Kbps" }, 15);
+			"Bursts in a single packet", "Error representation", "Valid Kbps" },
+			15);
 
 	printf("Initializing RSCodec\n");
 	rsc = new RSCodec();
@@ -26,7 +28,7 @@ ThroughputTester::ThroughputTester() :
 	printf("Preparing send packets\n");
 	for (unsigned int i = 0; i < 10; i++) {
 		test_packets[i].size = 32;
-		for (unsigned int j = 0; j < Settings::max_pkt_size; j++)
+		for (int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++)
 			if (Settings::test_bits) {
 				test_packets[i].data[j] = 0x55;
 			} else {
@@ -81,7 +83,7 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 			int error_burst_count = 0;
 			int separate_burst_count = 0;
 			bool error_trig = 0;
-			for (int j = 0; j < Settings::max_pkt_size; j++) {
+			for (int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++) {
 				if (received_packets[i].data[j] == test_packets[0].data[j]) {
 					bits_valid++;
 					ets->representation[etest_bit_count++] = 0;
@@ -111,8 +113,8 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 			symb[i] = received_packets[i].size != 32 ? 'z' :
 						error_trig ? 'i' : 'o';
 			bytes_in += received_packets[i].size;
-			if (received_packets[i].size == Settings::max_pkt_size
-					&& !error_trig)
+			if (received_packets[i].size == use_rs ?
+					Settings::ReedSolomon::k : 32 && !error_trig)
 				packets_valid++;
 			else if (error_trig)
 				packets_broken++;
@@ -254,7 +256,9 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 	returnvector[11] = std::to_string(packets_broken);
 	returnvector[12] = bursts_in_packet_output_string.str();
 	returnvector[13] = bursts_representation.str();
-	returnvector[14] = std::to_string((bursts_in_packet[0]*8*Settings::max_pkt_size)/1000.0);
+	returnvector[14] = std::to_string(
+			(bursts_in_packet[0] * 8 * (use_rs ? Settings::ReedSolomon::k : 32))
+					/ 1000.0);
 
 	received_packets_length = 0;
 
@@ -269,20 +273,23 @@ RadioPacket* ThroughputTester::next_packet() {
 		iterator = 0;
 	static RadioPacket *rp = new RadioPacket;
 	rp->size = 32;
+	if (use_rs) {
+		static unsigned char *dt = new unsigned char[32];
+		int s = 32;
+		rsc->encode(&dt, s,
+				(unsigned char*) (test_packets + (iterator++))->data,
+				use_rs ? Settings::ReedSolomon::k : 32);
 
-	static unsigned char *dt = new unsigned char[32];
-	int s = 32;
-	rsc->encode(&dt, s, (unsigned char*) (test_packets + (iterator++))->data,
-			Settings::max_pkt_size);
-
-	//printf("MSG: ");
-	for (int i = 0; i < s; i++) {
-		rp->data[i]=dt[i];
-	//	printf("%i ", rp->data[i]);
+		//printf("MSG: ");
+		for (int i = 0; i < s; i++) {
+			rp->data[i] = dt[i];
+			//	printf("%i ", rp->data[i]);
+		}
+		//printf("\n");
+	} else {
+		return (test_packets + (iterator++));
 	}
-	//printf("\n");
-
-	return rp;
+	return (rp);
 }
 
 bool ThroughputTester::receive_packet(RadioPacket *rp) {
@@ -292,22 +299,23 @@ bool ThroughputTester::receive_packet(RadioPacket *rp) {
 		printf("Too many packets received and no request of telemetry\n");
 	}
 
-	static unsigned char *out = new unsigned char[32] { 0 };
-	int outsize = Settings::max_pkt_size;
+	if (use_rs) {
+		static unsigned char *out = new unsigned char[32] { 0 };
+		int outsize = use_rs ? Settings::ReedSolomon::k : 32;
 
-	rsc->decode(&out, outsize, rp->data, 32);
-	//printf("MSG: ");
-	//for (int i = 0; i < rp->size; i++) {
-	//	printf("%i ", rp->data[i]);
-	//}
-	//printf("\n");
-	//printf("DECODED: ");
-	for (int i = 0; i < outsize; i++) {
-		rp->data[i] = out[i];
-	//	printf("%i ", out[i]);
+		rsc->decode(&out, outsize, rp->data, 32);
+		//printf("MSG: ");
+		//for (int i = 0; i < rp->size; i++) {
+		//	printf("%i ", rp->data[i]);
+		//}
+		//printf("\n");
+		//printf("DECODED: ");
+		for (int i = 0; i < outsize; i++) {
+			rp->data[i] = out[i];
+			//	printf("%i ", out[i]);
+		}
+		//printf("\n");
 	}
-	//printf("\n");
-
 	memcpy((unsigned char*) (received_packets + received_packets_length++),
 			(unsigned char*) rp, 33);
 //printf("n:%i : %i\n",(received_packets + received_packets_length-1)->data[0], (received_packets + received_packets_length-1)->size);

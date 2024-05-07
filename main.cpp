@@ -5,6 +5,7 @@
 
 // Defines
 // #define UNIT_TEST
+
 // Basic
 #include <iostream>
 using namespace std;
@@ -25,8 +26,13 @@ using namespace std;
 #include "packetization/characterstuffing/CharacterStuffingPacketizer.h"
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
 #include "packetization/throughputtester/ThroughputTester.h"
+#include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
+
 #include "radio/NRF24/RF24Radio.h"
 #include "radio/NRF24_DUAL/RF24DualRadio.h"
+#include "radio/NRF24_CSMA/RF24CSMARadio.h"
+
+#include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
 
 #include "telemetry/TelemetryPrinter.h"
 #include "telemetry/TimeTelemetryElement.h"
@@ -45,8 +51,8 @@ void test_run() {
 
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(0);
-	csp = new CharacterStuffingPacketizer();
+	FakeRadio<RadioPacket> fr(90);
+	csp = new RSSelectiveRepeatPacketizer();
 	Settings::mtu = csp->get_mtu();
 
 	fr.register_packet_handler(csp);
@@ -88,11 +94,24 @@ int main(int argc, char **argv) {
 
 	if (argc < 2) {
 		printf(
-				"You need to include the settings file (./thisprogram settings.txt)\n");
+				"You need to include at least one settings file (./thisprogram settings.txt more_settings.txt more_more_settings.txt)\n");
 		return (0);
 	}
 
-	SettingsFileReader sfr(argv[1]);
+	// Initial Setup
+	if (Settings::RF24::primary) {
+		strcpy(Settings::address, "192.168.10.1");
+		strcpy(Settings::destination, "192.168.10.2");
+	} else {
+		strcpy(Settings::address, "192.168.10.2");
+		strcpy(Settings::destination, "192.168.10.1");
+	}
+	strcpy(Settings::netmask, "255.255.255.0");
+
+
+	for(int i = 1; i < argc; i++){
+		SettingsFileReader sfr(argv[i]);
+	}
 
 	printf("Radio is: %i\n", (int) Settings::RF24::primary);
 	//bool primary = argv[1][0] == '1';
@@ -106,16 +125,6 @@ int main(int argc, char **argv) {
 	sigIntHandler.sa_flags = 0;
 	sigaction(SIGINT, &sigIntHandler, NULL);
 
-	// Initial Setup
-	if (Settings::RF24::primary) {
-		strcpy(Settings::address, "192.168.10.1");
-		strcpy(Settings::destination, "192.168.10.2");
-	} else {
-		strcpy(Settings::address, "192.168.10.2");
-		strcpy(Settings::destination, "192.168.10.1");
-	}
-	strcpy(Settings::netmask, "255.255.255.0");
-
 	// Choose a radio
 	switch (Settings::radio_handler) {
 	default:
@@ -124,10 +133,10 @@ int main(int argc, char **argv) {
 				Settings::RF24::csn_pin, Settings::RF24::channel);
 		break;
 	case 1:
-		rh0 = new RF24Radio(Settings::RF24::primary,
+		rh0 = new RF24Radio(!Settings::RF24::primary,
 				Settings::DUAL_RF24::ce_0_pin, Settings::DUAL_RF24::csn_0_pin,
 				Settings::DUAL_RF24::channel_0);
-		rh1 = new RF24Radio(!Settings::RF24::primary,
+		rh1 = new RF24Radio(Settings::RF24::primary,
 				Settings::DUAL_RF24::ce_1_pin, Settings::DUAL_RF24::csn_1_pin,
 				Settings::DUAL_RF24::channel_1);
 		break;
@@ -140,6 +149,11 @@ int main(int argc, char **argv) {
 		printf(
 				"This Radio handler is not available! Please either finish implementation or pick another radio\n");
 		exit(1);
+		break;
+	case 4:
+		// Not yet implemented
+		rh0 = new RF24CSMARadio(Settings::RF24::primary, Settings::RF24::ce_pin,
+				Settings::RF24::csn_pin, Settings::RF24::channel);
 		break;
 	}
 
@@ -155,7 +169,13 @@ int main(int argc, char **argv) {
 		csp = new SelectiveRepeatPacketizer();
 		break;
 	case 2:
-		csp = new ThroughputTester();
+		csp = new ThroughputTester(true);
+		break;
+	case 3:
+		csp = new ThroughputTester(false);
+		break;
+	case 4:
+		csp = new RSSelectiveRepeatPacketizer();
 		break;
 	}
 
@@ -212,14 +232,15 @@ int main(int argc, char **argv) {
 		std::thread lrh1([&] {
 			while (running) {
 				rh1->loop(1);
-				usleep(100);
+				//usleep(100);
 				std::this_thread::yield();
 			}
 		});
 		lrh1.detach();
 		while (running) {
 			rh0->loop(1);
-			usleep(100);
+
+			//usleep(100);
 			std::this_thread::yield();
 
 		}
@@ -229,7 +250,7 @@ int main(int argc, char **argv) {
 			rh0->loop(1);
 			//rh1->loop(1);
 			//if (Settings::RF24::primary) {
-			//	usleep(10000); // 14% cpu
+			//	usleep(50000); // 14% cpu
 			//}
 			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
 			std::this_thread::yield();

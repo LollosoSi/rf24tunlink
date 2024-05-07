@@ -34,7 +34,6 @@ uint8_t mode = 1; // 0 character stuffing, 1 selective repeat, 2 throughput test
 
 uint8_t radio_handler = 0; // 0 RF24, 1 Double RF24, 2 DualRF24 special handler, 3 LORA
 
-
 void apply_settings(std::string &name, std::string &value) {
 
 	if (name == "addr") {
@@ -97,6 +96,10 @@ uint8_t *address_3 = new uint8_t[5] { '3', 'N', 'o', 'o', 'o' };
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
 
+bool ack_payloads = true;
+bool dynamic_payloads = true;
+int payload_size = 32;
+
 void apply_settings(std::string &name, std::string &value) {
 
 	if (name == "radio_delay") {
@@ -122,21 +125,29 @@ void apply_settings(std::string &name, std::string &value) {
 	} else if (name == "crc_length") {
 		crc_length = atoi(value.c_str()) == 0 ? RF24_CRC_DISABLED :
 						atoi(value.c_str()) == 1 ? RF24_CRC_8 : RF24_CRC_16;
-	}else if (name == "data_rate") {
+	} else if (name == "data_rate") {
 		data_rate = atoi(value.c_str()) == 2 ? RF24_250KBPS :
-						atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
-	}else if (name == "radio_power") {
-		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
+					atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
+	} else if (name == "radio_power") {
+		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX :
+						atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
 						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
-	}else if(name == "address_1"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_1") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_1[i] = value[i];
-	}else if(name == "address_2"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_2") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_2[i] = value[i];
-	}else if(name == "address_3"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_3") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_3[i] = value[i];
+	} else if (name == "ack_payloads") {
+		ack_payloads = value == "yes";
+	} else if (name == "dynamic_payloads") {
+		dynamic_payloads = value == "yes";
+	} else if (name == "payload_size") {
+		int a = atoi(value.c_str());
+		payload_size = a > 32 ? 32 : a < 0 ? 1 : a;
 	}
 
 }
@@ -181,7 +192,6 @@ uint8_t *address_1_3 = new uint8_t[5] { '9', 'N', 'o', 'o', 'o' };
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
 
-
 void apply_settings(std::string &name, std::string &value) {
 
 	if (name == "radio_delay") {
@@ -211,33 +221,53 @@ void apply_settings(std::string &name, std::string &value) {
 	} else if (name == "crc_length") {
 		crc_length = atoi(value.c_str()) == 0 ? RF24_CRC_DISABLED :
 						atoi(value.c_str()) == 1 ? RF24_CRC_8 : RF24_CRC_16;
-	}else if (name == "data_rate") {
+	} else if (name == "data_rate") {
 		data_rate = atoi(value.c_str()) == 2 ? RF24_250KBPS :
-						atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
-	}else if (name == "radio_power") {
-		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX : atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
+					atoi(value.c_str()) == 1 ? RF24_2MBPS : RF24_1MBPS;
+	} else if (name == "radio_power") {
+		radio_power = atoi(value.c_str()) == 3 ? RF24_PA_MAX :
+						atoi(value.c_str()) == 2 ? RF24_PA_HIGH :
 						atoi(value.c_str()) == 1 ? RF24_PA_LOW : RF24_PA_MIN;
-	}else if(name == "address_0_1"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_0_1") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_0_1[i] = value[i];
-	}else if(name == "address_0_2"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_0_2") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_0_2[i] = value[i];
-	}else if(name == "address_0_3"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_0_3") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_0_3[i] = value[i];
-	}else if(name == "address_1_1"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_1_1") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_1_1[i] = value[i];
-	}else if(name == "address_1_2"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_1_2") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_1_2[i] = value[i];
-	}else if(name == "address_1_3"){
-		for(int i = 0; i < address_bytes && i < value.length(); i++)
+	} else if (name == "address_1_3") {
+		for (unsigned int i = 0; i < address_bytes && i < value.length(); i++)
 			address_1_3[i] = value[i];
 	}
 
 }
 
+}
+
+namespace Settings::ReedSolomon {
+
+int bits = 8;
+int k = 20;
+int nsym = 12;
+
+void apply_settings(std::string &name, std::string &value) {
+
+	if (name == "bits") {
+		bits = atoi(value.c_str());
+	} else if (name == "k") {
+		k = atoi(value.c_str());
+	} else if (name == "nsym") {
+		nsym = atoi(value.c_str());
+	}
+
+}
 }
 

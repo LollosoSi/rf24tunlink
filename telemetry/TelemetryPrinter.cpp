@@ -83,8 +83,8 @@ void TelemetryPrinter::tick() {
 
 	it = elements.begin();
 
-	if (Settings::display_telemetry)
-		std::system("clear");
+	//if (Settings::display_telemetry)
+	//	std::system("clear");
 
 	while (it != elements.end()) {
 

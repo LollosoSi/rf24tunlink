@@ -33,11 +33,11 @@ extern char csv_divider;
 
 extern bool test_bits;
 
-extern uint8_t mode;  // 0 character stuffing, 1 selective repeat, 2 throughput tester
+extern uint8_t mode; // 0 character stuffing, 1 selective repeat, 2 throughput tester
 
 extern uint8_t radio_handler;
 
-extern void apply_settings(std::string& name, std::string& value);
+extern void apply_settings(std::string &name, std::string &value);
 
 }
 
@@ -69,6 +69,10 @@ extern uint8_t *address_3;
 extern uint8_t *radio_delay_tuned;
 extern uint8_t *radio_retries_tuned;
 
+extern bool ack_payloads;
+extern bool dynamic_payloads;
+extern int payload_size;
+
 inline uint8_t select_delay() {
 	return (data_rate == RF24_2MBPS ? radio_delay_tuned[2] :
 			data_rate == RF24_1MBPS ?
@@ -80,7 +84,7 @@ inline uint8_t select_retries() {
 					radio_retries_tuned[1] : radio_retries_tuned[0]);
 }
 
-extern void apply_settings(std::string& name, std::string& value);
+extern void apply_settings(std::string &name, std::string &value);
 
 }
 
@@ -132,6 +136,15 @@ inline uint8_t select_retries() {
 					radio_retries_tuned[1] : radio_retries_tuned[0]);
 }
 
-extern void apply_settings(std::string& name, std::string& value);
+extern void apply_settings(std::string &name, std::string &value);
 
+}
+
+namespace Settings::ReedSolomon {
+
+extern int bits;
+extern int k;
+extern int nsym;
+
+extern void apply_settings(std::string &name, std::string &value);
 }

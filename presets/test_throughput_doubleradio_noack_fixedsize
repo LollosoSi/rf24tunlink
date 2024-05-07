@@ -1,0 +1,31 @@
+radio_handler=1
+
+= = = = = Packetizer Settings
+mode=3
+control_packets=no
+maximum_frame_time=500
+
+= = = = = Radio settings
+spi_speed=4000000
+data_rate=1
+radio_power=0
+
+= = = = = Telemetry Settings
+display_telemetry=yes
+csv_filename=telemetry_output_throughputtest_ack_fixedsize_doubleradio.csv
+test_bits=yes
+
+= = Packet shape
+auto_ack=yes
+ack_payloads=yes
+dynamic_payloads=no
+payload_size=32
+crc_length=1
+
+= = Radio Behaviour
+variable_rate=no
+
+= = = = = ReedSolomon Settings
+bits=8
+nsym=6
+k=26

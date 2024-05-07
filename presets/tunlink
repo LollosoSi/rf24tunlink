@@ -1,0 +1,71 @@
+= = = = = Interface Settings
+= NOTE: THIS MUST BE SPECIFIED FOR PRIMARY AND SECONDARY
+addr=192.168.10.1
+dest_addr=192.168.10.2
+netmask=255.255.255.0
+iname=arocc
+
+
+= = = = = Radio Handler
+radio_handler=0
+
+
+= = = = = Packetizer Settings
+mode=1
+control_packets=yes
+maximum_frame_time=50
+
+
+= = = = = Telemetry Settings
+display_telemetry=yes
+csv_filename=telemetry_output_tunlink.csv
+test_bits=yes
+
+
+= = = = = Radio settings
+primary=yes
+radio_delay=1
+radio_retries=15
+channel=124
+channel_0=120
+channel_1=10
+ce_pin=24
+csn_pin=0
+ce_0_pin=24
+csn_0_pin=0
+ce_1_pin=26
+csn_1_pin=12
+spi_speed=4000000
+data_rate=1
+radio_power=0
+
+
+= = Addresses
+address_1=1no
+address_2=2no
+address_3=3no
+address_0_1=11n
+address_0_2=21n
+address_0_3=32n
+address_1_1=41n
+address_1_2=51n
+address_1_3=61n
+
+
+= = Packet shape
+auto_ack=yes
+ack_payloads=yes
+dynamic_payloads=yes
+payload_size=32
+crc_length=1
+
+
+= = Radio Behaviour
+max_radio_silence=300
+variable_rate=yes
+
+
+= = = = = ReedSolomon Settings
+bits=8
+nsym=6
+k=26
