@@ -64,6 +64,8 @@ set(packetizers
     packetization/characterstuffing/CharacterStuffingPacketizer.cpp
     packetization/throughputtester/ThroughputTester.h
     packetization/throughputtester/ThroughputTester.cpp
+    packetization/harq/HARQ.h
+    packetization/harq/HARQ.cpp
 )
 set(unit_tests
     unit_tests/FakeRadio.h
