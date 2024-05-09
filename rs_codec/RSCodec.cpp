@@ -20,6 +20,50 @@ RSCodec::~RSCodec() {
 
 }
 
+// NOTE: size must be correct k+nsym or the function will fail.
+bool RSCodec::efficient_encode(uint8_t* inout, int size) {
+	if (size != (k + nsym)) {
+		printf(
+				"Encoder requires messages of size %i, it was given %i. Correct the mistake and recompile\n",
+				k + nsym, size);
+		exit(1);
+	}
+
+	RS_WORD data[k+nsym];
+	RS_WORD data_out[k+nsym];
+	for (int i = 0; i < k + nsym; i++)
+		data[i] = inout[i];
+	//Poly conv(k + nsym, data);
+	rs->encode(data_out, data, k, nsym);
+	for (int i = 0; i < k + nsym; i++)
+		inout[i] = static_cast<uint8_t>(data_out[i]);
+
+	return (true);
+}
+
+// NOTE: size must be correct k+nsym or the function will fail.
+bool RSCodec::efficient_decode(uint8_t* inout, int size) {
+	if (size != (k + nsym)) {
+		printf(
+				"Decoder requires messages of size %i, it was given %i. Correct the mistake and recompile\n",
+				k + nsym, size);
+		exit(1);
+	}
+
+	RS_WORD data[k + nsym];
+	for (int i = 0; i < k + nsym; i++)
+		data[i] = static_cast<RS_WORD>(inout[i]);
+	//Poly conv(k + nsym, data);
+
+	Poly msg(k, data);
+
+	if (!rs->decode(data, msg.coef, data, k, nsym, nullptr, false))
+		return (false);
+	for (int i = 0; i < k + nsym; i++)
+		inout[i] = static_cast<unsigned char>(data[i]);
+	return (true);
+}
+
 bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
 		int insize) {
 

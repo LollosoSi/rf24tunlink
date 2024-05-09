@@ -14,7 +14,10 @@
 #include <stdio.h>
 #include <unistd.h>
 
+#include <cmath>
+
 #include "../telemetry/Telemetry.h"
+#include "../utils.h"
 
 template<typename packet>
 class FakeRadio: Messenger<TUNMessage> {
@@ -25,7 +28,9 @@ public:
 	virtual ~FakeRadio() {
 	}
 
-	int chance_loss = 50;
+	int chance_loss = 0;
+
+	int chance_corruption = 5;
 
 	void test(const std::string *messages, unsigned int msize) {
 		srand(time(NULL));
@@ -48,16 +53,28 @@ public:
 		int cut = 0;
 
 		packet *p = nullptr;
-		while (pkt_ref->next_packet_ready()) {
-			p = pkt_ref->next_packet();
-			if (rand() % 100 > chance_loss) {
-				sent++;
-				((Messenger<RadioPacket>*) pkt_ref)->send(p);
-			} else {
-				cut++;
-			}
+		uint64_t start_ms = current_millis();
+		while (current_millis() - start_ms < 20000) {
+			if (pkt_ref->next_packet_ready()) {
+				p = pkt_ref->next_packet();
+				if (p) {
 
-			//usleep(10000);
+					if (rand() % 100 < chance_loss) {
+						sent++;
+						for (int i = 0; i < p->size; i++) {
+							if ((rand() % 100) < chance_corruption) {
+								p->data[i] = p->data[i]
+										* ((int) pow(2, (int) (rand() % 8)));
+							}
+						}
+						((Messenger<RadioPacket>*) pkt_ref)->send(p);
+					} else {
+						cut++;
+					}
+				}
+
+				//usleep(10000);
+			}
 		}
 
 		std::cout << "\n\tSent: " << sent << "   Lost: " << cut << std::endl;

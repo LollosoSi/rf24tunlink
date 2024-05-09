@@ -4,7 +4,7 @@
  */
 
 // Defines
-// #define UNIT_TEST
+ #define UNIT_TEST
 
 // Basic
 #include <iostream>
@@ -27,12 +27,12 @@ using namespace std;
 #include "packetization/selectiverepeat/SelectiveRepeatPacketizer.h"
 #include "packetization/throughputtester/ThroughputTester.h"
 #include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
+#include "packetization/harq/HARQ.h"
+
 
 #include "radio/NRF24/RF24Radio.h"
 #include "radio/NRF24_DUAL/RF24DualRadio.h"
 #include "radio/NRF24_CSMA/RF24CSMARadio.h"
-
-#include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
 
 #include "telemetry/TelemetryPrinter.h"
 #include "telemetry/TimeTelemetryElement.h"
@@ -51,8 +51,8 @@ void test_run() {
 
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(90);
-	csp = new RSSelectiveRepeatPacketizer();
+	FakeRadio<RadioPacket> fr(100);
+	csp = new HARQ();
 	Settings::mtu = csp->get_mtu();
 
 	fr.register_packet_handler(csp);
