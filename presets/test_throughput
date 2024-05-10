@@ -1,0 +1,47 @@
+= = = = = Interface Settings
+= NOTE: THIS MUST BE SPECIFIED FOR PRIAMRY AND SECONDARY
+iname=arocc
+
+
+= = = = = Radio Handler
+radio_handler=0
+
+
+= = = = = Packetizer Settings
+mode=2
+control_packets=yes
+maximum_frame_time=500
+
+
+= = = = = Telemetry Settings
+display_telemetry=yes
+csv_filename=telemetry_output_throughput.csv
+test_bits=yes
+
+
+= = = = = Radio settings
+channel=124
+channel_0=120
+channel_1=10
+spi_speed=4000000
+data_rate=1
+radio_power=0
+
+
+= = Packet shape
+auto_ack=yes
+ack_payloads=yes
+dynamic_payloads=yes
+payload_size=32
+crc_length=1
+
+
+= = Radio Behaviour
+max_radio_silence=300
+variable_rate=yes
+
+
+= = = = = ReedSolomon Settings
+bits=8
+nsym=26
+k=6

@@ -101,7 +101,8 @@ void RF24Radio::loop(unsigned long delta) {
 
 			if (Settings::RF24::variable_rate)
 				if (radio->getDataRate() != 2) {
-					static RadioPacket *cp = new RadioPacket { { 2 }, 1 };
+					static RadioPacket *cp = new RadioPacket { { 128, 2 }, 32 };
+					rsc.efficient_encode(cp->data, 32);
 					process_control_packet(cp);
 				}
 		}
@@ -123,7 +124,8 @@ void RF24Radio::loop(unsigned long delta) {
 			if ((since_last_packet() < 30)
 					&& (current_millis() - last_speed_change > 5000)
 					&& radio->getDataRate() != 1) {
-				static RadioPacket *cp = new RadioPacket { { 1 }, 1 };
+				static RadioPacket *cp = new RadioPacket { { 128, 1 }, 32 };
+				rsc.efficient_encode(cp->data, 32);
 				try_change_speed(cp);
 			}
 
@@ -164,10 +166,10 @@ void RF24Radio::interrupt_routine() {
 
 inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 
-	if (Settings::RF24::variable_rate && cp->data[0] != radio->getDataRate()
+	if (Settings::RF24::variable_rate && cp->data[1] != radio->getDataRate()
 			&& cp->data[0] > 3 && cp->data[0] <= 1) {
-		printf("-----> Moving to datarate: %i\n", cp->data[0]);
-		Settings::RF24::data_rate = (rf24_datarate_e) cp->data[0];
+		printf("-----> Moving to datarate: %i\n", cp->data[1]);
+		Settings::RF24::data_rate = (rf24_datarate_e) cp->data[1];
 
 		//this->set_speed_pa_retries();
 		reset_radio();
@@ -175,7 +177,7 @@ inline void RF24Radio::process_control_packet(RadioPacket *cp) {
 	} else if (!Settings::RF24::variable_rate) {
 		reset_radio();
 		printf("Variable rate is not enabled. Radio reset\n");
-	} else if (cp->data[0] <= 3 && cp->data[0] >= 0) {
+	} else if (cp->data[1] <= 3 && cp->data[1] >= 0) {
 		//reset_radio();
 		//printf("Bad data received\n");
 	}
@@ -191,7 +193,7 @@ inline void RF24Radio::try_change_speed(RadioPacket *cp) {
 	if (radio->write(cp->data, 1)) {
 		if (read()) {
 		}
-		printf("-----> Moving to %i\n", cp->data[0]);
+		printf("-----> Moving to %i\n", cp->data[1]);
 
 		last_speed_change = current_millis();
 		process_control_packet(cp);
@@ -236,22 +238,25 @@ bool RF24Radio::read() {
 			break;
 
 		case 2:
-			// Secondary radio received a control packet!
-			printf("-----> Move request to %i\n", rp->data[0]);
-			//radio->flush_rx();
-			//radio->flush_tx();
+			if (rsc.efficient_decode(rp->data, 32)) {
+				if (rp->data[0] == 128) {
+					// Secondary radio received a control packet!
+					printf("-----> Move request to %i\n", rp->data[1]);
+					//radio->flush_rx();
+					//radio->flush_tx();
 
-			radio_bytes_in += rp->size;
-			if (rp->size == 32)
-				this->packet_received(rp);
-			else if (rp->size == 1)
-				if (Settings::RF24::variable_rate)
-					process_control_packet(rp);
-
+					radio_bytes_in += rp->size;
+					if (rp->size == 32)
+						this->packet_received(rp);
+					else if (rp->size == 1)
+						if (Settings::RF24::variable_rate)
+							process_control_packet(rp);
+				}
+			}
 			break;
 		}
-		if (pipe != 0 && pipe != 1)
-			printf("Pipe %i\n", pipe);
+		//if (pipe != 0 && pipe != 1)
+		//	printf("Pipe %i\n", pipe);
 		packets_in++;
 		last_packet = current_millis();
 
@@ -276,6 +281,9 @@ bool RF24Radio::send_tx() {
 }
 
 bool RF24Radio::fill_buffer_tx() {
+
+	if (!has_next_packet())
+		return (false);
 
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available

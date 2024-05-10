@@ -10,6 +10,7 @@
 #include "../../interfaces/RadioHandler.h"
 #include "../../structures/RadioPacket.h"
 #include "../../telemetry/Telemetry.h"
+#include "../../rs_codec/RSCodec.h"
 
 #include <RF24/RF24.h>
 
@@ -28,6 +29,8 @@ public:
 	void interrupt_routine();
 
 	std::string* telemetry_collect(const unsigned long delta);
+
+	RSCodec rsc;
 
 protected:
 	bool send_tx();

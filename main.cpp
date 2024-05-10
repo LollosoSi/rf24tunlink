@@ -4,7 +4,7 @@
  */
 
 // Defines
- #define UNIT_TEST
+// #define UNIT_TEST
 
 // Basic
 #include <iostream>
@@ -51,7 +51,7 @@ void test_run() {
 
 	Settings::control_packets = false;
 
-	FakeRadio<RadioPacket> fr(100);
+	FakeRadio<RadioPacket> fr(0, 10);
 	csp = new HARQ();
 	Settings::mtu = csp->get_mtu();
 
@@ -79,7 +79,24 @@ void ctrlcevent(int s) {
 	}
 }
 
+#include <signal.h>
+
+extern "C" void handle_aborts(int signal_number)
+{
+    /*Your code goes here. You can output debugging info.
+      If you return from this function, and it was called
+      because abort() was called, your program will exit or crash anyway
+      (with a dialog box on Windows).
+     */
+	std::cout << "SIGABORT caught. Ouch.\n";
+}
+
+
+
 int main(int argc, char **argv) {
+
+	/*Do this early in your program's initialization */
+	signal(SIGABRT, &handle_aborts);
 
 #ifdef UNIT_TEST
 	test_run();
@@ -177,6 +194,10 @@ int main(int argc, char **argv) {
 	case 4:
 		csp = new RSSelectiveRepeatPacketizer();
 		break;
+	case 5:
+		csp = new HARQ();
+		break;
+
 	}
 
 	Settings::mtu = csp->get_mtu();

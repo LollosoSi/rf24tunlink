@@ -21,7 +21,7 @@ char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
 unsigned int mtu = 9600;
 bool control_packets = true;
 
-uint16_t minimum_ARQ_wait = 3;
+uint16_t minimum_ARQ_wait = 10;
 
 uint16_t maximum_frame_time = 30;
 
@@ -59,6 +59,8 @@ void apply_settings(std::string &name, std::string &value) {
 		maximum_frame_time = atol(value.c_str());
 	} else if (name == "radio_handler") {
 		radio_handler = atoi(value.c_str());
+	}else if (name == "minimum_ARQ_wait") {
+		minimum_ARQ_wait = atoi(value.c_str());
 	}
 
 }

@@ -204,11 +204,14 @@ bool RF24DualRadio::fill_buffer_tx() {
 	}
 
 	RadioPacket *rp = nullptr;
+	if(has_next_packet()){
 	if (!(rp = next_packet())) {
 		pk = 0;
 		send_tx();
 		return (false);
 	}
+	}else
+		return(false);
 
 	if (radio_1->writeFast(rp->data, Settings::RF24::dynamic_payloads ? rp->size : Settings::RF24::payload_size,
 			!Settings::DUAL_RF24::auto_ack)) {

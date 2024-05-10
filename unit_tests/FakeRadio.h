@@ -22,8 +22,9 @@
 template<typename packet>
 class FakeRadio: Messenger<TUNMessage> {
 public:
-	FakeRadio(int chance) {
-		chance_loss = chance;
+	FakeRadio(int chance_loss, int chance_corruption) {
+		this->chance_loss = chance_loss;
+		this->chance_corruption = chance_corruption;
 	}
 	virtual ~FakeRadio() {
 	}
@@ -59,7 +60,7 @@ public:
 				p = pkt_ref->next_packet();
 				if (p) {
 
-					if (rand() % 100 < chance_loss) {
+					if ((rand() % 100) > chance_loss) {
 						sent++;
 						for (int i = 0; i < p->size; i++) {
 							if ((rand() % 100) < chance_corruption) {
