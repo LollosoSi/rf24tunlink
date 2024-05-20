@@ -584,7 +584,7 @@ void ReedSolomon::forneySyndromes(Poly* out, Poly* synd, vector<unsigned int>* p
 	out->setCopy(fsynd.n, fsynd.coef);
 }
 
-bool ReedSolomon::decode(RS_WORD* wholeOut, RS_WORD* out, RS_WORD* data, int k, int nsym, vector<unsigned int>* erasePos, bool debug)
+bool ReedSolomon::decode(RS_WORD* wholeOut, RS_WORD* out, RS_WORD* data, int k, int nsym, vector<unsigned int>* erasePos, bool debug, int* error_count)
 {
 	Poly synd;
 	Poly msg(k + nsym, data);
@@ -616,6 +616,8 @@ bool ReedSolomon::decode(RS_WORD* wholeOut, RS_WORD* out, RS_WORD* data, int k, 
 		}
 		vector<unsigned int> pos;
 		canLocate = this->findErrors(&pos, &errLoc, k + nsym);
+		if(error_count)
+			(*error_count)=pos.size();
 		if (!canLocate || !(pos.size() || (erasePos && erasePos->size())))
 		{
 			if(debug) cout << "errors unable to be located!" << endl;

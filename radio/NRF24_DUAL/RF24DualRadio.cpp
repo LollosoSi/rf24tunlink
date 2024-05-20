@@ -194,11 +194,11 @@ bool RF24DualRadio::send_tx() {
 
 bool RF24DualRadio::fill_buffer_tx() {
 
-	static uint8_t pk = 0;
+	//static uint8_t pk = 0;
 // Check if radio FIFO TX is full, if yes, skip.
 // Also check if the next packet is available
 	if (radio_1->isFifo(true, false)) {
-		pk = 0;
+		//pk = 0;
 		//send_tx();
 		//return (false);
 	}
@@ -206,7 +206,7 @@ bool RF24DualRadio::fill_buffer_tx() {
 	RadioPacket *rp = nullptr;
 	if(has_next_packet()){
 	if (!(rp = next_packet())) {
-		pk = 0;
+		//pk = 0;
 		send_tx();
 		return (false);
 	}
@@ -226,8 +226,7 @@ bool RF24DualRadio::fill_buffer_tx() {
 }
 
 void RF24DualRadio::check_fault() {
-	rf24_datarate_e dt_0 = radio_0->getDataRate(), dt_1 =
-			radio_1->getDataRate();
+	rf24_datarate_e dt_0 = radio_0->getDataRate(), dt_1 = radio_1->getDataRate();
 	if (radio_0->failureDetected || radio_1->failureDetected
 			|| (dt_0 != Settings::DUAL_RF24::data_rate)
 			|| (dt_1 != Settings::DUAL_RF24::data_rate)

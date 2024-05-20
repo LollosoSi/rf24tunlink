@@ -21,8 +21,8 @@
 
 class RSCodec {
 private:
-	int bits, k, nsym;
-	ReedSolomon* rs = nullptr;
+	int bits = 8, k, nsym;
+	ReedSolomon rs = ReedSolomon(8);
 
 public:
 
@@ -30,7 +30,7 @@ public:
 	virtual ~RSCodec();
 
 	bool efficient_encode(uint8_t* inout, int size);
-	bool efficient_decode(uint8_t* inout, int size);
+	bool efficient_decode(uint8_t* inout, int size, int* error_count = nullptr);
 
 	bool encode(unsigned char **out, int &outsize, unsigned char *in, int insize);
 	bool decode(unsigned char **out, int &outsize, unsigned char *in, int insize);

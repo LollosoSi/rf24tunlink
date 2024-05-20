@@ -12,7 +12,9 @@ RSCodec::RSCodec() {
 	k = Settings::ReedSolomon::k;
 	nsym = Settings::ReedSolomon::nsym;
 
-	rs = new ReedSolomon(bits);
+	printf("BITS %d\n", bits);
+
+
 
 }
 
@@ -34,7 +36,7 @@ bool RSCodec::efficient_encode(uint8_t* inout, int size) {
 	for (int i = 0; i < k + nsym; i++)
 		data[i] = inout[i];
 	//Poly conv(k + nsym, data);
-	rs->encode(data_out, data, k, nsym);
+	rs.encode(data_out, data, k, nsym);
 	for (int i = 0; i < k + nsym; i++)
 		inout[i] = static_cast<uint8_t>(data_out[i]);
 
@@ -42,7 +44,7 @@ bool RSCodec::efficient_encode(uint8_t* inout, int size) {
 }
 
 // NOTE: size must be correct k+nsym or the function will fail.
-bool RSCodec::efficient_decode(uint8_t* inout, int size) {
+bool RSCodec::efficient_decode(uint8_t* inout, int size, int* error_count) {
 	if (size != (k + nsym)) {
 		printf(
 				"Decoder requires messages of size %i, it was given %i. Correct the mistake and recompile\n",
@@ -57,7 +59,7 @@ bool RSCodec::efficient_decode(uint8_t* inout, int size) {
 
 	Poly msg(k, data);
 
-	if (!rs->decode(data, msg.coef, data, k, nsym, nullptr, false))
+	if (!rs.decode(nullptr, msg.coef, data, k, nsym, nullptr, false, error_count))
 		return (false);
 	for (int i = 0; i < k + nsym; i++)
 		inout[i] = static_cast<unsigned char>(data[i]);
@@ -81,7 +83,7 @@ bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
 	Poly msg(k, m);
 	Poly a(k + nsym, m);
 
-	rs->encode(a.coef, msg.coef, k, nsym);
+	rs.encode(a.coef, msg.coef, k, nsym);
 
 	if ((*out) == nullptr || outsize != k + nsym)
 		*out = new unsigned char[k + nsym];
@@ -136,7 +138,7 @@ bool RSCodec::decode(unsigned char **out, int &outsize, unsigned char *in,
 	Poly msg(k, c);
 	Poly a(k + nsym, m);
 
-	if (!rs->decode(a.coef, msg.coef, a.coef, k, nsym, nullptr, false)) {
+	if (!rs.decode(a.coef, msg.coef, a.coef, k, nsym, nullptr, false)) {
 		//cout << "Decoding failed!" << endl;
 		return (false);
 	}

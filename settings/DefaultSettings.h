@@ -14,10 +14,10 @@ namespace Settings {
 
 bool display_telemetry = true;
 
-char *address = new char[18] { '\0' };
-char *destination = new char[18] { '\0' };
-char *netmask = new char[18] { '\0' };
-char *interface_name = new char[6] { 'a', 'r', 'o', 'c', 'c', '\0' };
+char address[18]={ '\0' };
+char destination[18]={ '\0' };
+char netmask[18]={ '\0' };
+char interface_name[6]={ 'a', 'r', 'o', 'c', 'c', '\0' };
 unsigned int mtu = 9600;
 bool control_packets = true;
 
@@ -91,9 +91,9 @@ uint8_t radio_retries = 15;
 
 uint8_t channel = 124;
 uint8_t address_bytes = 3;
-uint8_t *address_1 = new uint8_t[5] { '1', 'N', 'o', 'o', 'o' };
-uint8_t *address_2 = new uint8_t[5] { '2', 'N', 'o', 'o', 'o' };
-uint8_t *address_3 = new uint8_t[5] { '3', 'N', 'o', 'o', 'o' };
+uint8_t *address_1 = new uint8_t[6] { '1', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_2 = new uint8_t[6] { '2', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_3 = new uint8_t[6] { '3', 'N', 'o', 'o', 'o', 0 };
 
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };
@@ -183,13 +183,13 @@ uint8_t radio_retries = 15;
 uint8_t channel_0 = 2;
 uint8_t channel_1 = 124;
 uint8_t address_bytes = 3;
-uint8_t *address_0_1 = new uint8_t[5] { '4', 'N', 'o', 'o', 'o' };
-uint8_t *address_0_2 = new uint8_t[5] { '5', 'N', 'o', 'o', 'o' };
-uint8_t *address_0_3 = new uint8_t[5] { '6', 'N', 'o', 'o', 'o' };
+uint8_t *address_0_1 = new uint8_t[6] { '4', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_0_2 = new uint8_t[6] { '5', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_0_3 = new uint8_t[6] { '6', 'N', 'o', 'o', 'o', 0 };
 
-uint8_t *address_1_1 = new uint8_t[5] { '7', 'N', 'o', 'o', 'o' };
-uint8_t *address_1_2 = new uint8_t[5] { '8', 'N', 'o', 'o', 'o' };
-uint8_t *address_1_3 = new uint8_t[5] { '9', 'N', 'o', 'o', 'o' };
+uint8_t *address_1_1 = new uint8_t[6] { '7', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_1_2 = new uint8_t[6] { '8', 'N', 'o', 'o', 'o', 0 };
+uint8_t *address_1_3 = new uint8_t[6] { '9', 'N', 'o', 'o', 'o', 0 };
 
 uint8_t *radio_delay_tuned = new uint8_t[3] { 6, 2, 1 };
 uint8_t *radio_retries_tuned = new uint8_t[3] { 15, 15, 15 };

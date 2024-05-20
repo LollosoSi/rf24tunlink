@@ -5,7 +5,6 @@
 
 // Defines
 // #define UNIT_TEST
-
 // Basic
 #include <iostream>
 using namespace std;
@@ -29,10 +28,10 @@ using namespace std;
 #include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
 #include "packetization/harq/HARQ.h"
 
-
 #include "radio/NRF24/RF24Radio.h"
 #include "radio/NRF24_DUAL/RF24DualRadio.h"
 #include "radio/NRF24_CSMA/RF24CSMARadio.h"
+#include "radio/NRF24_DUAL_THREADSAFE/RF24DualThreadsafeRadio.h"
 
 #include "telemetry/TelemetryPrinter.h"
 #include "telemetry/TimeTelemetryElement.h"
@@ -81,17 +80,14 @@ void ctrlcevent(int s) {
 
 #include <signal.h>
 
-extern "C" void handle_aborts(int signal_number)
-{
-    /*Your code goes here. You can output debugging info.
-      If you return from this function, and it was called
-      because abort() was called, your program will exit or crash anyway
-      (with a dialog box on Windows).
-     */
+extern "C" void handle_aborts(int signal_number) {
+	/*Your code goes here. You can output debugging info.
+	 If you return from this function, and it was called
+	 because abort() was called, your program will exit or crash anyway
+	 (with a dialog box on Windows).
+	 */
 	std::cout << "SIGABORT caught. Ouch.\n";
 }
-
-
 
 int main(int argc, char **argv) {
 
@@ -125,8 +121,7 @@ int main(int argc, char **argv) {
 	}
 	strcpy(Settings::netmask, "255.255.255.0");
 
-
-	for(int i = 1; i < argc; i++){
+	for (int i = 1; i < argc; i++) {
 		SettingsFileReader sfr(argv[i]);
 	}
 
@@ -171,6 +166,10 @@ int main(int argc, char **argv) {
 		// Not yet implemented
 		rh0 = new RF24CSMARadio(Settings::RF24::primary, Settings::RF24::ce_pin,
 				Settings::RF24::csn_pin, Settings::RF24::channel);
+		break;
+	case 5:
+		// Dual Threadsafe
+		rh0 = new RF24DualThreadsafeRadio(Settings::RF24::primary);
 		break;
 	}
 
@@ -248,51 +247,44 @@ int main(int argc, char **argv) {
 	 lr.detach();*/
 
 	// Program loop (radio loop)
-	if (rh1 != nullptr) {
+	if(Settings::radio_handler==5){
+		while(running){
+			usleep(100000);
+			std::this_thread::yield();
+		}
+		reinterpret_cast<RF24DualThreadsafeRadio*>(rh0)->stop_quit();
 
-		std::thread lrh1([&] {
+	}else{
+		if (rh1 != nullptr) {
+
+				std::thread lrh1([&] {
+					while (running) {
+						rh1->loop(1);
+						//usleep(100);
+						std::this_thread::yield();
+					}
+				});
+				lrh1.detach();
+			}
 			while (running) {
-				rh1->loop(1);
+				rh0->loop(1);
+
 				//usleep(100);
 				std::this_thread::yield();
+
 			}
-		});
-		lrh1.detach();
-		while (running) {
-			rh0->loop(1);
+	}
 
-			//usleep(100);
-			std::this_thread::yield();
-
-		}
-	} else
-		while (running) {
-			//do {
-			rh0->loop(1);
-			//rh1->loop(1);
-			//if (Settings::RF24::primary) {
-			//	usleep(50000); // 14% cpu
-			//}
-			//} while (rh0->is_receiving_data() || rh1->is_receiving_data() || !csp->empty());
-			std::this_thread::yield();
-			//usleep(10000); // 14% cpu
-			//if(csp->empty())
-			//	usleep(3000);
-			//if(!rh0->is_receiving_data() && csp->empty())
-			//	usleep(100);
-			//usleep(10000);
-			//	usleep(2);
-			//std::this_thread::yield();
-			//}
-
-		}
 	// Close and free everything
 	tunh->stopThread();
+
 
 	delete tunh;
 	delete csp;
 	delete rh0;
-	//delete rh1;
+	if (rh1 != nullptr) {
+		delete rh1;
+	}
 
 	return (0);
 }

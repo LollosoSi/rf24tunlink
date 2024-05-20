@@ -12,7 +12,7 @@
 #include "../settings/Settings.h"
 
 struct RadioPacket{
-		uint8_t data[32] = {0};
+		uint8_t data[32];
 		uint8_t size = 0;
 };
 

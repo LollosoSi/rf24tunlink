@@ -49,7 +49,7 @@
 
 // The underlying data type used can be changed depending on your space requirements
 // just change this typedef
-typedef unsigned long RS_WORD;
+typedef unsigned int RS_WORD;
 
 using namespace std;
 
@@ -119,6 +119,6 @@ public:
 	bool findErrorLocator(Poly* out, Poly* synd, int nsym, Poly* eraseLoc, int eraseCount);
 	bool findErrors(vector<unsigned int>* out, Poly* errLoc, int n);
 	void forneySyndromes(Poly* out, Poly* synd, vector<unsigned int>* pos, int n);
-	bool decode(RS_WORD* wholeOut, RS_WORD* out, RS_WORD* data, int k, int nsym, vector<unsigned int>* erasePos, bool debug);
+	bool decode(RS_WORD* wholeOut, RS_WORD* out, RS_WORD* data, int k, int nsym, vector<unsigned int>* erasePos, bool debug, int* error_count = nullptr);
 };
 

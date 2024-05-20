@@ -16,10 +16,10 @@ namespace Settings {
 
 extern bool display_telemetry;
 
-extern char *address; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
-extern char *destination;		// Destination of the interface
-extern char *netmask;			// Network address mask
-extern char *interface_name;	// Interface name (arocc)
+extern char address[]; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
+extern char destination[];		// Destination of the interface
+extern char netmask[];			// Network address mask
+extern char interface_name[];	// Interface name (arocc)
 extern unsigned int mtu;		// MTU, must be determined later
 extern bool control_packets; // Whether or not to send empty packets as keepalive
 extern uint16_t minimum_ARQ_wait;

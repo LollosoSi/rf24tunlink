@@ -3,14 +3,14 @@ radio_handler=1
 = = = = = Packetizer Settings
 mode=5
 control_packets=no
-maximum_frame_time=500
-minimum_arq_wait=1
+maximum_frame_time=50
+minimum_arq_wait=0
 
 = = = = = Radio settings
 spi_speed=4000000
 data_rate=1
 radio_power=1
-radio_handler=1
+radio_handler=5
 
 = = = = = Telemetry Settings
 display_telemetry=yes
@@ -28,6 +28,31 @@ crc_length=0
 variable_rate=no
 
 = = = = = ReedSolomon Settings
-bits=8
-nsym=4
-k=28
+nsym=12
+k=20
+
+= = = = = Radio settings
+radio_delay=1
+radio_retries=15
+channel=124
+channel_0=120
+channel_1=10
+ce_pin=24
+csn_pin=0
+ce_0_pin=24
+csn_0_pin=0
+ce_1_pin=26
+csn_1_pin=12
+spi_speed=4000000
+
+
+= = Addresses
+address_1=1no
+address_2=2no
+address_3=3no
+address_0_1=11n
+address_0_2=21n
+address_0_3=32n
+address_1_1=41n
+address_1_2=51n
+address_1_3=61n

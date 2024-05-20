@@ -209,12 +209,12 @@ bool RF24Radio::read() {
 	bool result = false;
 	uint8_t pipe = 0;
 
-	static RadioPacket *rp = new RadioPacket;
+	RadioPacket rp;
 
 	if ((result = (radio->available(&pipe)))) {
 
-		rp->size = radio->getDynamicPayloadSize();
-		radio->read(rp, rp->size);
+		rp.size = radio->getDynamicPayloadSize();
+		radio->read(&rp, rp.size);
 
 		switch (pipe) {
 		default:
@@ -227,30 +227,27 @@ bool RF24Radio::read() {
 
 		case 0:
 		case 1:
-			radio_bytes_in += rp->size;
+			radio_bytes_in += rp.size;
 
-			receiving_data = !(rp->size == 1 && rp->data[0] == 0);
+			receiving_data = !(rp.size == 1 && rp.data[0] == 0);
 
 			if (!receiving_data) {
 				break;
 			}
-			this->packet_received(rp);
+			this->packet_received(&rp);
 			break;
 
 		case 2:
-			if (rsc.efficient_decode(rp->data, 32)) {
-				if (rp->data[0] == 128) {
+			if (rsc.efficient_decode(rp.data, 32)) {
+				if (rp.data[0] == 128) {
 					// Secondary radio received a control packet!
-					printf("-----> Move request to %i\n", rp->data[1]);
+					printf("-----> Move request to %i\n", rp.data[1]);
 					//radio->flush_rx();
 					//radio->flush_tx();
 
-					radio_bytes_in += rp->size;
-					if (rp->size == 32)
-						this->packet_received(rp);
-					else if (rp->size == 1)
-						if (Settings::RF24::variable_rate)
-							process_control_packet(rp);
+					radio_bytes_in += rp.size;
+					if (Settings::RF24::variable_rate)
+						process_control_packet(&rp);
 				}
 			}
 			break;
@@ -297,13 +294,7 @@ bool RF24Radio::fill_buffer_tx() {
 	if (!rp)
 		return (false);
 
-	RadioPacket rpp;
-	try {
-		memcpy(&rpp, rp, 33);
-	} catch (...) {
-		return (false);
-	}
-	if (rpp.size == 0) {
+	if (rp->size == 0) {
 		printf("Packet outbound of size 0!\n");
 		return (false);
 	}
@@ -314,11 +305,11 @@ bool RF24Radio::fill_buffer_tx() {
 //}
 	//usleep(2);
 
-	if (radio->writeFast(rpp.data,
+	if (radio->writeFast(rp->data,
 			Settings::RF24::dynamic_payloads ?
-					rpp.size : Settings::RF24::payload_size,
+					rp->size : Settings::RF24::payload_size,
 			!Settings::RF24::auto_ack)) {
-		radio_bytes_out += rpp.size;
+		radio_bytes_out += rp->size;
 		//return (true);
 	} else {
 		return (false);

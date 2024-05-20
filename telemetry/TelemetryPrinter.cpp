@@ -48,8 +48,8 @@ void TelemetryPrinter::tick() {
 
 		while (it != elements.end()) {
 
-			std::string *telemetrydata = (*it)->telemetry_collect(1000);
-			const std::string *elementnames = (*it)->get_element_names();
+			//std::string *telemetrydata = (*it)->telemetry_collect(1000);
+			//const std::string *elementnames = (*it)->get_element_names();
 
 			(*outfile) << (*it)->get_name().c_str() << Settings::csv_divider;
 
@@ -65,7 +65,7 @@ void TelemetryPrinter::tick() {
 
 		while (it != elements.end()) {
 
-			std::string *telemetrydata = (*it)->telemetry_collect(1000);
+			//std::string *telemetrydata = (*it)->telemetry_collect(1000);
 			const std::string *elementnames = (*it)->get_element_names();
 
 			//(*outfile) << Settings::csv_divider;
