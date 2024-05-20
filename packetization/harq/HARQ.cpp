@@ -6,6 +6,7 @@
  */
 
 #include "HARQ.h"
+#include "../../settings/Settings.h"
 
 HARQ::HARQ() :
 		Telemetry("HARQ") {
@@ -174,5 +175,10 @@ void HARQ::checktimers() {
 			}
 		}
 	}
+}
+
+unsigned int HARQ::get_mtu() {
+		return (((pow(2, segment_bits) * bytes_per_submessage)
+				- length_last_packet_bytes));
 }
 

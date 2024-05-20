@@ -9,6 +9,8 @@
 #include <iostream>
 using namespace std;
 
+#include "settings/Settings.h"
+
 // Utilities
 #include <cstring>
 #include <thread>
@@ -39,6 +41,8 @@ using namespace std;
 #include "interfaces/UARTHandler.h"
 
 #include "settings/SettingsFileReader.h"
+
+#include "rs_codec/RSCodec.h"
 
 TUNHandler *tunh = nullptr;
 PacketHandler<RadioPacket> *csp = nullptr;
@@ -99,8 +103,7 @@ int main(int argc, char **argv) {
 #endif
 
 	if (geteuid()) {
-		cout
-				<< "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
+		cout << "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
 	} else {
 		cout << "Running as root\n";
 	}
@@ -122,13 +125,13 @@ int main(int argc, char **argv) {
 	strcpy(Settings::netmask, "255.255.255.0");
 
 	for (int i = 1; i < argc; i++) {
-		SettingsFileReader sfr(argv[i]);
+		read_settings(argv[i]);
 	}
+
 
 	printf("Radio is: %i\n", (int) Settings::RF24::primary);
 	//bool primary = argv[1][0] == '1';
-	cout << "Radio is " << (Settings::RF24::primary ? "Primary" : "Secondary")
-			<< endl;
+	cout << "Radio is " << (Settings::RF24::primary ? "Primary" : "Secondary") << endl;
 
 	// CTRL+C Handler
 	struct sigaction sigIntHandler;
@@ -200,6 +203,7 @@ int main(int argc, char **argv) {
 	}
 
 	Settings::mtu = csp->get_mtu();
+	printf("\t\tMTU:%d\n",csp->get_mtu());
 
 	// Initialise the interface
 	tunh = new TUNHandler();

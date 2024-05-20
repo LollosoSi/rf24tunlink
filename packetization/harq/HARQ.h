@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <mutex>
 
+#include "../../settings/Settings.h"
 
 #include <stdexcept>
 
@@ -65,19 +66,17 @@ public:
 		return (id_mask & (data >> id_byte_pos_offset));
 	}
 
-	int submessage_bytes = 32;
-	int header_bytes = 1;
-	int length_last_packet_bytes = 1;
-	int bytes_per_submessage = submessage_bytes - Settings::ReedSolomon::nsym
-			- header_bytes;
-
-	int packet_queue_max_len = id_max - 1;
+	int submessage_bytes;
+	int header_bytes;
+	int length_last_packet_bytes;
+	int bytes_per_submessage;
+	int packet_queue_max_len;
 
 	RSCodec rsc;
 
-	uint64_t resend_wait_time = Settings::minimum_ARQ_wait;
-	bool kill_timeout = Settings::maximum_frame_time > 0;
-	uint64_t timeout = Settings::maximum_frame_time;
+	uint64_t resend_wait_time;
+	bool kill_timeout;
+	uint64_t timeout;
 
 	std::string* telemetry_collect(const unsigned long delta);
 
@@ -170,11 +169,7 @@ public:
 		return (msri->missing_array_length == 0);
 	}
 
-	unsigned int get_mtu() {
-		return (((pow(2, segment_bits) * bytes_per_submessage)
-				- length_last_packet_bytes));
-		//return 300;
-	}
+	unsigned int get_mtu();
 
 	inline bool next_packet_ready() {
 		return (true);
@@ -663,12 +658,16 @@ protected:
 		if (size > bytes_per_submessage-1)
 			size = bytes_per_submessage-1;
 		if (lost_list){
+#ifdef DEBUG_LOG
 			printf("Sending NACK. Data: id %d, segments id: ",
 					static_cast<int>(id));
+#endif
 			for (; i < size; i++){
 				rp_ok->data[1 + i] = lost_list[i];
+#ifdef DEBUG_LOG
 				printf(" %d",
 						static_cast<int>((unpack_id(rp_ok->data[1 + i]))));
+#endif
 			}
 		}
 		for(;i<bytes_per_submessage-1;i++){

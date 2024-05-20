@@ -5,17 +5,14 @@
  *      Author: Andrea Roccaccino
  */
 
-#include "../rs_codec/RSCodec.h"
+#include "RSCodec.h"
 
 RSCodec::RSCodec() {
 	bits = Settings::ReedSolomon::bits;
 	k = Settings::ReedSolomon::k;
 	nsym = Settings::ReedSolomon::nsym;
 
-	printf("BITS %d\n", bits);
-
-
-
+	printf("BITS %d, K %d, NSYM %d\n", bits, k, nsym);
 }
 
 RSCodec::~RSCodec() {

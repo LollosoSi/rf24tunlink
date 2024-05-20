@@ -45,7 +45,13 @@ public:
 
 	std::string* telemetry_collect(const unsigned long delta){
 
-
+		returnvector[0]=std::to_string(packets_out);
+		returnvector[1]=std::to_string(packets_in);
+		returnvector[2]=std::to_string(packets_out*32/1000.0);
+		returnvector[3]=std::to_string(packets_in*32/1000.0);
+		returnvector[4]=std::to_string((packets_out*32/1000.0) * (Settings::ReedSolomon::k/32.0));
+		returnvector[5]=std::to_string((packets_in*32/1000.0) * (Settings::ReedSolomon::k/32.0));
+		packets_out = packets_in = 0;
 
 		return (returnvector);
 	};
@@ -54,6 +60,7 @@ protected:
 	void stop();
 
 	std::string *returnvector = nullptr;
+	unsigned long packets_out, packets_in;
 
 };
 

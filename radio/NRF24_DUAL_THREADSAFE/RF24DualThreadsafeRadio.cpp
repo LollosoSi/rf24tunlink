@@ -17,8 +17,8 @@ RF24DualThreadsafeRadio::RF24DualThreadsafeRadio(bool primary) :
 	t0=nullptr;
 	t1=nullptr;
 
-	returnvector = new std::string[1] { "" };
-	register_elements(new std::string[1] { "Empty" }, 1);
+	returnvector = new std::string[6] { "", "", "", "", "", "" };
+	register_elements(new std::string[6] { "Packets OUT", "Packets IN", "Kbps OUT", "Kbps IN", "Kbps OUT RS" , "Kbps IN RS" }, 6);
 
 	setup();
 }
@@ -223,6 +223,7 @@ void RF24DualThreadsafeRadio::write() {
 	while (has_next_packet() && !radio1->isFifo(true, false)) {
 		rp = next_packet();
 		if (rp) {
+			packets_out++;
 			radio1->writeFast(rp->data, 32, !Settings::DUAL_RF24::auto_ack);
 		} else
 			break;
@@ -246,6 +247,7 @@ void RF24DualThreadsafeRadio::read() {
 			break;
 		case 0:
 		case 1:
+			packets_in++;
 			this->packet_received(&rp);
 			break;
 		}

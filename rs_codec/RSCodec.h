@@ -20,7 +20,7 @@
 
 
 class RSCodec {
-private:
+
 	int bits = 8, k, nsym;
 	ReedSolomon rs = ReedSolomon(8);
 
