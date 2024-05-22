@@ -36,7 +36,7 @@ Peak seen during testing: 900Kbps, one directional.
 - Enable the SPI interface using `raspi-config`
 - Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ -y`
 - Installing pigpio is recommended at this point
-- Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_linux_install.html) following the instructions from their site.
+- Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_2linux__install.html) following the instructions from their site.
    - This project is set to look for the **RF24 Core** installation from your home folder (~/) you should be able to reach ~/rf24libs (run install.sh in your home folder).
    - SPIDEV is the tested driver for this application, the BCM driver should work too.
    - If you can't compile rf24tunlink due to rf24 not found, try running install.sh with sudo
