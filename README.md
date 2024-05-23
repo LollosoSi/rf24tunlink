@@ -22,9 +22,9 @@ The primary radio usually is the one with highest throughput.</br>
 ## Performance
 _Results are heterogeneous while the algorithm is finalized._</br>
 
-<b>Update:</b></br>As of 18/12/2023</br>
-Expected throughput: 500Kbps</br>
-iperf: >1Mbps</br>
+<b>Update:</b></br>As of 23/05/2024</br>
+Expected throughput: 600Kbps</br>
+iperf: 900kbps</br>
 Ping: 4ms
 </br>
 First release:</br>
@@ -34,17 +34,19 @@ Peak seen during testing: 900Kbps, one directional.
 ## Installation and usage
 - You need a pair of Raspberry Pi boards. Raspberry 3B and 4 are tested but virtually every linux board should work.
 - Enable the SPI interface using `raspi-config`
+- If you intend to use the dual radio setup add this in your config.txt `dtoverlay=spi1-3cs,cs0_pin=05,cs1_pin=06,cs2_pin=16`
 - Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ -y`
-- Installing pigpio is recommended at this point
+- Installing [pigpio](https://abyz.me.uk/rpi/pigpio/download.html) is recommended at this point 
 - Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_2linux__install.html) following the instructions from their site.
    - This project is set to look for the **RF24 Core** installation from your home folder (~/) you should be able to reach ~/rf24libs (run install.sh in your home folder).
    - SPIDEV is the tested driver for this application, the BCM driver should work too.
    - If you can't compile rf24tunlink due to rf24 not found, try running install.sh with sudo
-- Download the rf24tunlink source code.
-- In case of issues with permissions, running commands using sudo is okay.
+- Download the rf24tunlink source code in your home folder. `cd ~; git clone https://github.com/LollosoSi/rf24tunlink.git`
+- In case of issues with permissions, run commands using sudo.
 - With the terminal into the folder, run:
-  `cmake .`
-  `make`
+  `./build.sh`
+  or
+  `cmake .; make`
 - rf24tunlink executable should appear
 
 To run the program as primary and secondary radio:
@@ -58,8 +60,10 @@ MISO: GPIO 9</br>
 MOSI: GPIO 10</br>
 SCK: GPIO 11</br>
 IRQ: GPIO 24</br>
+TODO: update for the dual radio setup
 
 ## Stability advice
+- Radio on higher power settings may be unstable if the supply isn't adequate
 - Buy shielded PA+LNA modules, or consider making [this DIY shielding](https://github.com/nRF24/RF24/blob/master/COMMON_ISSUES.md#my-palna-module-fails-to-transmit)
 - Use short cables, usage of jumper cables is discouraged in the final product
 - If using jumpers, wrap the GND cable at least around MOSI, MISO, VCC cables
