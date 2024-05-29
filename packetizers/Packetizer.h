@@ -202,7 +202,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			radio->input_finished();
 		}
 		void send_to_radio(Frame& f) {
-			for (const auto &item : f.packets)
+			for (auto &item : f.packets)
 				radio->input(item);
 			radio->input_finished();
 		}
