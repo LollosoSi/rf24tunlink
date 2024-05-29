@@ -1,0 +1,146 @@
+
+#	Displays telemetry to the command line
+#	Type:	bool
+display_telemetry=no
+
+#	Whether the RF24 should auto ack. Used in one radio setups
+#	Type:	bool
+auto_ack=no
+
+#	Role of this instance (sets up the correct addresses) (Accepted values: yes, no)
+#	Type:	bool
+primary=yes
+
+#	The address of the interface
+#	Type:	string
+address=192.168.10.1
+
+#	The destination address of the interface
+#	Type:	string
+destination=192.168.10.2
+
+#	The network mask of the interface
+#	Type:	string
+netmask=255.255.255.0
+
+#	The interface name
+#	Type:	string
+iname=arocc
+
+#	Filename for the CSV output (leave empty for no output)
+#	Type:	string
+csv_out_filename=
+
+#	The tunnel handler (Accepted values: TUN, UART)
+#	Type:	string
+tunnel_handler=TUN
+
+#	The packetizer (Accepted values: HARQ)
+#	Type:	string
+packetizer=HARQ
+
+#	The radio handler (Accepted values: DualRF24)
+#	Type:	string
+radio_handler=DualRF24
+
+#	Pipe address 0
+# (NOTE: all pipes must share the last 2 bytes. Example: 1pe, 2pe, 3pe are valid addresses and should work)
+# (NOTE: All pipes must have the byte length specified in address_bytes)
+#	Type:	string
+address_0_1=11n
+
+#	Pipe address 1
+#	Type:	string
+address_0_2=21n
+
+#	Pipe address 2
+#	Type:	string
+address_0_3=31n
+
+#	Pipe address 3
+#	Type:	string
+address_1_1=41n
+
+#	Pipe address 4
+#	Type:	string
+address_1_2=51n
+
+#	Pipe address 5
+#	Type:	string
+address_1_3=61n
+
+#	Divider character for the output file values
+#	Type:	uint8
+csv_divider=44
+
+#	Size of the payload. This value is 32 and shouldn't be touched unless you intend to use radios different than RF24
+#	Type:	uint8
+payload_size=32
+
+#	The data bytes for the Reed-Solomon codec
+#	Type:	uint8
+data_bytes=24
+
+#	The ECC bytes for the Reed-Solomon codec (note, one byte might be used as CRC, this element must be >0)
+#	Type:	uint8
+ecc_bytes=8
+
+#	The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )
+#	Type:	uint8
+data_rate=1
+
+#	Power setting for all radios (Accepted values: 0 - MIN, 1 - LOW, 2 - HIGH, 3 - MAX)
+#	Type:	uint8
+radio_power=0
+
+#	The CRC length for the RF24 module in bytes. (Accepted values 0 to 2). Should be disabled with the double radio setup.
+#	Type:	uint8
+crc_length=0
+
+#	Delay for each automatic retransmission of failed packets from the radio
+#	Type:	uint8
+radio_delay=1
+
+#	How many retries the radio should do before skipping the packet
+#	Type:	uint8
+radio_retries=15
+
+#	Channel of the radio 0 (Accepted values: 0 to 124)
+#	Type:	uint8
+channel_0=10
+
+#	Channel of the radio 1 (Accepted values: 0 to 124)
+#	Type:	uint8
+channel_1=120
+
+#	Bytes for the radio address. (Accepted values: 3 to 5). Recommended to leave this as 3.
+#	Type:	uint8
+address_bytes=3
+
+#	The minimum time in milliseconds the ARQ algorithm should wait before declaring one packet lost
+#	Type:	uint16
+minimum_arq_wait=10
+
+#	The maximum time in milliseconds to retry sending one frame before dropping it
+#	Type:	uint16
+maximum_frame_time=150
+
+#	SPI Speed in Hz for all RF24 radios
+#	Type:	uint32
+spi_speed=4000000
+
+#	CE pin for the radio0
+#	Type:	integer
+ce_0_pin=24
+
+#	CSN pin for the radio0 (it's system CE)
+#	Type:	integer
+csn_0_pin=0
+
+#	CE pin for the radio1
+#	Type:	integer
+ce_1_pin=26
+
+#	CSN pin for the radio1 (it's system CE)
+#	Type:	integer
+csn_1_pin=12

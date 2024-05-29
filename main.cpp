@@ -1,111 +1,164 @@
 #include <iostream>
+#include "config.h"
 
 #include "Settings.h"
+#include "rs_codec/RSCodec.h"
 
-#include "tuntaphandler.h"
+#include "generic_structures.h"
+#include "system_dialogators/tun/TUNInterface.h"
+#include "packetizers/Packetizer.h"
+#include "radio/RadioInterface.h"
 
-#include <linux/if.h>
-#include <linux/if_tun.h>
+#include "radio/dualrf24/DualRF24.h"
 
-#include <cstring>
-#include <string>
+#include "packetizers/harq/HARQ.h"
 
-#include <fcntl.h>
-#include <sys/ioctl.h>  // Per ioctl
-#include <unistd.h>     // Per close
+// Catch CTRL+C Event
+#include <signal.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <unistd.h>
 
-#include <bitset>
+// Exit conditions
+#include <mutex>
+#include <condition_variable>
 
+#include <functional>
 
-radiopacket testpacket { (uint8_t) 0xE2 };
+std::mutex sleep_mutex;
+std::condition_variable cv;
+bool ready_to_exit = false;
 
-RF24 radio(25, 0);
+void catch_setups() {
+	/*Do this early in your program's initialization */
+	signal(SIGABRT, [](int signal_number) {
+		/*Your code goes here. You can output debugging info.
+		 If you return from this function, and it was called
+		 because abort() was called, your program will exit or crash anyway
+		 (with a dialog box on Windows).
+		 */
 
+		std::cout << "SIGABORT caught. Ouch.\n";
+	});
 
-
-void justtest(bool primary) {
-
-	while (!radio.begin(Settings::ce_pin, 0)) {
-		cout << "Radio can't begin\n";
-	}
-
-	radio.setRetries(Settings::radio_delay, Settings::radio_retries);
-	radio.setChannel(Settings::channel);
-	radio.setCRCLength(Settings::crclen);
-	radio.setAddressWidth(3);
-	radio.setPALevel(RF24_PA_MAX);
-	radio.setDataRate(RF24_2MBPS);
-	radio.setAutoAck(Settings::auto_ack);
-
-	// to use ACK payloads, we need to enable dynamic payload lengths (for all nodes)
-	if (Settings::dynamic_payloads)
-		radio.enableDynamicPayloads();  // ACK payloads are dynamically sized
-	else
-		radio.disableDynamicPayloads();
-
-	// Acknowledgement packets have no payloads by default. We need to enable
-	// this feature for all nodes (TX & RX) to use ACK payloads.
-	if (Settings::ack_payloads)
-		radio.enableAckPayload();
-	else
-		radio.disableAckPayload();
-
-
-	if (primary) {
-		radio.openReadingPipe(1, '1');
-		radio.openWritingPipe('0');
-	} else {
-		radio.openReadingPipe(1, '0');
-		radio.openWritingPipe('1');
-		radio.startListening();
-	}
-
-	radio.printPrettyDetails();
-
-	if (primary) {
-		radio.write(&testpacket, 32);
-		cout << "OUT: " << radioppppprintchararray((uint8_t*) &testpacket, 32);
-	}
-
-	radiopacket rp;
-	bool running = true;
-	while (running) {
-
-		if (radio.available()) {
-			radio.read(&rp, 32);
-			cout << "IN: " << radioppppprintchararray((uint8_t*) &rp, 32);
+	// CTRL+C Handler
+	struct sigaction sigIntHandler;
+	sigIntHandler.sa_handler = [](int s) {
+		std::cout << "Caught a signal, number:\t" << (int) s << std::endl;
+		if (s == 2) {
+			printf("Caught exit signal\n");
+			// TODO: Handle signals gracefully
 		}
-
-	}
-
+	};
+	sigemptyset(&sigIntHandler.sa_mask);
+	sigIntHandler.sa_flags = 0;
+	sigaction(SIGINT, &sigIntHandler, NULL);
 }
 
+Packetizer<TunMessage, RFMessage>* select_packetizer_from_settings(const Settings &settings) {
+	Settings::packetizers_available psel = settings.find_packetizer_index();
+	switch (psel) {
+	default:
+		std::cout << "Packetizer not found in code. Did you forget to register it in the main function?\n";
+		throw std::invalid_argument("Invalid packetizer in switch case");
+		exit(1);
+		break;
+	case Settings::packetizers_available::harq:
+		return new HARQ();
+		break;
+	}
+}
+
+RadioInterface* select_radio_from_settings(const Settings &settings) {
+	Settings::radios_available rsel = settings.find_radio_index();
+	switch (rsel) {
+	default:
+		std::cout << "Radio not found in code. Did you forget to register it in the main function?\n";
+		throw std::invalid_argument("Invalid radio in switch case");
+		exit(1);
+		break;
+	case Settings::radios_available::dualrf24:
+		return new DualRF24();
+		break;
+	}
+}
 
 int main(int argc, char **argv) {
 
+	catch_setups();
+
+	pthread_setname_np(pthread_self(), "Main Thread");
+
+	TimedFrameHandler tfh1(1000,100);
+	tfh1.set_fire_call([&]{printf("Fire 1\n");});
+	tfh1.set_resend_call([&]{printf("Resend 1\n");});
+	tfh1.set_invalidated_call([&]{printf("Invalidate 1\n");});
+
+
+	TimedFrameHandler tfh(1000,100);
+		tfh.set_fire_call([&]{printf("Fire\n");});
+		tfh.set_resend_call([&]{static int i = 0; if(++i == 5){tfh.invalidate_timer();}printf("Resend\n");});
+		tfh.set_invalidated_call([&]{printf("Invalidate\n");});
+		tfh.start();
+		tfh1.start();
+
+	while(!tfh1.finished()){}
+
+	Settings settings;
+
+	if (geteuid())
+		std::cout << "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
+
+	std::cout << "rf24tunlink 2 BETA\t" << "Version " << rf24tunlink2_VERSION_MAJOR << "." << rf24tunlink2_VERSION_MINOR << std::endl;
+
 	if (argc < 2) {
-		printf(
-				"You need to specify primary or secondary role (./thisprogram [1 or 2] [MTU size])");
-		return 0;
+		std::cout << "You need to include at least one settings file (./thisprogram settings.txt more_settings.txt more_more_settings.txt)\nPrinting tunlink_default.txt for you in the working directory\n";
+		settings.to_file("tunlink_default.txt");
+		return (0);
 	}
 
-	printf("Radio is: %d\n", (int) argv[1][0]);
+	std::function<void()> read_settings_function([&] {
+		for (int i = 1; i < argc; i++)
+			settings.read_settings(argv[i]);
 
-	bool primary = argv[1][0] == '1';
-	cout << "Radio is " << (primary ? "Primary" : "Secondary") << endl;
+		settings.print_all_settings(std::cout, false);
+	});
+	read_settings_function();
 
-	if(argc >= 3){
-		mtu = atoi(argv[2]);
-		cout << "Detected MTU " << argv[2] << " and result of atoi: " << atoi(argv[2]) << " value now: " << mtu << "\n";
-	}
 
-	//justtest(primary);
-	//return 0;
+	RSCodec RSC(settings);
 
-	tuntaphandler* ttp = new tuntaphandler(primary);
+	TUNInterface TUNI;
+	RadioInterface* radio = select_radio_from_settings(settings);
+	Packetizer<TunMessage, RFMessage>* packetizer = select_packetizer_from_settings(settings);
 
-	ttp->TunnelThread();
+	packetizer->register_rsc(&RSC);
+	packetizer->register_tun(&TUNI);
+	packetizer->register_radio(radio);
+	radio->register_packet_target(packetizer->expose_radio_receiver());
+	TUNI.register_packet_target(packetizer->expose_tun_receiver());
 
-	ttp->stop_interface();
+	std::function<void()> reload_settings_function([&] {
+		// MTU can only be calcd after applying the settings
+		packetizer->apply_settings(settings);
+		settings.mtu = packetizer->get_mtu();
+
+		PacketMessageFactory PMF(settings);
+		packetizer->register_message_factory(&PMF);
+		radio->register_message_factory(&PMF);
+
+		TUNI.apply_settings(settings); // The read thread will start here
+		radio->apply_settings(settings);
+	});
+	reload_settings_function();
+
+	// If needed, reload at runtime
+	//read_settings_function();
+	//reload_settings_function();
+
+	TUNI.stop();
+	radio->stop();
+	packetizer->stop();
+
 	return 0;
 }

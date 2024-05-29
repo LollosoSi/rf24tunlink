@@ -1,13 +1,21 @@
-cmake_minimum_required(VERSION 3.10)
-
-# Set some basic project attributes
-project (rf24tunlink
-	VERSION 0.1
-	DESCRIPTION "A RF24 TUN Link")
-
 cmake_minimum_required(VERSION 3.12)
 
+# Set some basic project attributes
+project (rf24tunlink2
+	VERSION 0.1
+	DESCRIPTION "TUN Link Driver")
+
+
 add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
+
+#set(CMAKE_BUILD_TYPE Debug) 
+
+# AddressSanitizer flags, only needed for debugging
+#set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
 
 # detect the CPU make and type
 include(~/rf24libs/RF24/cmake/detectCPU.cmake) # sets the variable SOC accordingly
@@ -19,18 +27,60 @@ include(~/rf24libs/RF24/cmake/AutoConfig_RF24_DRIVER.cmake)
 find_library(RF24 rf24 REQUIRED)
 message(STATUS "using RF24 library: ${RF24}")
 
-# conditionally append "interruptConfigure" to the EXAMPLES_LIST
-if("${RF24_DRIVER}" STREQUAL "MRAA" OR "${RF24_DRIVER}" STREQUAL "wiringPi" OR "${LibPIGPIO}" STREQUAL "LibPIGPIO-NOTFOUND")
-    message(STATUS "Skipping interruptConfigure.cpp example as it is incompatible with selected driver library")
-else() # not using MRAA or wiringPi drivers (or pigpio lib was found)
-    list(APPEND EXAMPLES_LIST interruptConfigure)
-endif()
+# Project files
+set(rs_codec
+    rs_codec/RSCodec.h
+    rs_codec/RSCodec.cpp
+    rs_codec/ReedSolomon/ReedSolomon.h
+	rs_codec/ReedSolomon/ReedSolomon.cpp
+)
+
+set(settings
+    Settings.h
+)
+
+set(generics
+    generic_structures.h
+)
+
+set(dialogators
+    system_dialogators/tun/TUNInterface.h
+    system_dialogators/tun/TUNInterface.cpp
+    packetizers/Packetizer.h
+    radio/RadioInterface.h
+)
+
+set(radios
+	radio/dualrf24/DualRF24.h
+	radio/dualrf24/DualRF24.cpp
+)
+
+set(packetizers
+	packetizers/harq/HARQ.h
+	packetizers/harq/HARQ.cpp
+	packetizers/characterstuffing/CharacterStuffing.h
+	packetizers/characterstuffing/CharacterStuffing.cpp
+)
 
 
-    #make a target
-    
+
+set(sourcefiles
+	utils.h
+	crc.h
+	${reedsolomon}
+	${rs_codec}
+	${settings}
+	${generics}
+	${dialogators}
+	${radios}
+	${packetizers}
+)
+
 # This project will output an executable file
-add_executable(${PROJECT_NAME} main.cpp Settings.h Callback.h Callback.cpp tuntaphandler.h tuntaphandler.cpp RadioAndPacketHandler2.h RadioAndPacketHandler2.cpp)
+add_executable(${PROJECT_NAME} main.cpp ${sourcefiles})
+
+# Create a simple configuration header
+configure_file(config.h.in config.h)
 
 # Include the configuration header in the build
 target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
@@ -52,3 +102,4 @@ target_include_directories(${PROJECT_NAME} PUBLIC "${PROJECT_BINARY_DIR}")
     else() # not using MRAA or wiringPi drivers
         target_link_libraries(${PROJECT_NAME} PUBLIC ${RF24} pthread)
     endif()
+
