@@ -54,9 +54,10 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		HARQ();
 		virtual ~HARQ();
 		void stop_worker(){
+			running_nxp = false;
 			if(packetout){
 				if(packetout.get()->joinable()){
-					running_nxp = false;
+					packetout_cv.notify_all();
 					packetout.get()->join();
 				}
 			}
@@ -65,7 +66,7 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		void process_tun(TunMessage &m);
 		void process_packet(RFMessage &m);
 		void apply_settings(const Settings &settings) override;
-		unsigned int get_mtu();
+		unsigned int get_mtu() override;
 
 		inline unsigned char pack(unsigned char id, unsigned char segment,
 				bool last_packet) {
@@ -132,14 +133,27 @@ class PacketConsumer{
 			bool last_packet;
 			harq_ref->unpack(rfm.data.get()[0],unpacked_id,unpacked_segment,last_packet);
 
+			if(id != 255 && id != unpacked_id){
+				printf("New id, resetting\n");
+				reset();
+			}
 
 			if (last_packet) {
+				if(consumed && ( ((unpacked_segment + 1) != segments_in_message) || (message_length != ((bytes_per_sub * unpacked_segment) + rfm.data.get()[1])))){
+					printf("New packet, resetting\n");
+					reset();
+				}
 				segments_in_message = unpacked_segment + 1;
 				message_length = (bytes_per_sub * unpacked_segment) + rfm.data.get()[1];
+				printf("Seg length: %d\t", rfm.data.get()[1]);
+				printf("Total length: %d\t", message_length);
 			} else if (crc == -1){
 				crc = rfm.data.get()[1];
 			} else if(rfm.data.get()[1] != crc){
-				printf("Unfinished packets have different CRC, guess corruption or packet was killed, resetting\n");
+				if(!consumed)
+					printf("Unfinished packets have different CRC, guess corruption or packet was killed, resetting\n");
+				else
+					printf("Moving to new packet\n");
 				reset();
 				crc = rfm.data.get()[1];
 			}
@@ -147,6 +161,8 @@ class PacketConsumer{
 			if (id == 255) {
 				id = unpacked_id;
 			}
+
+			printf("Message crc: %d\t", crc);
 
 			segments.get()[last_packet ? 0 : unpacked_segment] = 1;
 

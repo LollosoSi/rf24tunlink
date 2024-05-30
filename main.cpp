@@ -13,6 +13,9 @@
 
 #include "packetizers/harq/HARQ.h"
 
+// Thread naming
+#include <sys/prctl.h>
+
 // Catch CTRL+C Event
 #include <signal.h>
 #include <stdlib.h>
@@ -29,6 +32,8 @@ std::mutex sleep_mutex;
 std::condition_variable cv;
 bool ready_to_exit = false;
 
+bool stop_program = false;
+
 void catch_setups() {
 	/*Do this early in your program's initialization */
 	signal(SIGABRT, [](int signal_number) {
@@ -37,7 +42,7 @@ void catch_setups() {
 		 because abort() was called, your program will exit or crash anyway
 		 (with a dialog box on Windows).
 		 */
-
+		stop_program=true;
 		std::cout << "SIGABORT caught. Ouch.\n";
 	});
 
@@ -48,6 +53,7 @@ void catch_setups() {
 		if (s == 2) {
 			printf("Caught exit signal\n");
 			// TODO: Handle signals gracefully
+			stop_program=true;
 		}
 	};
 	sigemptyset(&sigIntHandler.sa_mask);
@@ -87,22 +93,7 @@ int main(int argc, char **argv) {
 
 	catch_setups();
 
-	pthread_setname_np(pthread_self(), "Main Thread");
-
-	TimedFrameHandler tfh1(1000,100);
-	tfh1.set_fire_call([&]{printf("Fire 1\n");});
-	tfh1.set_resend_call([&]{printf("Resend 1\n");});
-	tfh1.set_invalidated_call([&]{printf("Invalidate 1\n");});
-
-
-	TimedFrameHandler tfh(1000,100);
-		tfh.set_fire_call([&]{printf("Fire\n");});
-		tfh.set_resend_call([&]{static int i = 0; if(++i == 5){tfh.invalidate_timer();}printf("Resend\n");});
-		tfh.set_invalidated_call([&]{printf("Invalidate\n");});
-		tfh.start();
-		tfh1.start();
-
-	while(!tfh1.finished()){}
+	prctl(PR_SET_NAME, "Main Thread", 0, 0, 0);
 
 	Settings settings;
 
@@ -138,12 +129,15 @@ int main(int argc, char **argv) {
 	radio->register_packet_target(packetizer->expose_radio_receiver());
 	TUNI.register_packet_target(packetizer->expose_tun_receiver());
 
+	PacketMessageFactory PMF(settings);
+
+
 	std::function<void()> reload_settings_function([&] {
 		// MTU can only be calcd after applying the settings
 		packetizer->apply_settings(settings);
 		settings.mtu = packetizer->get_mtu();
+		PMF = PacketMessageFactory(settings);
 
-		PacketMessageFactory PMF(settings);
 		packetizer->register_message_factory(&PMF);
 		radio->register_message_factory(&PMF);
 
@@ -156,9 +150,17 @@ int main(int argc, char **argv) {
 	//read_settings_function();
 	//reload_settings_function();
 
+	while(!stop_program){
+
+		std::this_thread::sleep_for(1000ms);
+	}
+
 	TUNI.stop();
 	radio->stop();
 	packetizer->stop();
+
+	delete packetizer;
+	delete radio;
 
 	return 0;
 }

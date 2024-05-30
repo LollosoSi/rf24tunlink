@@ -7,6 +7,9 @@
 
 #include "DualRF24.h"
 
+// For printing uint64_t in printf
+#include <inttypes.h>
+
 static DualRF24* my_instance = nullptr;
 static void ISR_static(){
 	my_instance->receive_ISR();
@@ -40,6 +43,11 @@ void DualRF24::apply_settings(const Settings &settings){
 		radio1 = new RF24(settings.ce_1_pin,
 				settings.csn_1_pin, settings.spi_speed);
 
+	running = true;
+
+	resetRadio0();
+	resetRadio1();
+
 }
 
 inline void DualRF24::check_radio0_status(){
@@ -60,11 +68,18 @@ inline void DualRF24::check_radio1_status(){
 }
 
 void DualRF24::receive_ISR(){
-
 	check_radio0_status();
+
+	std::unique_lock lock(radio0_mtx);
+	radio0_cv.wait(lock, [&] {
+		return !running || radio0;
+	});
+	if(!running)return;
 
 	bool tx_ds, tx_df, rx_dr;                // declare variables for IRQ masks
 	radio0->whatHappened(tx_ds, tx_df, rx_dr);
+
+	//printf("Radio data in (IRQ)\n");
 
 	if (rx_dr) {
 		uint8_t pipe;
@@ -82,28 +97,70 @@ void DualRF24::receive_ISR(){
 		}
 	}
 
+	lock.unlock();
+
+
 }
 
 
 void DualRF24::input_finished(){
-	if(!radio1->isFifo(true,true))
+	if(!radio1->isFifo(true,true)){
 		radio1->txStandBy();
+		//printf("Radio data out (F)\n");
+	}
 }
 bool DualRF24::input(RFMessage &m){
 	check_radio1_status();
+
+	std::unique_lock lock(radio1_mtx);
+	radio1_cv.wait(lock, [&] {
+		return !running || radio1;
+	});
+	if(!running)return (false);
+
+
 	radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack);
 
-	if (radio1->isFifo(true, false))
+	if (radio1->isFifo(true, false)){
 		radio1->txStandBy();
+		//printf("Radio data out\n");
+	}
+
+	lock.unlock();
+
 
 	return (true);
 }
 
+inline uint64_t string_to_address(const std::string& str){
+	if (str.size() != 3) {
+		throw std::invalid_argument("String must be exactly 3 bytes long");
+	}
+
+	uint64_t result = 0;
+	result |= static_cast<uint64_t>(static_cast<uint8_t>(str[0])) << 16;
+	result |= static_cast<uint64_t>(static_cast<uint8_t>(str[1])) << 8;
+	result |= static_cast<uint64_t>(static_cast<uint8_t>(str[2]));
+
+	std::cout << "Byte 0: 0x" << std::hex
+			<< static_cast<int>(static_cast<uint8_t>(str[0])) << std::endl;
+	std::cout << "Byte 1: 0x" << std::hex
+			<< static_cast<int>(static_cast<uint8_t>(str[1])) << std::endl;
+	std::cout << "Byte 2: 0x" << std::hex
+			<< static_cast<int>(static_cast<uint8_t>(str[2])) << std::endl;
+	std::cout << "Result: 0x" << std::hex << result << std::endl;
+
+	return result;
+}
 
 void DualRF24::resetRadio0() {
 
-	if(radio0==nullptr)
-		radio0=new RF24();
+	if(radio0==nullptr){
+		printf("Reset radio 0 called without radio 0\n");
+		throw std::invalid_argument("Invalid radio 0");
+	}
+	{
+	std::unique_lock<std::mutex> lock(radio0_mtx);
 
 	uint8_t t = 1;
 	while (!radio0->begin(current_settings()->ce_0_pin,
@@ -144,17 +201,19 @@ void DualRF24::resetRadio0() {
 	radio0->setCRCLength((rf24_crclength_e)current_settings()->crc_length);
 
 	if (role) {
-		radio0->openReadingPipe(1, atol(current_settings()->address_0_1.c_str()));
+		uint64_t ln = string_to_address(current_settings()->address_0_1);
+		radio0->openReadingPipe(1, ln);
 		radio0->setChannel(current_settings()->channel_0);
-		printf("RADIO0 -> ROLE: %d \t read: %s \t write %s \t channel: %d\n",
-				role, current_settings()->address_0_1.c_str(), "none",
+		printf("RADIO0 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+				role, current_settings()->address_0_1.c_str(), ln, "none",
 				current_settings()->channel_0);
 
 	} else {
-		radio0->openReadingPipe(1, atol(current_settings()->address_0_2.c_str()));
+		uint64_t ln = string_to_address(current_settings()->address_0_2);
+		radio0->openReadingPipe(1, ln);
 		radio0->setChannel(current_settings()->channel_1);
-		printf("RADIO0 -> ROLE: %d \t read: %s \t write %s \t channel: %d\n",
-				role, current_settings()->address_0_2.c_str(), "none",
+		printf("RADIO0 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+				role, current_settings()->address_0_2.c_str(), ln, "none",
 				current_settings()->channel_1);
 
 	}
@@ -162,21 +221,28 @@ void DualRF24::resetRadio0() {
 	// Configure radio0 to interrupt for read events
 	radio0->maskIRQ(true,true,false);
 
-	static bool attached = false;
 	if (!attached) {
 		attached = true;
+		//gpioInitialise();
 		pinMode(current_settings()->irq_pin_radio0, INPUT);
 		attachInterrupt(current_settings()->irq_pin_radio0, INT_EDGE_FALLING, &ISR_static);
-
+		printf("Attached Interrupt\n");
 	}
 
 	radio0->startListening();
 
 	radio0->printPrettyDetails();
+}
+	radio0_cv.notify_all();
 
 }
 void DualRF24::resetRadio1() {
-
+	if (radio1 == nullptr) {
+		printf("Reset radio 1 called without radio 1\n");
+		throw std::invalid_argument("Invalid radio 1");
+	}
+	{
+	std::unique_lock<std::mutex> lock(radio1_mtx);
 	uint8_t t = 1;
 	while (!radio1->begin(current_settings()->ce_1_pin,
 			current_settings()->csn_1_pin)) {
@@ -216,20 +282,25 @@ void DualRF24::resetRadio1() {
 	radio1->setCRCLength((rf24_crclength_e)current_settings()->crc_length);
 
 	if (role) {
-		radio1->openReadingPipe(1, atol(current_settings()->address_1_1.c_str()));
-		radio1->openWritingPipe(atol(current_settings()->address_0_2.c_str()));
+		uint64_t ln1 = string_to_address(current_settings()->address_1_1);
+		uint64_t ln2 = string_to_address(current_settings()->address_0_2);
+
+		radio1->openReadingPipe(1, ln1);
+		radio1->openWritingPipe(ln2);
 		radio1->setChannel(current_settings()->channel_1);
-		printf("RADIO1 -> ROLE: %d \t read: %s \t write %s \t channel: %d\n",
-				role, current_settings()->address_1_1.c_str(),
-				current_settings()->address_0_2.c_str(),
+		printf("RADIO1 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s : %" PRIu64 " \t channel: %d\n",
+				role, current_settings()->address_1_1.c_str(), ln1,
+				current_settings()->address_0_2.c_str(), ln2,
 				current_settings()->channel_1);
 	} else {
-		radio1->openReadingPipe(1, atol(current_settings()->address_1_2.c_str()));
-		radio1->openWritingPipe(atol(current_settings()->address_0_1.c_str()));
+		uint64_t ln1 = string_to_address(current_settings()->address_1_2);
+		uint64_t ln2 = string_to_address(current_settings()->address_0_1);
+		radio1->openReadingPipe(1, ln1);
+		radio1->openWritingPipe(ln2);
 		radio1->setChannel(current_settings()->channel_0);
-		printf("RADIO1 -> ROLE: %d \t read: %s \t write %s \t channel: %d\n",
-				role, current_settings()->address_1_2.c_str(),
-				current_settings()->address_0_1.c_str(),
+		printf("RADIO1 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s : %" PRIu64 " \t channel: %d\n",
+				role, current_settings()->address_1_2.c_str(), ln1,
+				current_settings()->address_0_1.c_str(), ln2,
 				current_settings()->channel_0);
 
 	}
@@ -237,7 +308,9 @@ void DualRF24::resetRadio1() {
 	radio1->stopListening();
 
 	radio1->printPrettyDetails();
+	}
 
+	radio1_cv.notify_all();
 }
 
 
@@ -248,5 +321,12 @@ void DualRF24::stop_module(){
 	radio0->flush_tx();
 	radio1->flush_rx();
 	radio1->flush_tx();
+
+	running = false;
+	radio0_cv.notify_all();
+	radio1_cv.notify_all();
+
+	attached = false;
+	detachInterrupt(settings->irq_pin_radio0);
 }
 

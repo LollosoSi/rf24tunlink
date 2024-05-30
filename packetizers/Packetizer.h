@@ -11,6 +11,8 @@
 #include "../rs_codec/RSCodec.h"
 
 #include <thread>
+// Thread naming
+#include <sys/prctl.h>
 
 #include <mutex>
 #include <condition_variable>
@@ -43,7 +45,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 
 		std::deque<Frame> outgoing_frames;
 
-		bool running_wpk, running_wtun, running_nxf;
+		bool running_wpk = false, running_wtun = false, running_nxf = false;
 
 		class TunReceiver : public SystemInterface<tun_message_class> {
 				Packetizer<tun_message_class, radio_message_class> *p;
@@ -82,15 +84,12 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		RadioReceiver *rr = nullptr;
 		PacketMessageFactory *pmf = nullptr;
 
+		std::unique_ptr<std::thread> tun_thread, radio_thread;
+
 	public:
 		Packetizer() {
 			tr = new TunReceiver(this);
 			rr = new RadioReceiver(this);
-			running_wpk = running_wtun = running_nxf = true;
-			std::thread tun_thread([&]{worker_tun();});
-			std::thread radio_thread([&]{worker_packet();});
-			tun_thread.detach();
-			radio_thread.detach();
 		}
 
 		virtual ~Packetizer() {
@@ -118,13 +117,13 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 				std::lock_guard lock(radio_in_mtx);
 				incoming_packets.push_back(std::move(m));
 			}
-			radio_cv.notify_one();
+			radio_cv.notify_all();
 			return (true);
 		}
 
 		void worker_tun() {
 			while (running_wtun) {
-				tun_message_class f(get_mtu());
+				//tun_message_class f = nullptr;
 				{
 					std::unique_lock lock(tun_in_mtx);
 					tun_cv.wait(lock, [&] {
@@ -134,17 +133,18 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 					if (!running_wtun)
 						break;
 
-					f = std::move(incoming_tun.front());
+					tun_message_class f = std::move(incoming_tun.front());
 					incoming_tun.pop_front();
-					//lock.unlock();
+					lock.unlock();
+					process_tun(f);
 				}
-				process_tun(f);
+
 			}
 		}
 
 		void worker_packet() {
 			while (running_wpk) {
-				radio_message_class f(1);
+				//radio_message_class f = nullptr;
 				{
 					std::unique_lock lock(radio_in_mtx);
 					radio_cv.wait(lock, [&] {
@@ -154,11 +154,12 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 					if (!running_wpk)
 						break;
 
-					f = move(incoming_packets.front());
+					radio_message_class f = std::move(incoming_packets.front());
 					incoming_packets.pop_front();
-					//lock.unlock();
+					lock.unlock();
+					process_packet(f);
 				}
-				process_packet(f);
+
 			}
 		}
 
@@ -166,6 +167,12 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		virtual void process_packet(radio_message_class &m) = 0;
 		virtual void apply_settings(const Settings &settings) override {
 			SettingsCompliant::apply_settings(settings);
+			stop_module();
+			running_wpk = running_wtun = running_nxf = true;
+			tun_thread = std::make_unique<std::thread>([&]{prctl(PR_SET_NAME, "Pk tun Worker", 0, 0, 0);worker_tun();});
+			radio_thread = std::make_unique<std::thread>([&]{prctl(PR_SET_NAME, "Pk Radio Worker", 0, 0, 0);worker_packet();});
+
+
 		}
 		virtual unsigned int get_mtu() = 0;
 
@@ -174,6 +181,10 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			radio_cv.notify_all();
 			tun_cv.notify_all();
 			frames_cv.notify_all();
+			if(tun_thread && tun_thread.get()->joinable())
+				tun_thread.get()->join();
+			if(radio_thread && radio_thread.get()->joinable())
+				radio_thread.get()->join();
 		}
 
 		void add_frame_to_queue(Frame& f){
@@ -197,14 +208,18 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			return f;
 		}
 
-		void send_to_radio(RFMessage &rfm) {
-			radio->input(rfm);
+		inline void send_radio_finish(){
 			radio->input_finished();
 		}
-		void send_to_radio(Frame& f) {
+		inline void send_to_radio(RFMessage &rfm, bool auto_finish = true) {
+			radio->input(rfm);
+			if(auto_finish)
+				send_radio_finish();
+		}
+		inline void send_to_radio(Frame& f) {
 			for (auto &item : f.packets)
 				radio->input(item);
-			radio->input_finished();
+			send_radio_finish();
 		}
 		void register_rsc(RSCodec *reference) {
 			rsc = reference;
@@ -230,7 +245,7 @@ class TimedFrameHandler {
 		std::unique_ptr<std::thread> timer_thread;
 		std::function<void()> finish_call = nullptr, resend_call = nullptr,
 				invalidated_call = nullptr;
-		bool valid = true;
+		bool valid = false;
 
 		std::mutex mtx;
 		std::condition_variable cv;
@@ -240,10 +255,11 @@ class TimedFrameHandler {
 				timeout_resend_millis_p) {
 		}
 		~TimedFrameHandler() {
-			if (timer_thread && timer_thread->joinable()) {
-				invalidate_timer();
+			invalidate_timer();
+			if (timer_thread)
+				if(timer_thread->joinable())
 				timer_thread->join();
-			}
+
 		}
 		inline void start() {
 			send_time = current_millis();
@@ -253,6 +269,7 @@ class TimedFrameHandler {
 			}
 			valid = true;
 			timer_thread = std::make_unique<std::thread>([this]() {
+				prctl(PR_SET_NAME, "TFPacket", 0, 0, 0);
 			    this->run();
 			});
 		}
@@ -282,8 +299,8 @@ class TimedFrameHandler {
 
 				if (now >= send_time + timeout_millis) {
 					// Timeout logic
-					finish_call();
 					valid=false;
+					finish_call();
 					break;
 				} else if (now >= resend_time) {
 					// Resend logic

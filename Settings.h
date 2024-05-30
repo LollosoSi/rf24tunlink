@@ -106,8 +106,8 @@ class Settings {
 		int ce_1_pin = 26;
 		int csn_1_pin = 12;
 
-		int irq_pin_radio0 = -1;
-		int irq_pin_radio1 = -1;
+		int irq_pin_radio0 = 5;
+		int irq_pin_radio1 = 6;
 
 		uint32_t spi_speed = 4000000;
 
@@ -125,13 +125,13 @@ class Settings {
 		uint8_t channel_0 = 10;
 		uint8_t channel_1 = 120;
 		uint8_t address_bytes = 3;
-		std::string address_0_1 = "11n";
-		std::string address_0_2 = "21n";
-		std::string address_0_3 = "31n";
+		std::string address_0_1 = "nn1";
+		std::string address_0_2 = "nn2";
+		std::string address_0_3 = "nn3";
 
-		std::string address_1_1 = "41n";
-		std::string address_1_2 = "51n";
-		std::string address_1_3 = "61n";
+		std::string address_1_1 = "nn4";
+		std::string address_1_2 = "nn5";
+		std::string address_1_3 = "nn6";
 
 		unsigned int mtu = 500;
 
@@ -381,7 +381,7 @@ class Settings {
 						"Channel of the radio 0 (Accepted values: 0 to 124)",
 						"Channel of the radio 1 (Accepted values: 0 to 124)",
 						"Bytes for the radio address. (Accepted values: 3 to 5). Recommended to leave this as 3.",
-						"Pipe address 0\n# (NOTE: all pipes must share the last 2 bytes. Example: 1pe, 2pe, 3pe are valid addresses and should work)\n# (NOTE: All pipes must have the byte length specified in address_bytes)",
+						"Pipe address 0\n# (NOTE: all pipes must share the first 32 bits. Example: nn1, nn2, nn3 are valid addresses and should work)\n# (NOTE: All pipes must have the byte length specified in address_bytes)",
 						"Pipe address 1", "Pipe address 2", "Pipe address 3",
 						"Pipe address 4", "Pipe address 5",
 						"Role of this instance (sets up the correct addresses) (Accepted values: yes, no)",

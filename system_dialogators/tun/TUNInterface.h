@@ -10,6 +10,8 @@
 #include "../../generic_structures.h"
 
 #include <thread>
+// Thread naming
+#include <sys/prctl.h>
 
 class TUNInterface : public SystemInterface<TunMessage>, public SyncronizedShutdown {
 

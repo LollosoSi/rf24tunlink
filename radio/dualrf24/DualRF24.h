@@ -15,6 +15,9 @@
 #include <iostream>
 #include <thread>
 
+#include <mutex>
+#include <condition_variable>
+
 class DualRF24 : public RadioInterface {
 
 		unsigned int payload_size = 32;
@@ -30,6 +33,11 @@ class DualRF24 : public RadioInterface {
 		inline void check_radio0_status();
 		inline void check_radio1_status();
 
+		std::mutex radio0_mtx, radio1_mtx;
+		std::condition_variable radio0_cv, radio1_cv;
+
+
+		bool attached = false;
 	public:
 		DualRF24();
 		virtual ~DualRF24();

@@ -8,7 +8,7 @@ project (rf24tunlink2
 
 add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
 
-#set(CMAKE_BUILD_TYPE Debug) 
+set(CMAKE_BUILD_TYPE Debug) 
 
 # AddressSanitizer flags, only needed for debugging
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
@@ -26,6 +26,9 @@ include(~/rf24libs/RF24/cmake/AutoConfig_RF24_DRIVER.cmake)
 
 find_library(RF24 rf24 REQUIRED)
 message(STATUS "using RF24 library: ${RF24}")
+
+# Include directories
+include_directories(${CMAKE_SOURCE_DIR})
 
 # Project files
 set(rs_codec

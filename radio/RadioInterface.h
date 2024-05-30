@@ -7,7 +7,7 @@
 
 #pragma once
 
-#include "../../generic_structures.h"
+#include "../generic_structures.h"
 
 class RadioInterface : public SystemInterface<RFMessage>, public SyncronizedShutdown {
 

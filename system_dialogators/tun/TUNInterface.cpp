@@ -77,19 +77,20 @@ void TUNInterface::apply_settings(const Settings &settings){
 
 	running = true;
 	read_thread = new std::thread ([&] {
-			pthread_setname_np(pthread_self(), "TUN Read");
+		prctl(PR_SET_NAME, "TUN Read", 0, 0, 0);
+
 
 			int nread = 0;
-			Message message(2 * settings.mtu);
 
 			while (this->running) {
+				Message message(2 * settings.mtu);
 				/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
 				//printf("Waiting for tun packet\n");
 				nread = read(tunnel_fd, message.data.get(), 2 * settings.mtu);
 				if (nread < 0) {
-					perror("Reading from interface");
-					close(tunnel_fd);
-					exit(1);
+					perror("Error reading from interface");
+					//close(tunnel_fd);
+					//exit(1);
 				}
 
 				/* Do whatever with the data */
@@ -102,11 +103,13 @@ void TUNInterface::apply_settings(const Settings &settings){
 }
 
 void TUNInterface::stop_read_thread(){
-	if(read_thread){
-		running = false;
-		read_thread->join();
-		delete read_thread;
-		read_thread = nullptr;
+	running = false;
+	if (read_thread) {
+		if (read_thread->joinable()) {
+			read_thread->join();
+			delete read_thread;
+			read_thread = nullptr;
+		}
 	}
 }
 

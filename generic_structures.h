@@ -47,12 +47,18 @@ class SystemInterface : public Messenger<message>, public SettingsCompliant {
 
 class Message{
 	public:
-		Message(unsigned int size) : data(new uint8_t[size]), length(size){}
-		virtual ~Message(){printf("Message destructor\n");}
+		Message(unsigned int size) : data(new uint8_t[size]), length(size){
+			//printf("Created message of length %d\n", length);
+		}
+		virtual ~Message(){
+			//printf("Message destructor. Had length: %d\n", length);
+		}
 
 		// Costruttore di spostamento
 		Message(Message &&other) noexcept : data(std::move(other.data)), length(other.length) {
 			other.length = 0;
+			other.data = nullptr;
+			//printf("Copied message of length %d\n", length);
 		}
 
 		// Operatore di assegnazione per spostamento
@@ -61,6 +67,7 @@ class Message{
 				data = std::move(other.data);
 				length = other.length;
 				other.length = 0;
+				other.data = nullptr;
 			}
 			return *this;
 		}
