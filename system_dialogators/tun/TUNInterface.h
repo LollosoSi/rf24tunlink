@@ -16,7 +16,7 @@
 class TUNInterface : public SystemInterface<TunMessage>, public SyncronizedShutdown {
 
 		std::thread *read_thread = nullptr;
-		void stop_read_thread();
+		void stop_read_thread(bool wait_join = true);
 
 		SystemInterface<TunMessage>* packetizer = nullptr;
 

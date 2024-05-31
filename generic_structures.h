@@ -9,6 +9,8 @@
 
 #include "Settings.h"
 #include "utils.h"
+#include <vector>
+#include <deque>
 
 template<typename message>
 class Messenger{
@@ -39,6 +41,19 @@ class SystemInterface : public Messenger<message>, public SettingsCompliant {
 
 		virtual void input_finished(){}
 		virtual bool input(message& m) = 0;
+		virtual bool input(std::vector<message> &ms) {
+			for (auto& m : ms)
+				input(m);
+
+			return true;
+		}
+		virtual bool input(std::deque<message> &ms) {
+			for (auto& m : ms)
+				input(m);
+
+			return true;
+		}
+
 		virtual void apply_settings(const Settings &settings) override {
 			SettingsCompliant::apply_settings(settings);
 		}
@@ -87,6 +102,12 @@ class PacketMessageFactory : public SettingsCompliant{
 		PacketMessageFactory(const Settings& ref){apply_settings(ref);}
 		Message make_new_packet(){
 			return Message(current_settings()->payload_size);
+		}
+		Message make_new_packet(Message& m){
+			Message mm(m.length);
+			for(unsigned int i = 0; i < m.length;i++)
+				mm.data.get()[i]=m.data.get()[i];
+			return mm;
 		}
 		virtual ~PacketMessageFactory(){printf("Factory destructor\n");}
 };

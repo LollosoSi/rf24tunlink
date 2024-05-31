@@ -12,10 +12,13 @@
 #include <math.h>
 
 class PacketConsumer;
+class PacketIdentityLogger;
 
 class HARQ : public Packetizer<TunMessage,RFMessage> {
 
 	protected:
+		unique_ptr<PacketIdentityLogger> PML;
+
 		std::mutex packetout_mtx;
 		std::condition_variable packetout_cv;
 		std::mutex packet_current_out_mtx;
@@ -215,5 +218,223 @@ class PacketConsumer{
 			std::copy(buffer.get() + offset, buffer.get() + offset + message_length, tms.data.get());
 			return tms;
 		}
+};
+
+enum state {
+	acked, nacked, expired, recalled, added, received
+};
+class PacketIdentityLogger{
+		PacketMessageFactory *pmf = nullptr;
+
+		string pickstate(state s){
+			switch(s){
+			case state::acked:
+				return "acked";
+				break;
+			case state::nacked:
+				return "nacked";
+				break;
+			case state::expired:
+				return "expired";
+				break;
+			case state::recalled:
+				return "recalled";
+				break;
+			case state::added:
+				return "added";
+				break;
+			case state::received:
+				return "received";
+				break;
+			default:
+				return "undefined";
+				break;
+			}
+		}
+
+		struct arrival {
+				RFMessage packet;
+				uint64_t time;
+		};
+		struct event {
+				uint8_t frame_crc;
+				state stat;
+				uint64_t time;
+		};
+		arrival make_arrival(RFMessage &packet) {
+			return {pmf->make_new_packet(packet), current_millis()};
+		}
+		event make_event(uint8_t crc, state stat) {
+			return {crc, stat, current_millis()};
+		}
+		std::vector<arrival> arrivals, outgoing;
+		std::vector<event> events;
+
+		inline uint64_t distance(uint64_t a, uint64_t b){return a-b;}
+
+		HARQ* harqref;
+
+	public:
+		PacketIdentityLogger(HARQ* ref) : harqref(ref) {
+		}
+		~PacketIdentityLogger() {
+			std::ofstream file;
+			file.open("events.csv");
+			if (!file.good()) {
+				printf("Problem opening file\n");
+
+				if (file.fail()) {
+					// Get the error code
+					std::ios_base::iostate state = file.rdstate();
+
+					// Check for specific error bits
+					if (state & std::ios_base::eofbit) {
+						std::cout << "End of file reached." << std::endl;
+					}
+					if (state & std::ios_base::failbit) {
+						std::cout << "Non-fatal I/O error occurred."
+								<< std::endl;
+					}
+					if (state & std::ios_base::badbit) {
+						std::cout << "Fatal I/O error occurred." << std::endl;
+					}
+
+					// Print system error message
+					std::perror("Error: ");
+				}
+
+				file.close();
+				return;
+			}
+			uint64_t baseline = 0;
+			file<<"Arrival Packet ID,Segment,LP,Arrival time,Outgoing Packet ID,Segment,LP,Outgoing Time,ID,Segment,LP,Event CRC, Event, Time\n";
+			auto cur_a = arrivals.begin(), cur_o = outgoing.begin();
+			auto cur_e = events.begin();
+			while(cur_a != arrivals.end() || cur_o != outgoing.end() || cur_e != events.end()){
+				uint64_t best_time = 0;
+				bool print_a = false, print_b = false, print_c = false;
+				if(cur_a != arrivals.end()){
+					if((*cur_a).time <= best_time || best_time==0){
+						best_time = (*cur_a).time;
+					}
+				}
+				if (cur_o != outgoing.end()) {
+					if ((*cur_o).time <= best_time|| best_time==0) {
+						best_time = (*cur_o).time;
+					}
+				}
+				if (cur_e != events.end()) {
+					if ((*cur_e).time <= best_time|| best_time==0) {
+						best_time = (*cur_e).time;
+					}
+				}
+				if (cur_o != outgoing.end()) {
+					if (distance((*cur_o).time, best_time) < 3) {
+						print_b = true;
+					}
+				}
+				if (cur_a != arrivals.end()) {
+					if (distance((*cur_a).time, best_time) < 3) {
+						print_a = true;
+					}
+				}
+				if (cur_e != events.end()) {
+					if (distance((*cur_e).time, best_time) < 3) {
+						print_c = true;
+					}
+				}
+				if(baseline == 0)
+					baseline = best_time;
+				uint8_t id, seg;
+				bool lp;
+				if (print_a) {
+					harqref->unpack((*cur_a).packet.data.get()[0], id, seg, lp);
+					file << std::to_string(id);
+					file << ",";
+					file << std::to_string(seg);
+					file << ",";
+					file << std::to_string(lp);
+					file << ",";
+					file << std::to_string(distance((*cur_a).time, baseline));
+					file << ",";
+					cur_a++;
+				}else{
+					file << ",,,,";
+				}
+
+				if (print_b) {
+					harqref->unpack((*cur_o).packet.data.get()[0], id, seg, lp);
+					file << std::to_string(id);
+					file << ",";
+					file << std::to_string(seg);
+					file << ",";
+					file << std::to_string(lp);
+					file << ",";
+					file << std::to_string(distance((*cur_o).time, baseline));
+					file << ",";
+					cur_o++;
+				} else {
+					file << ",,,,";
+				}
+
+				if(print_c){
+					harqref->unpack((*cur_e).frame_crc, id, seg, lp);
+					file << std::to_string(id);
+					file << ",";
+					file << std::to_string(seg);
+					file << ",";
+					file << std::to_string(lp);
+					file << ",";
+					file << std::to_string((*cur_e).frame_crc);
+					file << ",";
+					file << pickstate((*cur_e).stat);
+					file << ",";
+					file << std::to_string(distance((*cur_e).time, baseline));
+					file << "\n";
+					cur_e++;
+				}else{
+					file << ",,,,,\n";
+				}
+				baseline = best_time;
+				if(!print_a && !print_b && !print_c)break;
+			}
+
+			file.close();
+		}
+		void register_pmf(PacketMessageFactory *pmff) {
+			pmf = pmff;
+		}
+		uint64_t in = 0, out = 0;
+
+		void tun_in_to_out(TunMessage &tms, HARQ::Frame &f) {
+			events.push_back(make_event(f.metadata,state::added));
+		}
+		void tun_out_to_in(TunMessage &tms) {
+			events.push_back(make_event(tms.data[0],state::received));
+		}
+		void acked(HARQ::Frame &f) {
+			events.push_back(make_event(f.metadata, state::acked));
+		}
+		void nacked(RFMessage &f) {
+			events.push_back(make_event(f.data.get()[0], state::nacked));
+		}
+		void recalled(RFMessage &f) {
+			events.push_back(make_event(f.data.get()[0], state::recalled));
+		}
+		void expired(HARQ::Frame &f) {
+			events.push_back(make_event(f.metadata, state::expired));
+		}
+		void packet_in(RFMessage &m) {
+			arrivals.push_back(make_arrival(m));
+		}
+
+		void packet_out(RFMessage &m) {
+			outgoing.push_back(make_arrival(m));
+		}
+		void packet_out(HARQ::Frame &f) {
+			for (unsigned int i = 0; i < f.packets.size(); i++)
+				packet_out(f.packets[i]);
+		}
+
 };
 

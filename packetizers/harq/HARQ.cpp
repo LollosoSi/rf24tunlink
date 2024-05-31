@@ -20,7 +20,9 @@ static unsigned char bits_to_mask(const int bits) {
 
 
 HARQ::HARQ() : Packetizer() {
+	PML = make_unique<PacketIdentityLogger>(this);
 	apply_settings({});
+
 }
 
 HARQ::~HARQ() {
@@ -29,49 +31,54 @@ HARQ::~HARQ() {
 
 void HARQ::worker_packetout(){
 	printf("Packetout starting\n");
+	bool done = false;
+
 	while (running_nxp) {
 		Frame getframe = next_frame();
 		if(getframe.packets.size() == 0)
 			continue;
-
+		done = false;
+		if(!tfh)
+			tfh = std::make_unique<TimedFrameHandler>(this->timeout, this->resend_wait_time);
 		{
 			std::unique_lock<std::mutex> lock(packet_current_out_mtx);
 			current_outgoing_frame = std::move(getframe);
 		}
-		tfh = std::make_unique<TimedFrameHandler>(this->timeout, this->resend_wait_time);
 
 
-		bool done = false;
+			tfh.get()->set_resend_call([&] {
+				PML->packet_out(current_outgoing_frame.packets.back());
+				this->send_to_radio(current_outgoing_frame.packets.back(), true);
+			});
+			tfh.get()->set_fire_call([&] {
+				{
+					std::unique_lock<std::mutex> lock(packet_current_out_mtx);
+					done = true;
+					printf("Packet EXPIRED\n");
+				}
+				//packetout_cv.notify_one();
+				PML->expired(current_outgoing_frame);
+			});
+			tfh.get()->set_invalidated_call([&] {
+				{
+					std::unique_lock<std::mutex> lock(packet_current_out_mtx);
+					done = true;
+					//printf("Packet ACKED\n");
+				}
+				PML->acked(current_outgoing_frame);
+				//packetout_cv.notify_one();
 
-		tfh.get()->set_resend_call([&] {
-			this->send_to_radio(current_outgoing_frame.packets.back(), false);
-		});
-		tfh.get()->set_fire_call([&] {
-			{
-			std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-			done = true;
-			printf("Packet EXPIRED\n");
-			}
-			packetout_cv.notify_one();
+			});
 
-		});
-		tfh.get()->set_invalidated_call([&] {
-			{
-			std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-			done = true;
-			//printf("Packet ACKED\n");
-			}
-			packetout_cv.notify_one();
-
-		});
-
-		tfh.get()->start();
+		PML->packet_out(current_outgoing_frame);
 		send_to_radio(current_outgoing_frame);
+		tfh.get()->start();
 
-		std::unique_lock lock(packet_current_out_mtx);
-		packetout_cv.wait(lock, [&] {
-			return !running_nxp || done;
-		});
+
+		//std::unique_lock lock(packet_current_out_mtx);
+		//packetout_cv.wait(lock, [&] {
+		//	return !running_nxp || done;
+		//});
 		tfh.reset();
 	}
 	printf("Packetout exiting\n");
@@ -98,7 +105,7 @@ void HARQ::process_tun(TunMessage &m) {
 	Frame f;
 
 	uint8_t packcrc = gencrc(m.data.get(),m.length);
-
+	f.metadata=packcrc;
 	int msglen = m.length;
 
 	int rem = msglen % bytes_per_submessage;
@@ -129,7 +136,7 @@ void HARQ::process_tun(TunMessage &m) {
 		rsc->efficient_encode(rpp.data.get(), current_settings()->payload_size);
 		f.packets.push_front(std::move(rpp));
 	}
-
+	PML->tun_in_to_out(m, f);
 	add_frame_to_queue(f);
 
 }
@@ -143,11 +150,16 @@ void HARQ::push_ack_nack(PacketConsumer* pkc){
 	out_msg.data.get()[0] = pack(0, is_nack ? 0 : pkc->id, true);
 	printf("Pushing %s for %d\t", is_nack ? "NACK" : "ACK", pkc->id);
 
-	for(int i = 0; i < packet_data_length; i++)
+	for(int i = 0; i < packet_data_length; i++){
 		out_msg.data.get()[2+i] = pkc->missing_segments[i];
+		//RFMessage fr = pmf->make_new_packet();
+		//fr.data.get()[0] = pkc->missing_segments[i];
+		//PML->recalled(fr);
+	}
 
 
 	rsc->efficient_encode(out_msg.data.get(), settings->payload_size);
+	PML->packet_out(out_msg);
 	send_to_radio(out_msg);
 }
 
@@ -156,6 +168,7 @@ void HARQ::process_packet(RFMessage &m) {
 	if(!rsc->efficient_decode(m.data.get(),settings->payload_size, &e_count)){
 		return;
 	}
+	PML->packet_in(m);
 
 
 	uint8_t id, seg;
@@ -196,6 +209,7 @@ void HARQ::process_packet(RFMessage &m) {
 						continue;
 					}
 					printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
+					PML->recalled(current_outgoing_frame.packets[current_out_size-1-u_seg]);
 					send_to_radio(current_outgoing_frame.packets[current_out_size-1-u_seg]);
 
 				}
@@ -230,20 +244,21 @@ void HARQ::process_packet(RFMessage &m) {
 
 		if(lp){
 			if(packet_eaters[idx]->is_finished()){
-				//printf("Packet finished\t");
+				printf("Packet finished\t");
 				if(!packet_eaters[idx]->is_consumed()){
-					//printf("Writing to TUN\t");
+					printf("Writing to TUN\t");
 					TunMessage tms = packet_eaters[idx]->get_tun_object();
 					//printf("Message received: ");
 					//print_hex(tms.data.get(), tms.length);
 					//printf("Verify CRC: %d : %d -> %d",gencrc(tms.data.get(),tms.length),packet_eaters[idx]->crc,packet_eaters[idx]->crc==gencrc(tms.data.get(),tms.length));
+					PML->tun_out_to_in(tms);
 					if(this->tun->input(tms))
 						printf("\tACCEPTED\t");
 					else
 						printf("\tREJECTED\t");
 				}
 			}else{
-				//printf("Not ready\t");
+				printf("Not ready\t");
 			}
 			push_ack_nack(packet_eaters[idx].get());
 		}
@@ -256,6 +271,8 @@ void HARQ::process_packet(RFMessage &m) {
 
 void HARQ::apply_settings(const Settings &settings) {
 	Packetizer::apply_settings(settings);
+	PML->register_pmf(pmf);
+
 	id_bits = 2, segment_bits = 5, last_packet_bits = 1; // @suppress("Multiple variable declaration")
 	assert((id_bits + segment_bits + last_packet_bits) == 8 && "Bit sum must be 8");
 

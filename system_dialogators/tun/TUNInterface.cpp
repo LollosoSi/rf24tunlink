@@ -102,13 +102,19 @@ void TUNInterface::apply_settings(const Settings &settings){
 		});
 }
 
-void TUNInterface::stop_read_thread(){
+void TUNInterface::stop_read_thread(bool wait_join){
 	running = false;
 	if (read_thread) {
 		if (read_thread->joinable()) {
-			read_thread->join();
-			delete read_thread;
-			read_thread = nullptr;
+			if(wait_join){
+				read_thread->join();
+				delete read_thread;
+				read_thread = nullptr;
+			}
+			else
+				read_thread->detach();
+
+
 		}
 	}
 }
@@ -122,9 +128,9 @@ void TUNInterface::stop_interface() {
 
 void TUNInterface::stop_module(){
 
-
-	stop_read_thread();
 	stop_interface();
+	stop_read_thread(true);
+
 
 }
 

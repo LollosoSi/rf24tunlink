@@ -150,10 +150,13 @@ int main(int argc, char **argv) {
 	//read_settings_function();
 	//reload_settings_function();
 
-	while(!stop_program){
+	//while(!stop_program){
 
-		std::this_thread::sleep_for(1000ms);
-	}
+		//std::this_thread::sleep_for(1000ms);
+	//}
+int a;
+	cin >> a;
+	stop_program=true;
 
 	TUNI.stop();
 	radio->stop();

@@ -35,6 +35,7 @@ class DualRF24 : public RadioInterface {
 
 		std::mutex radio0_mtx, radio1_mtx;
 		std::condition_variable radio0_cv, radio1_cv;
+		void send_tx();
 
 
 		bool attached = false;
@@ -46,6 +47,8 @@ class DualRF24 : public RadioInterface {
 
 		void input_finished();
 		bool input(RFMessage &m);
+		bool input(std::deque<RFMessage> &q) override;
+
 		void apply_settings(const Settings &settings);
 		void stop_module();
 

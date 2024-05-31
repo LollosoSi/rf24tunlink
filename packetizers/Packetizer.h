@@ -27,6 +27,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 	public:
 		struct Frame {
 				std::deque<radio_message_class> packets;
+				uint8_t metadata;
 		};
 
 
@@ -105,23 +106,27 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		}
 
 		bool receive_tun(tun_message_class &m) {
-			{
-				std::lock_guard lock(tun_in_mtx);
-				incoming_tun.push_back(std::move(m));
-			}
-			tun_cv.notify_one();
+			//{
+			//	std::lock_guard lock(tun_in_mtx);
+			//	incoming_tun.push_back(std::move(m));
+			//}
+			//tun_cv.notify_one();
+			process_tun(m);
 			return (true);
 		}
 		bool receive_radio(radio_message_class &m) {
-			{
-				std::lock_guard lock(radio_in_mtx);
-				incoming_packets.push_back(std::move(m));
-			}
-			radio_cv.notify_all();
+			//{
+			//	std::lock_guard lock(radio_in_mtx);
+			//	incoming_packets.push_back(std::move(m));
+			//}
+			//radio_cv.notify_all();
+			process_packet(m);
 			return (true);
 		}
 
 		void worker_tun() {
+			printf("Worker tun thread is disabled for this instance\n");
+			return;
 			while (running_wtun) {
 				//tun_message_class f = nullptr;
 				{
@@ -143,6 +148,8 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		}
 
 		void worker_packet() {
+			printf("Worker packet thread is disabled for this instance\n");
+			return;
 			while (running_wpk) {
 				//radio_message_class f = nullptr;
 				{
@@ -217,9 +224,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 				send_radio_finish();
 		}
 		inline void send_to_radio(Frame& f) {
-			for (auto &item : f.packets)
-				radio->input(item);
-			send_radio_finish();
+			radio->input(f.packets);
 		}
 		void register_rsc(RSCodec *reference) {
 			rsc = reference;
@@ -256,9 +261,9 @@ class TimedFrameHandler {
 		}
 		~TimedFrameHandler() {
 			invalidate_timer();
-			if (timer_thread)
-				if(timer_thread->joinable())
-				timer_thread->join();
+			//if (timer_thread)
+			//	if(timer_thread->joinable())
+			//	timer_thread->join();
 
 		}
 		inline void start() {
@@ -268,10 +273,10 @@ class TimedFrameHandler {
 				throw std::invalid_argument("Timeout is zero");
 			}
 			valid = true;
-			timer_thread = std::make_unique<std::thread>([this]() {
-				prctl(PR_SET_NAME, "TFPacket", 0, 0, 0);
+			//timer_thread = std::make_unique<std::thread>([this]() {
+			//	prctl(PR_SET_NAME, "TFPacket", 0, 0, 0);
 			    this->run();
-			});
+			//});
 		}
 		inline void invalidate_timer() {
 			if (valid) {
@@ -297,12 +302,12 @@ class TimedFrameHandler {
 			while (valid) {
 				uint64_t now = current_millis();
 
-				if (now >= send_time + timeout_millis) {
+				if ((now >= send_time + timeout_millis) && valid) {
 					// Timeout logic
 					valid=false;
 					finish_call();
 					break;
-				} else if (now >= resend_time) {
+				} else if (now >= resend_time && valid) {
 					// Resend logic
 					resend_time = now + timeout_resend_millis;
 					resend_call();
