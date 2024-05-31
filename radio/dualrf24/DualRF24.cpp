@@ -55,24 +55,22 @@ void DualRF24::apply_settings(const Settings &settings){
 
 inline void DualRF24::check_radio0_status() {
 	bool c1 = radio0->failureDetected,
-		 c2 = (radio0->getDataRate() != current_settings()->data_rate) && false,
+		 c2 = radio0->getDataRate() != ((rf24_datarate_e)current_settings()->data_rate),
 		 c3 = !radio0->isChipConnected();
 	if (c1 || c2 || c3) {
 		radio0->failureDetected = 0;
 		resetRadio0(false);
-		printf("Radio 0 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2,
-				c3);
+		printf("Radio 0 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2, c3);
 	}
 }
 inline void DualRF24::check_radio1_status() {
 	bool c1 = radio1->failureDetected,
-		 c2 = (radio1->getDataRate()!= current_settings()->data_rate) && false,
+		 c2 = radio1->getDataRate()!= ((rf24_datarate_e)current_settings()->data_rate),
 		 c3 = !radio1->isChipConnected();
 	if (c1 || c2 || c3) {
 		radio1->failureDetected = 0;
 		resetRadio1(false);
-		printf("Radio 1 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2,
-				c3);
+		printf("Radio 1 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2, c3);
 	}
 }
 
@@ -115,7 +113,10 @@ void DualRF24::receive_ISR(){
 }
 
 void DualRF24::send_tx(){
-	//radio1->txStandBy();
+	if(!radio1->txStandBy()){
+		radio1->flush_tx();
+		radio1->flush_rx();
+	}
 }
 void DualRF24::input_finished(){
 	//if(!radio1->isFifo(true,true)){
@@ -133,21 +134,14 @@ bool DualRF24::input(RFMessage &m){
 	});
 	if(!running)return (false);
 
-	if (!radio1->isFifo(true, true)){
-		send_tx();
-		//printf("Radio data out\n");
-	}
 
 	if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack)){
 		send_tx();
 	}
 
-	if (!radio1->isFifo(true, true)){
+	// Get all packets out of the way
+	if (!radio1->isFifo(true, true))
 		send_tx();
-		//printf("Radio data out\n");
-	}
-
-	lock.unlock();
 
 
 	return (true);
@@ -161,7 +155,6 @@ bool DualRF24::input(std::deque<RFMessage> &q){
 		return !running || radio1;
 	});
 	if(!running)return (false);
-	input_finished();
 
 	for(auto& m : q){
 		if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack)){
@@ -169,11 +162,9 @@ bool DualRF24::input(std::deque<RFMessage> &q){
 		}
 	}
 
+	// Get all packets out of the way
 	if (!radio1->isFifo(true, true))
-	send_tx();
-
-	lock.unlock();
-
+		send_tx();
 
 	return (true);
 }
