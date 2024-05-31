@@ -27,8 +27,8 @@ class DualRF24 : public RadioInterface {
 		RF24* radio0 = nullptr;
 		RF24* radio1 = nullptr;
 
-		void resetRadio0();
-		void resetRadio1();
+		void resetRadio0(bool print_info = true);
+		void resetRadio1(bool print_info = true);
 
 		inline void check_radio0_status();
 		inline void check_radio1_status();

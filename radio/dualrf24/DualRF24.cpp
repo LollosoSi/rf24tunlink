@@ -59,7 +59,7 @@ inline void DualRF24::check_radio0_status() {
 		 c3 = !radio0->isChipConnected();
 	if (c1 || c2 || c3) {
 		radio0->failureDetected = 0;
-		resetRadio0();
+		resetRadio0(false);
 		printf("Radio 0 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2,
 				c3);
 	}
@@ -70,7 +70,7 @@ inline void DualRF24::check_radio1_status() {
 		 c3 = !radio1->isChipConnected();
 	if (c1 || c2 || c3) {
 		radio1->failureDetected = 0;
-		resetRadio1();
+		resetRadio1(false);
 		printf("Radio 1 Reset after failure. C1 %d, C2 %d, C3 %d\n", c1, c2,
 				c3);
 	}
@@ -105,7 +105,7 @@ void DualRF24::receive_ISR(){
 				break;
 			}
 		}
-		printf("[Radio Read]Collected packets: %ld\n",messages.size());
+		//printf("[Radio Read]Collected packets: %ld\n",messages.size());
 		packetizer->input(messages);
 	}
 
@@ -188,18 +188,15 @@ inline uint64_t string_to_address(const std::string& str){
 	result |= static_cast<uint64_t>(static_cast<uint8_t>(str[1])) << 8;
 	result |= static_cast<uint64_t>(static_cast<uint8_t>(str[2]));
 
-	std::cout << "Byte 0: 0x" << std::hex
-			<< static_cast<int>(static_cast<uint8_t>(str[0])) << std::endl;
-	std::cout << "Byte 1: 0x" << std::hex
-			<< static_cast<int>(static_cast<uint8_t>(str[1])) << std::endl;
-	std::cout << "Byte 2: 0x" << std::hex
-			<< static_cast<int>(static_cast<uint8_t>(str[2])) << std::endl;
-	std::cout << "Result: 0x" << std::hex << result << std::endl;
+	//std::cout << "Byte 0: 0x" << std::hex << static_cast<int>(static_cast<uint8_t>(str[0])) << std::endl;
+	//std::cout << "Byte 1: 0x" << std::hex << static_cast<int>(static_cast<uint8_t>(str[1])) << std::endl;
+	//std::cout << "Byte 2: 0x" << std::hex << static_cast<int>(static_cast<uint8_t>(str[2])) << std::endl;
+	//std::cout << "Result: 0x" << std::hex << result << std::endl;
 
 	return result;
 }
 
-void DualRF24::resetRadio0() {
+void DualRF24::resetRadio0(bool print_info) {
 
 	if(radio0==nullptr){
 		printf("Reset radio 0 called without radio 0\n");
@@ -276,13 +273,13 @@ void DualRF24::resetRadio0() {
 	}
 
 	radio0->startListening();
-
-	radio0->printPrettyDetails();
+	if(print_info)
+		radio0->printPrettyDetails();
 }
 	radio0_cv.notify_all();
 
 }
-void DualRF24::resetRadio1() {
+void DualRF24::resetRadio1(bool print_info) {
 	if (radio1 == nullptr) {
 		printf("Reset radio 1 called without radio 1\n");
 		throw std::invalid_argument("Invalid radio 1");
@@ -352,8 +349,8 @@ void DualRF24::resetRadio1() {
 	}
 
 	radio1->stopListening();
-
-	radio1->printPrettyDetails();
+	if(print_info)
+		radio1->printPrettyDetails();
 	}
 
 	radio1_cv.notify_all();

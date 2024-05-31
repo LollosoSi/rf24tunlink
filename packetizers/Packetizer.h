@@ -266,9 +266,12 @@ class TimedFrameHandler {
 			//	timer_thread->join();
 
 		}
+		inline void reset_resend(){
+			resend_time = send_time + timeout_resend_millis;
+		}
 		inline void start() {
 			send_time = current_millis();
-			resend_time = send_time + timeout_resend_millis;
+			reset_resend();
 			if (timeout_resend_millis == 0 || timeout_millis == 0) {
 				throw std::invalid_argument("Timeout is zero");
 			}

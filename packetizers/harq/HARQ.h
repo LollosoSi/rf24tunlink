@@ -11,13 +11,17 @@
 
 #include <math.h>
 
+//#define USE_PML 1
+
 class PacketConsumer;
 class PacketIdentityLogger;
 
 class HARQ : public Packetizer<TunMessage,RFMessage> {
 
 	protected:
+#ifdef USE_PML
 		unique_ptr<PacketIdentityLogger> PML;
+#endif
 
 		std::mutex packetout_mtx;
 		std::condition_variable packetout_cv;
@@ -137,26 +141,26 @@ class PacketConsumer{
 			harq_ref->unpack(rfm.data.get()[0],unpacked_id,unpacked_segment,last_packet);
 
 			if(id != 255 && id != unpacked_id){
-				printf("New id, resetting\n");
+				//printf("New id, resetting\n");
 				reset();
 			}
 
 			if (last_packet) {
 				if(consumed && ( ((unpacked_segment + 1) != segments_in_message) || (message_length != ((bytes_per_sub * unpacked_segment) + rfm.data.get()[1])))){
-					printf("New packet, resetting\n");
+				//	printf("New packet, resetting\n");
 					reset();
 				}
 				segments_in_message = unpacked_segment + 1;
 				message_length = (bytes_per_sub * unpacked_segment) + rfm.data.get()[1];
-				printf("Seg length: %d\t", rfm.data.get()[1]);
-				printf("Total length: %d\t", message_length);
+				//printf("Seg length: %d\t", rfm.data.get()[1]);
+				//printf("Total length: %d\t", message_length);
 			} else if (crc == -1){
 				crc = rfm.data.get()[1];
 			} else if(rfm.data.get()[1] != crc){
 				if(!consumed)
 					printf("Unfinished packets have different CRC, guess corruption or packet was killed, resetting\n");
-				else
-					printf("Moving to new packet\n");
+				//else
+				//	printf("Moving to new packet\n");
 				reset();
 				crc = rfm.data.get()[1];
 			}
@@ -165,7 +169,7 @@ class PacketConsumer{
 				id = unpacked_id;
 			}
 
-			printf("Message crc: %d\t", crc);
+			//printf("Message crc: %d\t", crc);
 
 			segments.get()[last_packet ? 0 : unpacked_segment] = 1;
 

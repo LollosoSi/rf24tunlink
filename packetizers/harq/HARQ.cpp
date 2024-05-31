@@ -20,7 +20,9 @@ static unsigned char bits_to_mask(const int bits) {
 
 
 HARQ::HARQ() : Packetizer() {
+#ifdef USE_PML
 	PML = make_unique<PacketIdentityLogger>(this);
+#endif
 	apply_settings({});
 
 }
@@ -47,7 +49,9 @@ void HARQ::worker_packetout(){
 
 
 			tfh.get()->set_resend_call([&] {
+#ifdef USE_PML
 				PML->packet_out(current_outgoing_frame.packets.back());
+#endif
 				this->send_to_radio(current_outgoing_frame.packets.back(), true);
 			});
 			tfh.get()->set_fire_call([&] {
@@ -57,7 +61,9 @@ void HARQ::worker_packetout(){
 					printf("Packet EXPIRED\n");
 				}
 				//packetout_cv.notify_one();
+#ifdef USE_PML
 				PML->expired(current_outgoing_frame);
+#endif
 			});
 			tfh.get()->set_invalidated_call([&] {
 				{
@@ -65,12 +71,15 @@ void HARQ::worker_packetout(){
 					done = true;
 					//printf("Packet ACKED\n");
 				}
+#ifdef USE_PML
 				PML->acked(current_outgoing_frame);
+#endif
 				//packetout_cv.notify_one();
 
 			});
-
+#ifdef USE_PML
 		PML->packet_out(current_outgoing_frame);
+#endif
 		send_to_radio(current_outgoing_frame);
 		tfh.get()->start();
 
@@ -113,15 +122,12 @@ void HARQ::process_tun(TunMessage &m) {
 		rem = bytes_per_submessage;
 	int packets = std::ceil(static_cast<double>(msglen) / static_cast<double>(bytes_per_submessage));
 
-	printf("MSGLEN %d, REM %d, PACKETS %d, CRC %d\n", msglen, rem, packets, packcrc);
+	//printf("MSGLEN %d, REM %d, PACKETS %d, CRC %d\n", msglen, rem, packets, packcrc);
 
 	RFMessage rp = pmf->make_new_packet();
 	rp.data.get()[0] = pack(id,packets-1,true);
 	rp.data.get()[1] = rem;
 	memcpy(rp.data.get()+2,m.data.get(), rem);
-	printf("Seg 0 printout: ");
-	print_hex(rp.data.get()+2,rem);
-	printf("\n");
 	rsc->efficient_encode(rp.data.get(),current_settings()->payload_size);
 	f.packets.push_front(std::move(rp));
 
@@ -130,13 +136,12 @@ void HARQ::process_tun(TunMessage &m) {
 		rpp.data.get()[0] = pack(id, i, false);
 		rpp.data.get()[1] = packcrc;
 		memcpy(rpp.data.get() + 2, m.data.get() + (rem+((i-1)*bytes_per_submessage)), bytes_per_submessage);
-		printf("Seg %d printout: ", i);
-		print_hex(rpp.data.get()+2, bytes_per_submessage);
-		printf("\n");
 		rsc->efficient_encode(rpp.data.get(), current_settings()->payload_size);
 		f.packets.push_front(std::move(rpp));
 	}
+#ifdef USE_PML
 	PML->tun_in_to_out(m, f);
+#endif
 	add_frame_to_queue(f);
 
 }
@@ -148,18 +153,16 @@ void HARQ::push_ack_nack(PacketConsumer* pkc){
 	bool is_nack = packet_data_length != 0;
 	out_msg.data.get()[1] = is_nack ? packet_data_length : pkc->crc;
 	out_msg.data.get()[0] = pack(0, is_nack ? 0 : pkc->id, true);
-	printf("Pushing %s for %d\t", is_nack ? "NACK" : "ACK", pkc->id);
+	//printf("Pushing %s for %d\t", is_nack ? "NACK" : "ACK", pkc->id);
 
-	for(int i = 0; i < packet_data_length; i++){
+	for(int i = 0; i < packet_data_length; i++)
 		out_msg.data.get()[2+i] = pkc->missing_segments[i];
-		//RFMessage fr = pmf->make_new_packet();
-		//fr.data.get()[0] = pkc->missing_segments[i];
-		//PML->recalled(fr);
-	}
-
+#ifdef USE_PML
+	PML->packet_out(out_msg);
+#endif
 
 	rsc->efficient_encode(out_msg.data.get(), settings->payload_size);
-	PML->packet_out(out_msg);
+
 	send_to_radio(out_msg);
 }
 
@@ -168,7 +171,9 @@ void HARQ::process_packet(RFMessage &m) {
 	if(!rsc->efficient_decode(m.data.get(),settings->payload_size, &e_count)){
 		return;
 	}
+#ifdef USE_PML
 	PML->packet_in(m);
+#endif
 
 
 	uint8_t id, seg;
@@ -208,11 +213,15 @@ void HARQ::process_packet(RFMessage &m) {
 						printf("Invalid segment in NACK request\n");
 						continue;
 					}
-					printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
+					//printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
+#ifdef USE_PML
 					PML->recalled(current_outgoing_frame.packets[current_out_size-1-u_seg]);
+#endif
 					send_to_radio(current_outgoing_frame.packets[current_out_size-1-u_seg]);
-
 				}
+				if (tfh)
+					if (!tfh.get()->finished())
+							tfh.get()->reset_resend();
 
 
 			}else if(seg < id_max){
@@ -244,34 +253,38 @@ void HARQ::process_packet(RFMessage &m) {
 
 		if(lp){
 			if(packet_eaters[idx]->is_finished()){
-				printf("Packet finished\t");
+				//printf("Packet finished\t");
 				if(!packet_eaters[idx]->is_consumed()){
-					printf("Writing to TUN\t");
+					//printf("Writing to TUN\t");
 					TunMessage tms = packet_eaters[idx]->get_tun_object();
 					//printf("Message received: ");
 					//print_hex(tms.data.get(), tms.length);
 					//printf("Verify CRC: %d : %d -> %d",gencrc(tms.data.get(),tms.length),packet_eaters[idx]->crc,packet_eaters[idx]->crc==gencrc(tms.data.get(),tms.length));
+#ifdef USE_PML
 					PML->tun_out_to_in(tms);
-					if(this->tun->input(tms))
-						printf("\tACCEPTED\t");
-					else
-						printf("\tREJECTED\t");
+#endif
+					if(this->tun->input(tms)){
+						//printf("\tACCEPTED\t");
+					}else
+						printf("Packet REJECTED\n");
 				}
 			}else{
-				printf("Not ready\t");
+				//printf("Not ready\t");
 			}
 			push_ack_nack(packet_eaters[idx].get());
 		}
 		break;
 	}
 
-	printf("\n");
+	//printf("\n");
 
 }
 
 void HARQ::apply_settings(const Settings &settings) {
 	Packetizer::apply_settings(settings);
+#ifdef USE_PML
 	PML->register_pmf(pmf);
+#endif
 
 	id_bits = 2, segment_bits = 5, last_packet_bits = 1; // @suppress("Multiple variable declaration")
 	assert((id_bits + segment_bits + last_packet_bits) == 8 && "Bit sum must be 8");
