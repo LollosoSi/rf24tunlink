@@ -6,16 +6,16 @@ project (rf24tunlink2
 	DESCRIPTION "TUN Link Driver")
 
 
-#add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
+add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
 
-set(CMAKE_BUILD_TYPE Debug) 
+#set(CMAKE_BUILD_TYPE Debug) 
 
 # AddressSanitizer flags, only needed for debugging
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
 
 # detect the CPU make and type
 include(~/rf24libs/RF24/cmake/detectCPU.cmake) # sets the variable SOC accordingly
