@@ -68,12 +68,14 @@ bool TUNInterface::input(TunMessage& m){
 }
 
 void TUNInterface::apply_settings(const Settings &settings){
-	stop_read_thread();
+
+	stop_read_thread(true);
 	stop_interface();
 
 	tunnel_fd = interface_setup(settings.interface_name.c_str(),
 		IFF_TUN | IFF_UP | IFF_RUNNING, settings.address.c_str(), settings.destination.c_str(),
 				settings.netmask.c_str(), settings.mtu);
+
 
 	running = true;
 	read_thread = new std::thread ([&] {
@@ -89,6 +91,7 @@ void TUNInterface::apply_settings(const Settings &settings){
 				nread = read(tunnel_fd, message.data.get(), 2 * settings.mtu);
 				if (nread < 0) {
 					perror("Error reading from interface");
+					break;
 					//close(tunnel_fd);
 					//exit(1);
 				}
@@ -107,7 +110,9 @@ void TUNInterface::stop_read_thread(bool wait_join){
 	if (read_thread) {
 		if (read_thread->joinable()) {
 			if(wait_join){
+				printf("Waiting for the TUN read thread to quit (send something through the link if blocked here) . . . . .");
 				read_thread->join();
+				printf(". . . . . TUN read thread has finished");
 				delete read_thread;
 				read_thread = nullptr;
 			}
@@ -128,9 +133,9 @@ void TUNInterface::stop_interface() {
 
 void TUNInterface::stop_module(){
 
-	stop_interface();
-	stop_read_thread(true);
 
+	stop_read_thread(false);
+	stop_interface();
 
 }
 

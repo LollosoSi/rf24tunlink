@@ -82,7 +82,7 @@ bool RSCodec::efficient_decode(uint8_t* inout, unsigned int size, int* error_cou
 		inout[i] = static_cast<unsigned char>(data[i]);
 
 	if(inout[k]!=gencrc(inout,k)){
-		printf("CRC FAILED\n");
+		//printf("CRC FAILED\n");
 		return (false);
 	}
 

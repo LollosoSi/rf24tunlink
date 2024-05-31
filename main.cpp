@@ -150,13 +150,21 @@ int main(int argc, char **argv) {
 	//read_settings_function();
 	//reload_settings_function();
 
-	//while(!stop_program){
-
+	while(!stop_program){
+		printf("Type 'r' to reload settings, type 'q' to quit\n");
 		//std::this_thread::sleep_for(1000ms);
-	//}
-int a;
-	cin >> a;
-	stop_program=true;
+	char a;
+		cin >> a;
+		switch (a) {
+		case 'q':
+			stop_program = true;
+			break;
+		case 'r':
+			reload_settings_function();
+			break;
+		}
+
+	}
 
 	TUNI.stop();
 	radio->stop();
