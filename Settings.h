@@ -71,6 +71,9 @@ class Settings {
 					case string:
 						out << (*((std::string*) references[i]));
 						break;
+					case double_fp:
+						out << std::to_string((*(double*)references[i]));
+						break;
 					}
 
 					out << "\n";
@@ -84,6 +87,8 @@ class Settings {
 
 		uint16_t minimum_ARQ_wait = 10;
 		uint16_t maximum_frame_time = 150;
+		double tuned_ARQ_wait_singlepacket = 2;
+		bool use_tuned_ARQ_wait = true;
 
 		bool display_telemetry = false;
 		std::string csv_out_filename = "";	// CSV output, NULLPTR for no output
@@ -109,7 +114,7 @@ class Settings {
 		int irq_pin_radio0 = 5;
 		int irq_pin_radio1 = 6;
 
-		uint32_t spi_speed = 4000000;
+		uint32_t spi_speed = 5000000;
 
 		uint8_t payload_size = 32;
 		uint8_t data_bytes = 30;
@@ -165,6 +170,9 @@ class Settings {
 				break;
 			case string:
 				(*((std::string*) references[i])) = value;
+				break;
+			case double_fp:
+				(*((double*) references[i])) = std::stod(value.c_str());
 				break;
 			}
 		}
@@ -282,9 +290,10 @@ class Settings {
 		}
 
 		// NOTE: names and enum have to be in corresponding order!
-		std::vector<std::string> packetizers_names = { "harq" };
+		std::vector<std::string> packetizers_names = { "harq", "latency_evaluator" };
 		enum packetizers_available {
-			harq
+			harq,
+			latency_evaluator
 		};
 
 		const packetizers_available find_packetizer_index() const {
@@ -321,10 +330,10 @@ class Settings {
 
 	private:
 		enum types {
-			boolean, string, uint8, uint16, uint32, integer
+			boolean, string, uint8, uint16, uint32, integer, double_fp
 		};
 		std::vector<std::string> name_types = { "bool", "string", "uint8",
-				"uint16", "uint32", "integer" };
+				"uint16", "uint32", "integer", "double" };
 
 		std::vector<void*> references = { &address, &destination, &netmask,
 				&interface_name, &minimum_ARQ_wait, &maximum_frame_time,
@@ -335,7 +344,8 @@ class Settings {
 				&radio_power, &crc_length, &radio_delay, &radio_retries,
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
-				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1 };
+				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -345,12 +355,14 @@ class Settings {
 				"radio_power", "crc_length", "radio_delay", "radio_retries",
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
-				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1" };
+				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
+                "tuned_ARQ_wait_singlepacket", "use_tuned_ARQ_wait"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
-				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer};
+				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
+		        double_fp, boolean};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -362,7 +374,7 @@ class Settings {
 						"Filename for the CSV output (leave empty for no output)",
 						"Divider character for the output file values",
 						"The tunnel handler (Accepted values: TUN, UART)",
-						"The packetizer (Accepted values: HARQ)",
+						"The packetizer (Accepted values: HARQ, latency_evaluator)",
 						"The radio handler (Accepted values: DualRF24)",
 						"Whether the RF24 should auto ack. Used in one radio setups",
 						"CE pin for the radio0",
@@ -388,7 +400,9 @@ class Settings {
 						"Whether the RF24 radio should use dynamic sized payloads (best performance is no)",
 						"Whether the RF24 radio should use ACK payloads (only for single radio setups)",
 						"IRQ pin of the radio 0",
-						"IRQ pin of the radio 1"};
+						"IRQ pin of the radio 1",
+						"Estimate of the worst case latency in ms (send packet - receive). Evaluate with your pair using the packetizer: latency_evaluator",
+						"Whether to use the estimated latency instead of the fixed wait time. If enabled, the actual wait time will be (number of packets)*tuned_ARQ_wait_singlepacket"};
 };
 
 class SettingsCompliant {

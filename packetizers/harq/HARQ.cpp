@@ -41,7 +41,7 @@ void HARQ::worker_packetout(){
 			continue;
 		done = false;
 		if(!tfh)
-			tfh = std::make_unique<TimedFrameHandler>(this->timeout, this->resend_wait_time);
+			tfh = std::make_unique<TimedFrameHandler>(this->timeout, use_estimate ? ceil(estimate_resend_wait_time * getframe.packets.size()) : this->resend_wait_time);
 		{
 			std::unique_lock<std::mutex> lock(packet_current_out_mtx);
 			current_outgoing_frame = std::move(getframe);
@@ -286,7 +286,10 @@ void HARQ::apply_settings(const Settings &settings) {
 	PML->register_pmf(pmf);
 #endif
 
-	id_bits = 2, segment_bits = 5, last_packet_bits = 1; // @suppress("Multiple variable declaration")
+	use_estimate = settings.use_tuned_ARQ_wait;
+	estimate_resend_wait_time = settings.tuned_ARQ_wait_singlepacket;
+
+	id_bits = 1, segment_bits = 6, last_packet_bits = 1; // @suppress("Multiple variable declaration")
 	assert((id_bits + segment_bits + last_packet_bits) == 8 && "Bit sum must be 8");
 
 	id_max = pow(2, id_bits), segment_max = pow(2, segment_bits); // @suppress("Multiple variable declaration")

@@ -44,6 +44,8 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		uint64_t resend_wait_time;
 		bool kill_timeout;
 		uint64_t timeout;
+		bool use_estimate;
+		double estimate_resend_wait_time;
 
 		std::unique_ptr<std::thread> packetout;
 
@@ -51,6 +53,7 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 
 		std::unique_ptr<TimedFrameHandler> tfh; // Handles packets one by one
 		Frame current_outgoing_frame;
+
 
 		bool running_nxp = true;
 

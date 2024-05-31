@@ -12,6 +12,7 @@
 #include "radio/dualrf24/DualRF24.h"
 
 #include "packetizers/harq/HARQ.h"
+#include "packetizers/latency_evaluator/LatencyEvaluator.h"
 
 // Thread naming
 #include <sys/prctl.h>
@@ -72,6 +73,9 @@ Packetizer<TunMessage, RFMessage>* select_packetizer_from_settings(const Setting
 	case Settings::packetizers_available::harq:
 		return new HARQ();
 		break;
+	case Settings::packetizers_available::latency_evaluator:
+			return new LatencyEvaluator();
+			break;
 	}
 }
 

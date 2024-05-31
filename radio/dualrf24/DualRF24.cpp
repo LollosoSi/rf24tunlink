@@ -46,14 +46,12 @@ void DualRF24::apply_settings(const Settings &settings){
 		radio1 = new RF24(settings.ce_1_pin,
 				settings.csn_1_pin, settings.spi_speed);
 
+	resetRadio0();
+	resetRadio1();
 	running = true;
-
 	resetRadio0();
 	resetRadio1();
 
-
-	//check_radio0_status();
-	//check_radio1_status();
 }
 
 inline bool DualRF24::check_radio0_status() {
