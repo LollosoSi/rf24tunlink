@@ -27,7 +27,7 @@ DualRF24::~DualRF24() {
 	delete radio1;
 }
 
-void DualRF24::apply_settings(const Settings &settings){
+inline void DualRF24::apply_settings(const Settings &settings){
 	RadioInterface::apply_settings(settings);
 	role = settings.primary;
 
@@ -46,40 +46,26 @@ void DualRF24::apply_settings(const Settings &settings){
 		radio1 = new RF24(settings.ce_1_pin,
 				settings.csn_1_pin, settings.spi_speed);
 
+
 	resetRadio0();
 	resetRadio1();
 	running = true;
-	resetRadio0();
-	resetRadio1();
-
 }
 
-inline bool DualRF24::check_radio0_status() {
-	bool c1 = radio0->failureDetected;
-	bool c2 = radio0->getDataRate() != ((rf24_datarate_e)current_settings()->data_rate);
-	bool c3 = !radio0->isChipConnected();
+inline bool DualRF24::check_radio_status(RF24* radio) {
+	bool c1 = radio->failureDetected;
+	bool c2 = radio->getDataRate() != ((rf24_datarate_e)current_settings()->data_rate);
+	bool c3 = !radio->isChipConnected();
 	if (c1 || c2 || c3) {
-		printf("Radio 0 has failure. C1 %d, C2 %d, C3 %d\n", c1, c2, c3);
-		radio0->failureDetected = 0;
+		printf("Radio %d has failure. C1 %d, C2 %d, C3 %d\n", radio==radio0 ? 0 : 1, c1, c2, c3);
+		radio->failureDetected = 0;
 		return (true);
 	}else{
 		return (false);
 	}
 }
-inline bool DualRF24::check_radio1_status() {
-	bool c1 = radio1->failureDetected;
-	bool c2 = (radio1->getDataRate() != ((rf24_datarate_e)current_settings()->data_rate));
-	bool c3 = !radio1->isChipConnected();
-	if (c1 || c2 || c3) {
-		printf("Radio 1 has failure. C1 %d, C2 %d, C3 %d\n", c1, c2, c3);
-		radio1->failureDetected = 0;
-		return (true);
-	} else {
-		return (false);
-	}
-}
 
-void DualRF24::receive_ISR_rx(){
+inline void DualRF24::receive_ISR_rx(){
 
 	std::unique_lock lock(radio0_mtx);
 	radio0_cv.wait(lock, [&] {
@@ -111,13 +97,11 @@ void DualRF24::receive_ISR_rx(){
 		packetizer->input(messages);
 	}
 
-	if(check_radio0_status()){
-		lock.unlock();
-		resetRadio0(false);
-	}
+	if (check_radio_status(radio0))
+		resetRadio0(false, false);
 }
 
-void DualRF24::receive_ISR_tx(){
+inline void DualRF24::receive_ISR_tx(){
 	bool tx_ds = 0, tx_df = 0, rx_dr = 0;  // declare variables for IRQ masks
 	{
 	std::unique_lock lock(radio1_mtx);
@@ -128,7 +112,7 @@ void DualRF24::receive_ISR_tx(){
 	printf("TX ISR %d, %d, %d\n",tx_ds,tx_df,rx_dr);
 }
 
-void DualRF24::input_finished(){
+inline void DualRF24::input_finished(){
 	//if(!radio1->isFifo(true,true)){
 		//radio1->txStandBy();
 		//printf("Radio data out (F)\n");
@@ -136,61 +120,64 @@ void DualRF24::input_finished(){
 	//}
 }
 
-void DualRF24::send_tx(){
+inline void DualRF24::send_tx(){
 	if(!radio1->txStandBy()){
 		radio1->flush_tx();
 		radio1->flush_rx();
 	}
 }
 
-bool DualRF24::input(RFMessage &m){
-
+inline bool DualRF24::input(RFMessage &m){
 
 	std::unique_lock lock(radio1_mtx);
 
 	radio1_cv.wait(lock, [&] {
-		return !running || radio1;
+		return (!running || radio1);
 	});
 	if(!running) return (false);
 
+	if (check_radio_status(radio1))
+		resetRadio1(false, false);
+
+
 	//tx_done = false;
-	if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack))
+	if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack) || buffer_counter++ == 1)
 		send_tx();
+
+	if(buffer_counter > 1)
+		buffer_counter = 0;
 
 	// Get all packets out of the way
 	if (!radio1->isFifo(true, true))
 		send_tx();
-
-	if(check_radio1_status()){
-		lock.unlock();
-		resetRadio1(false);
-	}
 
 	return (true);
 }
 
-bool DualRF24::input(std::deque<RFMessage> &q){
+inline bool DualRF24::input(std::deque<RFMessage> &q){
 
 	std::unique_lock lock(radio1_mtx);
 	radio1_cv.wait(lock, [&] {
-			return !running || radio1;
+		return (!running || radio1);
 	});
 	if(!running) return (false);
 
+	if(check_radio_status(radio1))
+		resetRadio1(false,false);
 
 
-	for(auto& m : q)
-		if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack))
+	for(auto& m : q){
+		if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack) || buffer_counter++ == 1)
 			send_tx();
+
+		if(buffer_counter > 1)
+				buffer_counter = 0;
+	}
 
 	// Get all packets out of the way
 	if (!radio1->isFifo(true, true))
 		send_tx();
 
-	if(check_radio1_status()){
-		lock.unlock();
-		resetRadio1(false);
-	}
 
 	return (true);
 }
@@ -213,14 +200,23 @@ inline uint64_t string_to_address(const std::string& str){
 	return result;
 }
 
-void DualRF24::resetRadio0(bool print_info) {
+inline void DualRF24::resetRadio0(bool print_info, bool acquire_lock) {
 
 	if(radio0==nullptr){
 		printf("Reset radio 0 called without radio 0\n");
 		throw std::invalid_argument("Invalid radio 0");
 	}
+
+	if(acquire_lock){
+		std::unique_lock<std::mutex> lock(radio0_mtx);
+
+		resetRadio0(print_info, false);
+		radio0_cv.notify_all();
+		return;
+	}
+
 	{
-	std::unique_lock<std::mutex> lock(radio0_mtx);
+	//std::unique_lock<std::mutex> lock(radio0_mtx);
 
 	uint8_t t = 1;
 	while (!radio0->begin(current_settings()->ce_0_pin,
@@ -293,16 +289,25 @@ void DualRF24::resetRadio0(bool print_info) {
 	if(print_info)
 		radio0->printPrettyDetails();
 }
-	radio0_cv.notify_all();
+	if(!acquire_lock)
+		radio0_cv.notify_all();
 
 }
-void DualRF24::resetRadio1(bool print_info) {
+inline void DualRF24::resetRadio1(bool print_info, bool acquire_lock) {
 	if (radio1 == nullptr) {
 		printf("Reset radio 1 called without radio 1\n");
 		throw std::invalid_argument("Invalid radio 1");
 	}
+	if(acquire_lock){
+			std::unique_lock<std::mutex> lock(radio1_mtx);
+
+			resetRadio1(print_info, false);
+			radio1_cv.notify_all();
+			return;
+		}
+
 	{
-	std::unique_lock<std::mutex> lock(radio1_mtx);
+	//std::unique_lock<std::mutex> lock(radio1_mtx);
 	uint8_t t = 1;
 	while (!radio1->begin(current_settings()->ce_1_pin,
 			current_settings()->csn_1_pin)) {
@@ -381,11 +386,13 @@ void DualRF24::resetRadio1(bool print_info) {
 		radio1->printPrettyDetails();
 	}
 
-	radio1_cv.notify_all();
+	if(!acquire_lock)
+		radio1_cv.notify_all();
+
 }
 
 
-void DualRF24::stop_module(){
+inline void DualRF24::stop_module(){
 	radio0->stopListening();
 	radio1->stopListening();
 	radio0->flush_rx();

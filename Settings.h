@@ -87,7 +87,7 @@ class Settings {
 
 		uint16_t minimum_ARQ_wait = 10;
 		uint16_t maximum_frame_time = 150;
-		double tuned_ARQ_wait_singlepacket = 2;
+		double tuned_ARQ_wait_singlepacket = 0.8;
 		bool use_tuned_ARQ_wait = true;
 
 		bool display_telemetry = false;
@@ -97,6 +97,11 @@ class Settings {
 		std::string tunnel_handler = "tun";
 		std::string packetizer = "harq";
 		std::string radio_handler = "dualrf24";
+
+		int tx_queuelength = 500;
+		uint8_t bits_id = 2;
+		uint8_t bits_segment = 5;
+		uint8_t bits_lastpacketmarker = 1;
 
 		bool auto_ack = false;
 
@@ -345,7 +350,7 @@ class Settings {
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
 				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
-		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait};
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -356,13 +361,13 @@ class Settings {
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
 				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
-                "tuned_ARQ_wait_singlepacket", "use_tuned_ARQ_wait"};
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
 				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
-		        double_fp, boolean};
+		        double_fp, boolean, integer, uint8, uint8, uint8};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -402,7 +407,11 @@ class Settings {
 						"IRQ pin of the radio 0",
 						"IRQ pin of the radio 1",
 						"Estimate of the worst case latency in ms (send packet - receive). Evaluate with your pair using the packetizer: latency_evaluator",
-						"Whether to use the estimated latency instead of the fixed wait time. If enabled, the actual wait time will be (number of packets)*tuned_ARQ_wait_singlepacket"};
+						"Whether to use the estimated latency instead of the fixed wait time. If enabled, the actual wait time will be (number of packets)*tuned_ARQ_wait_singlepacket",
+						"How many packets can be queued for TX",
+						"(HARQ only) How many bits should be used for packet identification (range: 1-2) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"(HARQ only) How many bits should be used for packet segmentation (range: 4-5) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8"};
 };
 
 class SettingsCompliant {
@@ -413,7 +422,7 @@ class SettingsCompliant {
 		virtual ~SettingsCompliant() {
 			settings = nullptr;
 		}
-		virtual void apply_settings(const Settings &settings) {
+		virtual inline void apply_settings(const Settings &settings) {
 			this->settings = &settings;
 		}
 		inline const Settings* current_settings() const {return (settings);}

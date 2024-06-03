@@ -24,6 +24,9 @@ void LatencyEvaluator::apply_settings(const Settings &settings){
 
 void LatencyEvaluator::send_now() {
 	if(!pmf)return;
+	Frame f;
+
+	for(int i = 0; i < 32; i++){
 	RFMessage rfm = pmf->make_new_packet();
 	rfm.data.get()[0] = 0;
 	uint64_t sendtime = current_millis();
@@ -31,8 +34,10 @@ void LatencyEvaluator::send_now() {
 	for (int i = 0; i < 8; i++) {
 		rfm.data.get()[1 + i] = split[i];
 	}
+		f.packets.emplace_back(move(rfm));
+	}
 
-	send_to_radio(rfm);
+	send_to_radio(f);
 }
 
 void LatencyEvaluator::process_tun(TunMessage &m){
@@ -53,8 +58,8 @@ void LatencyEvaluator::process_packet(RFMessage &m){
 		sendtime += diff;
 		++counter;
 		std::cout << "Detected latency: " << diff << "ms\tCount: " << counter << "\tAverage: " << (((*recv)-sendtime)/static_cast<double>(counter)) << std::endl;
-		this_thread::sleep_for(std::chrono::milliseconds(100));
-		send_now();
+		//this_thread::sleep_for(std::chrono::milliseconds(100));
+		//send_now();
 
 	}else{
 		send_to_radio(m);

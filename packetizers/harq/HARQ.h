@@ -10,6 +10,7 @@
 #include "../Packetizer.h"
 
 #include <math.h>
+#include <queue>
 
 //#define USE_PML 1
 
@@ -22,11 +23,6 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 #ifdef USE_PML
 		unique_ptr<PacketIdentityLogger> PML;
 #endif
-
-		std::mutex packetout_mtx;
-		std::condition_variable packetout_cv;
-		std::mutex packet_current_out_mtx;
-		std::condition_variable packet_current_out_cv;
 
 		unsigned int mtu = 100;
 
@@ -47,36 +43,58 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		bool use_estimate;
 		double estimate_resend_wait_time;
 
-		std::unique_ptr<std::thread> packetout;
+		std::vector<Frame> current_packet_outgoings;
+		std::thread frame_thread;
+		std::vector<std::unique_ptr<std::queue<Frame>>> packet_queues;
+		std::vector<std::unique_ptr<std::mutex>> packet_outgoing_locks;
+		std::vector<std::unique_ptr<std::mutex>> packet_queues_locks;
+		std::vector<std::unique_ptr<std::condition_variable>> packet_queues_cvs;
+		std::vector<NonBlockingTimer> packet_outgoing_tfh;
+
+		inline bool is_next_frame_available(unsigned int& queue_id);
+		inline Frame next_frame(unsigned int& queue_id);
+		inline void add_frame_to_queue(Frame &f, unsigned int queue_id);
 
 		std::vector<std::unique_ptr<PacketConsumer>> packet_eaters;
 
-		std::unique_ptr<TimedFrameHandler> tfh; // Handles packets one by one
-		Frame current_outgoing_frame;
+		bool running_nxp = true, running_nxfq = true;
 
-
-		bool running_nxp = true;
-
-		void push_ack_nack(PacketConsumer* pkc);
+		inline void push_ack_nack(PacketConsumer* pkc);
+		inline void substitute_packet(unsigned int queue_id);
 
 
 	public:
 		HARQ();
 		virtual ~HARQ();
-		void stop_worker(){
+		inline void stop_worker() {
 			running_nxp = false;
-			if(packetout){
-				if(packetout.get()->joinable()){
-					packetout_cv.notify_all();
-					packetout.get()->join();
-				}
+			running_nxfq = false;
+
+			for (auto &cv : packet_queues_cvs) {
+				cv->notify_all();
+			}
+
+			for (size_t i = 0; i < packet_queues.size(); ++i) {
+				std::unique_lock<std::mutex> lock(*packet_queues_locks[i]);
+				running_nxfq = false;
+			}
+
+			for (auto &cv : packet_queues_cvs) {
+				cv->notify_all();
+			}
+
+			if (frame_thread.joinable()) {
+				std::cout << "Waiting for packetout to join...";
+				frame_thread.join();
+				std::cout << "...ok\n";
 			}
 		}
-		void worker_packetout();
-		void process_tun(TunMessage &m);
-		void process_packet(RFMessage &m);
-		void apply_settings(const Settings &settings) override;
-		unsigned int get_mtu() override;
+
+		inline void worker_packetout();
+		inline void process_tun(TunMessage &m);
+		inline void process_packet(RFMessage &m);
+		inline void apply_settings(const Settings &settings) override;
+		inline unsigned int get_mtu() override;
 
 		inline unsigned char pack(unsigned char id, unsigned char segment,
 				bool last_packet) {
@@ -97,7 +115,7 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 			return (id_mask & (data >> id_byte_pos_offset));
 		}
 
-		void stop_module() override {
+		inline void stop_module() override {
 			Packetizer::stop_module();
 			stop_worker();
 		}
@@ -138,7 +156,7 @@ class PacketConsumer{
 			consumed = false;
 		}
 
-		bool consume_packet(RFMessage& rfm){
+		inline bool consume_packet(RFMessage& rfm){
 			uint8_t unpacked_id, unpacked_segment;
 			bool last_packet;
 			harq_ref->unpack(rfm.data.get()[0],unpacked_id,unpacked_segment,last_packet);
@@ -201,7 +219,7 @@ class PacketConsumer{
 			return (true);
 		}
 
-		bool is_finished(){
+		inline bool is_finished(){
 			if(segments_in_message == 0)
 				return false;
 
@@ -217,9 +235,9 @@ class PacketConsumer{
 			return finished;
 		}
 
-		bool is_consumed(){return consumed;}
+		inline bool is_consumed(){return consumed;}
 
-		TunMessage get_tun_object(){
+		inline TunMessage get_tun_object(){
 			consumed = true;
 			TunMessage tms(message_length);
 			std::copy(buffer.get() + offset, buffer.get() + offset + message_length, tms.data.get());
@@ -408,37 +426,37 @@ class PacketIdentityLogger{
 
 			file.close();
 		}
-		void register_pmf(PacketMessageFactory *pmff) {
+		inline void register_pmf(PacketMessageFactory *pmff) {
 			pmf = pmff;
 		}
 		uint64_t in = 0, out = 0;
 
-		void tun_in_to_out(TunMessage &tms, HARQ::Frame &f) {
+		inline void tun_in_to_out(TunMessage &tms, HARQ::Frame &f) {
 			events.push_back(make_event(f.metadata,state::added));
 		}
-		void tun_out_to_in(TunMessage &tms) {
+		inline void tun_out_to_in(TunMessage &tms) {
 			events.push_back(make_event(tms.data[0],state::received));
 		}
-		void acked(HARQ::Frame &f) {
+		inline void acked(HARQ::Frame &f) {
 			events.push_back(make_event(f.metadata, state::acked));
 		}
-		void nacked(RFMessage &f) {
+		inline void nacked(RFMessage &f) {
 			events.push_back(make_event(f.data.get()[0], state::nacked));
 		}
-		void recalled(RFMessage &f) {
+		inline void recalled(RFMessage &f) {
 			events.push_back(make_event(f.data.get()[0], state::recalled));
 		}
-		void expired(HARQ::Frame &f) {
+		inline void expired(HARQ::Frame &f) {
 			events.push_back(make_event(f.metadata, state::expired));
 		}
-		void packet_in(RFMessage &m) {
+		inline void packet_in(RFMessage &m) {
 			arrivals.push_back(make_arrival(m));
 		}
 
-		void packet_out(RFMessage &m) {
+		inline void packet_out(RFMessage &m) {
 			outgoing.push_back(make_arrival(m));
 		}
-		void packet_out(HARQ::Frame &f) {
+		inline void packet_out(HARQ::Frame &f) {
 			for (unsigned int i = 0; i < f.packets.size(); i++)
 				packet_out(f.packets[i]);
 		}

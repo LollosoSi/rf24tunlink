@@ -74,7 +74,7 @@ void TUNInterface::apply_settings(const Settings &settings){
 
 	tunnel_fd = interface_setup(settings.interface_name.c_str(),
 		IFF_TUN | IFF_UP | IFF_RUNNING, settings.address.c_str(), settings.destination.c_str(),
-				settings.netmask.c_str(), settings.mtu);
+				settings.netmask.c_str(), settings.mtu, settings.tx_queuelength);
 
 
 	running = true;
@@ -141,7 +141,7 @@ void TUNInterface::stop_module(){
 
 
 int TUNInterface::interface_setup(const char *dev, int flags, const char *ip,
-		const char *destination, const char *mask, int mtu) {
+		const char *destination, const char *mask, int mtu, int tx_queuelen) {
 
 	printf("Interface '%s' will have IP '%s', Destination '%s', mask '%s', MTU '%d'\n",
 			dev, ip, destination, mask, mtu);
@@ -158,6 +158,10 @@ int TUNInterface::interface_setup(const char *dev, int flags, const char *ip,
 	interface_set_mtu(dev, mtu);
 	printf("....\n");
 
+	printf("Setting tx_queuelength \n");
+	interface_set_txqueuelen(dev, tx_queuelen);
+	printf("....\n");
+
 	printf("Setting interface UP \n");
 	interface_set_flags(dev, IFF_UP);
 	printf("....\n");
@@ -169,6 +173,32 @@ int TUNInterface::interface_setup(const char *dev, int flags, const char *ip,
 	printf("Configuration finished \n");
 
 	return (fd);
+}
+
+void TUNInterface::interface_set_txqueuelen(const char *deviceName, int txQueueLen) {
+	// Preparare la struttura ifreq
+	int socketFD = socket(AF_INET, SOCK_DGRAM, 0);
+	if (socketFD < 0) {
+		std::cerr << "Failed to open socket: " << strerror(errno) << " ("
+				<< errno << ")" << std::endl;
+		return;
+	}
+
+	struct ifreq ifr;
+	std::memset(&ifr, 0, sizeof(ifr));
+	std::strncpy(ifr.ifr_name, deviceName, IFNAMSIZ);
+
+	// Impostare la lunghezza della coda di trasmissione
+	ifr.ifr_qlen = txQueueLen;
+
+	// Effettuare la chiamata ioctl per impostare la lunghezza della coda di trasmissione
+	if (ioctl(socketFD, SIOCSIFTXQLEN, &ifr) < 0) {
+		perror("ioctl");
+		close (socketFD);
+		exit(EXIT_FAILURE);
+	}
+	close(socketFD);
+
 }
 
 bool TUNInterface::interface_set_destination(const char *deviceName,

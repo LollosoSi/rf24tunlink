@@ -50,6 +50,8 @@ set(dialogators
     system_dialogators/tun/TUNInterface.h
     system_dialogators/tun/TUNInterface.cpp
     packetizers/Packetizer.h
+    packetizers/latency_evaluator/LatencyEvaluator.h
+    packetizers/latency_evaluator/LatencyEvaluator.cpp
     radio/RadioInterface.h
 )
 

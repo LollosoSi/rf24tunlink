@@ -27,31 +27,31 @@ class DualRF24 : public RadioInterface {
 		RF24* radio0 = nullptr;
 		RF24* radio1 = nullptr;
 
-		void resetRadio0(bool print_info = true);
-		void resetRadio1(bool print_info = true);
+		inline void resetRadio0(bool print_info = true, bool acquire_lock = true);
+		inline void resetRadio1(bool print_info = true, bool acquire_lock = true);
 
-		inline bool check_radio0_status();
-		inline bool check_radio1_status();
+		inline bool check_radio_status(RF24* radio);
 
 		std::mutex radio0_mtx, radio1_mtx;
 		std::condition_variable radio0_cv, radio1_cv;
-		void send_tx();
+		inline void send_tx();
 
+		unsigned int buffer_counter = 0;
 
 		bool attached_rx = false, attached_tx = false, tx_done = true;;
 	public:
 		DualRF24();
 		virtual ~DualRF24();
 
-		void receive_ISR_rx();
-		void receive_ISR_tx();
+		inline void receive_ISR_rx();
+		inline void receive_ISR_tx();
 
-		void input_finished();
-		bool input(RFMessage &m);
-		bool input(std::deque<RFMessage> &q) override;
+		inline void input_finished();
+		inline bool input(RFMessage &m);
+		inline bool input(std::deque<RFMessage> &q) override;
 
-		void apply_settings(const Settings &settings);
-		void stop_module();
+		inline void apply_settings(const Settings &settings);
+		inline void stop_module();
 
 };
 

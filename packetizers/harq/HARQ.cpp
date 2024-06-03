@@ -13,7 +13,6 @@
 #include "../../crc.h"
 
 
-
 static unsigned char bits_to_mask(const int bits) {
 	return (pow(2, bits) - 1);
 }
@@ -23,7 +22,7 @@ HARQ::HARQ() : Packetizer() {
 #ifdef USE_PML
 	PML = make_unique<PacketIdentityLogger>(this);
 #endif
-	apply_settings({});
+	//apply_settings({});
 
 }
 
@@ -31,69 +30,110 @@ HARQ::~HARQ() {
 
 }
 
-void HARQ::worker_packetout(){
-	printf("Packetout starting\n");
-	bool done = false;
+inline void HARQ::add_frame_to_queue(Frame &f, unsigned int queue_id) {
+	{
+		std::unique_lock<std::mutex> lock(*packet_queues_locks[queue_id]);
+		packet_queues[queue_id].get()->push(std::move(f));
+	}
+	packet_queues_cvs[queue_id]->notify_one();
+}
 
-	while (running_nxp) {
-		Frame getframe = next_frame();
-		if(getframe.packets.size() == 0)
-			continue;
-		done = false;
-		if(!tfh)
-			tfh = std::make_unique<TimedFrameHandler>(this->timeout, use_estimate ? ceil(estimate_resend_wait_time * getframe.packets.size()) : this->resend_wait_time);
-		{
-			std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-			current_outgoing_frame = std::move(getframe);
+inline HARQ::Frame HARQ::next_frame(unsigned int& queue_id) {
+	std::unique_lock<std::mutex> lock(*packet_queues_locks[queue_id]);
+	packet_queues_cvs[queue_id]->wait(lock, [&] {
+		return (!running_nxfq || !packet_queues[queue_id].get()->empty());
+	});
+	if (!running_nxfq)
+		return {};
+
+	auto f = std::move(packet_queues[queue_id].get()->front());
+	packet_queues[queue_id].get()->pop();
+	return f;
+}
+
+inline bool HARQ::is_next_frame_available(unsigned int& queue_id) {
+	return !packet_queues[queue_id].get()->empty();
+}
+
+inline void HARQ::substitute_packet(unsigned int queue_id){
+	Frame getframe = next_frame(queue_id);
+			if(getframe.packets.size() == 0)
+				return;
+
+			packet_outgoing_tfh[queue_id].apply_parameters(this->timeout, getframe.resend_time);
+			{
+				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
+				current_packet_outgoings[queue_id] = std::move(getframe);
+			}
+
+	#ifdef USE_PML
+			PML->packet_out(current_packet_outgoings[queue_id]);
+	#endif
+		send_to_radio(current_packet_outgoings[queue_id]);
+		packet_outgoing_tfh[queue_id].start();
+}
+
+inline void HARQ::worker_packetout(){
+	printf("Packetout starting\n");
+	for(unsigned int queue_id = 0; queue_id < packet_queue_max_len; queue_id++){
+	packet_outgoing_tfh[queue_id].set_resend_call([this, queue_id] {
+#ifdef USE_PML
+		PML->packet_out(current_packet_outgoings[queue_id].packets.back());
+	#endif
+		this->send_to_radio(current_packet_outgoings[queue_id].packets.back(), true);
+	});
+
+	packet_outgoing_tfh[queue_id].set_fire_call([this, queue_id] {
+		//printf("Fired pack %d\n",queue_id);
+		#ifdef USE_PML
+		PML->expired(current_packet_outgoings[queue_id]);
+		#endif
+
+
+		printf("Packet %d EXPIRED\n", queue_id);
+
+	});
+	packet_outgoing_tfh[queue_id].set_invalidated_call([this, queue_id] {
+		//printf("Invalidated pack %d\n",queue_id);
+		#ifdef USE_PML
+		PML->acked(current_packet_outgoings[queue_id]);
+		#endif
+
+	});
+	}
+
+	TimedFrameHandler thread_core(1000, 1);
+	thread_core.set_resend_call([&] {
+		if(!running_nxp){
+			thread_core.invalidate_timer();
+			return;
+		}
+		for(unsigned int queue_id = 0; queue_id < packet_queue_max_len; queue_id++){
+			if(!packet_outgoing_tfh[queue_id].finished()){
+				packet_outgoing_tfh[queue_id].run();
+			} else if(is_next_frame_available(queue_id)){
+				substitute_packet(queue_id);
+			}
 		}
 
+	});
+	thread_core.set_fire_call([&] {
 
-			tfh.get()->set_resend_call([&] {
-#ifdef USE_PML
-				PML->packet_out(current_outgoing_frame.packets.back());
-#endif
-				this->send_to_radio(current_outgoing_frame.packets.back(), true);
-			});
-			tfh.get()->set_fire_call([&] {
-				{
-					std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-					done = true;
-					printf("Packet EXPIRED\n");
-				}
-				//packetout_cv.notify_one();
-#ifdef USE_PML
-				PML->expired(current_outgoing_frame);
-#endif
-			});
-			tfh.get()->set_invalidated_call([&] {
-				{
-					std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-					done = true;
-					//printf("Packet ACKED\n");
-				}
-#ifdef USE_PML
-				PML->acked(current_outgoing_frame);
-#endif
-				//packetout_cv.notify_one();
+	});
+	thread_core.set_invalidated_call([&] {
 
-			});
-#ifdef USE_PML
-		PML->packet_out(current_outgoing_frame);
-#endif
-		send_to_radio(current_outgoing_frame);
-		tfh.get()->start();
+	});
+
+	while (running_nxp) {
 
 
-		//std::unique_lock lock(packet_current_out_mtx);
-		//packetout_cv.wait(lock, [&] {
-		//	return !running_nxp || done;
-		//});
-		tfh.reset();
+		thread_core.start();
+
 	}
 	printf("Packetout exiting\n");
 }
 
-void print_hex(uint8_t* d, int l){
+inline void print_hex(uint8_t* d, int l){
 	for (int i = 0; i < l; i++) {
 		std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0')
 				<< static_cast<int>(d[i]) << " ";
@@ -101,7 +141,7 @@ void print_hex(uint8_t* d, int l){
 	std::cout << std::endl;
 }
 
-void HARQ::process_tun(TunMessage &m) {
+inline void HARQ::process_tun(TunMessage &m) {
 
 	if(m.length == 0)
 		return;
@@ -122,31 +162,37 @@ void HARQ::process_tun(TunMessage &m) {
 		rem = bytes_per_submessage;
 	int packets = std::ceil(static_cast<double>(msglen) / static_cast<double>(bytes_per_submessage));
 
+	f.resend_time = use_estimate ? ceil(estimate_resend_wait_time * packets) : this->resend_wait_time;
+	f.packets.reserve(packets);
+
 	//printf("MSGLEN %d, REM %d, PACKETS %d, CRC %d\n", msglen, rem, packets, packcrc);
+
+
+
+	for (int i = packets-1; i > 0; i--) {
+		RFMessage rpp = pmf->make_new_packet();
+		rpp.data.get()[0] = pack(id, i, false);
+		rpp.data.get()[1] = packcrc;
+		memcpy(rpp.data.get() + 2, m.data.get() + (rem+((i-1)*bytes_per_submessage)), bytes_per_submessage);
+		rsc->efficient_encode(rpp.data.get(), current_settings()->payload_size);
+		f.packets.emplace_back(std::move(rpp));
+	}
 
 	RFMessage rp = pmf->make_new_packet();
 	rp.data.get()[0] = pack(id,packets-1,true);
 	rp.data.get()[1] = rem;
 	memcpy(rp.data.get()+2,m.data.get(), rem);
 	rsc->efficient_encode(rp.data.get(),current_settings()->payload_size);
-	f.packets.push_front(std::move(rp));
+	f.packets.emplace_back(std::move(rp));
 
-	for (int i = 1; i < packets; i++) {
-		RFMessage rpp = pmf->make_new_packet();
-		rpp.data.get()[0] = pack(id, i, false);
-		rpp.data.get()[1] = packcrc;
-		memcpy(rpp.data.get() + 2, m.data.get() + (rem+((i-1)*bytes_per_submessage)), bytes_per_submessage);
-		rsc->efficient_encode(rpp.data.get(), current_settings()->payload_size);
-		f.packets.push_front(std::move(rpp));
-	}
 #ifdef USE_PML
 	PML->tun_in_to_out(m, f);
 #endif
-	add_frame_to_queue(f);
+	add_frame_to_queue(f, id-1);
 
 }
 
-void HARQ::push_ack_nack(PacketConsumer* pkc){
+inline void HARQ::push_ack_nack(PacketConsumer* pkc){
 	auto out_msg = this->pmf->make_new_packet();
 	int missing_size = pkc->missing_segments.size();
 	int packet_data_length = missing_size > bytes_per_submessage ? bytes_per_submessage : missing_size;
@@ -166,7 +212,7 @@ void HARQ::push_ack_nack(PacketConsumer* pkc){
 	send_to_radio(out_msg);
 }
 
-void HARQ::process_packet(RFMessage &m) {
+inline void HARQ::process_packet(RFMessage &m) {
 	int e_count = 0;
 	if(!rsc->efficient_decode(m.data.get(),settings->payload_size, &e_count)){
 		return;
@@ -195,17 +241,20 @@ void HARQ::process_packet(RFMessage &m) {
 					return;
 				}
 
-				std::unique_lock<std::mutex> lock(packet_current_out_mtx);
+				unsigned int queue_id = unpack_id(m.data.get()[2])-1;
+
+				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
 				uint8_t u_id, u_seg;
 				bool u_lp;
-				int current_out_size = current_outgoing_frame.packets.size();
+				int current_out_size = current_packet_outgoings[queue_id].packets.size();
 				if(current_out_size == 0){
 					printf("No packet is outgoing, quitting\n");
 					return;
 				}
+
 				for(int i = 0; i < len_or_crc; i++){
 					unpack(m.data.get()[2+i],u_id, u_seg, u_lp);
-					if(unpack_id(current_outgoing_frame.packets.front().data.get()[0]) != u_id){
+					if(unpack_id(current_packet_outgoings[queue_id].packets.front().data.get()[0]) != u_id){
 						printf("Invalid id in NACK request\n");
 						continue;
 					}
@@ -215,28 +264,31 @@ void HARQ::process_packet(RFMessage &m) {
 					}
 					//printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
 #ifdef USE_PML
-					PML->recalled(current_outgoing_frame.packets[current_out_size-1-u_seg]);
+					PML->recalled(current_packet_outgoings[queue_id].packets[current_out_size-1-u_seg]);
 #endif
-					send_to_radio(current_outgoing_frame.packets[current_out_size-1-u_seg]);
+
+					send_to_radio(current_packet_outgoings[queue_id].packets[current_out_size-1-u_seg]);
 				}
-				if (tfh)
-					if (!tfh.get()->finished())
-							tfh.get()->reset_resend();
+
+				//if (packet_outgoing_tfh[queue_id])
+					if (!packet_outgoing_tfh[queue_id].finished())
+						packet_outgoing_tfh[queue_id].reset_resend();
+
 
 
 			}else if(seg < id_max){
-				std::unique_lock<std::mutex> lock(packet_current_out_mtx);
-				bool c1 = (current_outgoing_frame.packets.size() == 1 ? true : (len_or_crc == current_outgoing_frame.packets[1].data.get()[1]));
-				c1 = 1;
-				bool c2 = seg==unpack_id(current_outgoing_frame.packets.front().data.get()[0]);
-				if(c1 && c2){
+				unsigned int queue_id = seg-1;
+				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
+				bool c1 = (current_packet_outgoings[queue_id].packets.size() == 1 ? true : (len_or_crc == current_packet_outgoings[queue_id].packets[1].data.get()[1]));
+				//c1 = 1;
+				if(c1){
 					// ACK ID!
 					//printf("Ack! %d\t",seg);
-					if (tfh)
-						if (!tfh.get()->finished())
-							tfh.get()->invalidate_timer();
+					//if (packet_outgoing_tfh[queue_id])
+						if (!packet_outgoing_tfh[queue_id].finished())
+							packet_outgoing_tfh[queue_id].invalidate_timer();
 				}else{
-					//printf("This is an ACK, but we couldn't verify either CRC: %d, or id: %d, %d -> %d\n",c1,seg,unpack_id(current_outgoing_frame.packets.front().data.get()[0]),c2);
+					//printf("This is an ACK, but we couldn't verify either CRC: %d, or id: %d, %d -> %d\n",c1,seg,unpack_id(current_packet_outgoings[queue_id].packets.front().data.get()[0]),c2);
 				}
 
 			}else{
@@ -280,7 +332,11 @@ void HARQ::process_packet(RFMessage &m) {
 
 }
 
-void HARQ::apply_settings(const Settings &settings) {
+inline void HARQ::apply_settings(const Settings &settings) {
+
+	static std::mutex setting_mtx;
+	std::unique_lock<std::mutex> settingslk(setting_mtx);
+
 	Packetizer::apply_settings(settings);
 #ifdef USE_PML
 	PML->register_pmf(pmf);
@@ -289,7 +345,7 @@ void HARQ::apply_settings(const Settings &settings) {
 	use_estimate = settings.use_tuned_ARQ_wait;
 	estimate_resend_wait_time = settings.tuned_ARQ_wait_singlepacket;
 
-	id_bits = 1, segment_bits = 6, last_packet_bits = 1; // @suppress("Multiple variable declaration")
+	id_bits = settings.bits_id, segment_bits = settings.bits_segment, last_packet_bits = settings.bits_lastpacketmarker; // @suppress("Multiple variable declaration")
 	assert((id_bits + segment_bits + last_packet_bits) == 8 && "Bit sum must be 8");
 
 	id_max = pow(2, id_bits), segment_max = pow(2, segment_bits); // @suppress("Multiple variable declaration")
@@ -313,17 +369,49 @@ void HARQ::apply_settings(const Settings &settings) {
 	assert(bytes_per_submessage > 0 && "Invalid payload size");
 
 
-	packet_eaters.clear();
-	packet_eaters.reserve(id_max);
-	for(unsigned int i = 0; i < id_max; i++){
-		packet_eaters.push_back(std::make_unique<PacketConsumer>(bytes_per_submessage, mtu, segment_max, this));
-	}
 
 	stop_worker();
 	running_nxp = true;
-	packetout = std::make_unique<std::thread>([&]{prctl(PR_SET_NAME, "Packetout", 0, 0, 0);worker_packetout();});
+	running_nxfq = true;
+
+	packet_eaters.clear();
+	packet_outgoing_tfh.clear();
+	packet_queues.clear();
+	packet_outgoing_locks.clear();
+	packet_queues_locks.clear();
+	packet_queues_cvs.clear();
+	current_packet_outgoings.clear();
+
+	packet_eaters.reserve(packet_queue_max_len);
+	packet_queues.reserve(packet_queue_max_len);
+	packet_outgoing_locks.reserve(packet_queue_max_len);
+	packet_queues_locks.reserve(packet_queue_max_len);
+	packet_queues_cvs.reserve(packet_queue_max_len);
+	current_packet_outgoings.reserve(packet_queue_max_len);
+	packet_outgoing_tfh.reserve(packet_queue_max_len);
+
+	for (unsigned int pippo = 0; pippo < packet_queue_max_len; ++pippo) {
+		packet_eaters.push_back(
+				std::make_unique<PacketConsumer>(bytes_per_submessage, mtu,
+						segment_max, this));
+		packet_queues.push_back(std::make_unique<std::queue<Frame>>());
+		current_packet_outgoings.emplace_back(); // Construct a new Frame
+		packet_outgoing_tfh.emplace_back(); // Construct a new NonBlockingTimer
+		packet_outgoing_locks.push_back(std::make_unique<std::mutex>()); // Construct a new std::mutex
+		packet_queues_locks.push_back(std::make_unique<std::mutex>()); // Construct a new std::mutex
+		packet_queues_cvs.push_back(
+				std::make_unique<std::condition_variable>()); // Construct a new std::condition_variable
+	}
+
+	frame_thread = std::thread([this]() {
+		std::string s = "PackOut";
+		prctl(PR_SET_NAME, s.c_str(), 0, 0, 0);
+		worker_packetout();
+	});
+
+
 
 }
-unsigned int HARQ::get_mtu() {
+inline unsigned int HARQ::get_mtu() {
 	return (mtu);
 }
