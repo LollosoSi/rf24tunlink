@@ -9,6 +9,7 @@
 
 #include "../../telemetry/Telemetry.h"
 #include "../../interfaces/RadioHandler.h"
+#include "../../rs_codec/RSCodec.h"
 
 #include <RF24/RF24.h>
 
@@ -33,6 +34,8 @@ public:
 	std::thread* t0=nullptr;
 	std::thread* t1=nullptr;
 
+	RSCodec rsc;
+
 	void setup();
 	void loop(unsigned long delta);
 
@@ -51,7 +54,9 @@ public:
 		returnvector[3]=std::to_string(packets_in*32/1000.0);
 		returnvector[4]=std::to_string((packets_out*32/1000.0) * (Settings::ReedSolomon::k/32.0));
 		returnvector[5]=std::to_string((packets_in*32/1000.0) * (Settings::ReedSolomon::k/32.0));
-		packets_out = packets_in = 0;
+		returnvector[6] = (std::to_string(quality_count ? 100.0 * (quality_sum / quality_count) : 0));
+
+		packets_out = packets_in = quality_sum = quality_count = 0;
 
 		return (returnvector);
 	};
@@ -62,5 +67,7 @@ protected:
 	std::string *returnvector = nullptr;
 	unsigned long packets_out, packets_in;
 
+	float quality_sum = 0;
+	unsigned long quality_count = 0;
 };
 

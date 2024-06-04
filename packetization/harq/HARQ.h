@@ -9,7 +9,7 @@
 
 #include "../../interfaces/PacketHandler.h"
 #include "../../telemetry/Telemetry.h"
-#include "../../rs_codec/RSCodec.h"
+
 #include "../../utils.h"
 #include <cmath>
 #include <algorithm>
@@ -33,8 +33,8 @@ struct message_reception_identikit {
 	bool written_to_buffer = false;
 	uint8_t *buffer = nullptr;
 	int shift = 0;
-	int msg_length = 0;
-	int total_packets = 0;
+	unsigned int msg_length = 0;
+	unsigned int total_packets = 0;
 	bool *received = nullptr;
 	uint8_t *missing = nullptr;
 	int missing_array_length = 0;
@@ -45,19 +45,38 @@ public:
 	HARQ();
 	virtual ~HARQ();
 
-	int id_bits = 2, segment_bits = 5, last_packet_bits = 1; // @suppress("Multiple variable declaration")
-	int id_max = pow(2, id_bits), segment_max = pow(2, segment_bits); // @suppress("Multiple variable declaration")
-	int id_byte_pos_offset = 8 - id_bits, segment_byte_pos_offset = 8 - id_bits - segment_bits, last_packet_byte_pos_offset = 8 - id_bits - segment_bits - last_packet_bits; // @suppress("Multiple variable declaration")
-	unsigned char id_mask = bits_to_mask(id_bits), segment_mask = bits_to_mask(segment_bits), last_packet_mask = bits_to_mask(last_packet_bits); // @suppress("Multiple variable declaration")
+	unsigned int id_bits, segment_bits, last_packet_bits; // @suppress("Multiple variable declaration")
+	unsigned int id_max, segment_max; // @suppress("Multiple variable declaration")
+	int id_byte_pos_offset, segment_byte_pos_offset, last_packet_byte_pos_offset; // @suppress("Multiple variable declaration")
+	unsigned char id_mask, segment_mask, last_packet_mask; // @suppress("Multiple variable declaration")
+
+	unsigned char* zeroarray_segment_max = nullptr;
+
+	int submessage_bytes;
+	int header_bytes;
+	int length_last_packet_bytes;
+	int bytes_per_submessage;
+	unsigned int packet_queue_max_len;
+
+	uint64_t resend_wait_time;
+	bool kill_timeout;
+	uint64_t timeout;
 
 	unsigned char pack(unsigned char id, unsigned char segment,
 			bool last_packet) {
+		if(id >= id_max){
+			printf("Packing id greater than max. ID:%d, MAX:%d\n",id, id_max);
+		}
+		if(segment >= segment_max){
+			printf("Packing segment greater than max. S:%d, MAX:%d\n",segment, segment_max);
+		}
+
 		return (0x00 | ((id & id_mask) << id_byte_pos_offset)
 				| ((segment & segment_mask) << segment_byte_pos_offset)
 				| (last_packet & last_packet_mask));
 	}
-	void unpack(unsigned char data, unsigned char &id,
-			unsigned char &segment, bool &last_packet) {
+	void unpack(unsigned char data, unsigned char &id, unsigned char &segment,
+			bool &last_packet) {
 		id = id_mask & (data >> id_byte_pos_offset);
 		segment = segment_mask & (data >> segment_byte_pos_offset);
 		last_packet = last_packet_mask & (data >> last_packet_byte_pos_offset);
@@ -66,33 +85,26 @@ public:
 		return (id_mask & (data >> id_byte_pos_offset));
 	}
 
-	int submessage_bytes;
-	int header_bytes;
-	int length_last_packet_bytes;
-	int bytes_per_submessage;
-	int packet_queue_max_len;
 
-	RSCodec rsc;
-
-	uint64_t resend_wait_time;
-	bool kill_timeout;
-	uint64_t timeout;
 
 	std::string* telemetry_collect(const unsigned long delta);
 
 	void memory_test_reception() {
 
-		for (int i = 0; i < packet_queue_max_len; i++) {
+		for (unsigned int i = 0; i < packet_queue_max_len; i++) {
 			if (!(receptions[i].id > 0
 					&& receptions[i].id <= packet_queue_max_len)
 					|| !(receptions[i].total_packets >= 0
 							&& receptions[i].total_packets <= 32)
 					|| !(receptions[i].msg_length >= 0
 							&& receptions[i].msg_length <= get_mtu())) {
-				printf("Trigger A:%d B:%d C:%d\n",!(receptions[i].id > 0
-						&& receptions[i].id <= packet_queue_max_len),!(receptions[i].total_packets >= 0
-								&& receptions[i].total_packets <= 32),!(receptions[i].msg_length >= 0
-										&& receptions[i].msg_length <= get_mtu()));
+				printf("Trigger A:%d B:%d C:%d\n",
+						!(receptions[i].id > 0
+								&& receptions[i].id <= packet_queue_max_len),
+						!(receptions[i].total_packets >= 0
+								&& receptions[i].total_packets <= 32),
+						!(receptions[i].msg_length >= 0
+								&& receptions[i].msg_length <= get_mtu()));
 				throw std::invalid_argument("test failed");
 			}
 		}
@@ -100,44 +112,52 @@ public:
 	}
 
 	void write_msri_data(message_reception_identikit *msri, uint8_t *data,
-			int size, int segment) {
-		if(msri == nullptr){
+			unsigned int size, unsigned int segment) {
+		if (msri == nullptr) {
 			printf("MSRI is NULL\n");
 			throw std::invalid_argument("NULL MSRI");
 		}
 
 		bool found = false;
-		for(int i = 0; i < this->packet_queue_max_len; i++){
-			if(msri == (receptions+i)){
+		for (unsigned int i = 0; i < this->packet_queue_max_len; i++) {
+			if (msri == (receptions + i)) {
 				found = true;
 				break;
 			}
 		}
-		if(!found){
+		if (!found) {
 			printf("MSRI is not in receptions\n");
 			throw std::invalid_argument("invalid MSRI");
 		}
-		if(msri->shift < 0){
+		if (msri->shift < 0) {
 			printf("MSRI has negative shift\n");
 			throw std::invalid_argument("negative shift MSRI");
 		}
 
-		if(((bytes_per_submessage * segment) + (segment == 0 ? msri->shift : 0)) + size > get_mtu()+1){
-			printf("MSRI tries to write out of memory data. Shift: %d, MSGLEN: %d, Writestart: %d, Writesize: %d, MTU:%d\n", msri->shift, msri->msg_length, ((bytes_per_submessage * segment) + (segment == 0 ? msri->shift : 0)), size, get_mtu());
+		if (((bytes_per_submessage * segment) + (segment == 0 ? msri->shift : 0))
+				+ size > get_mtu() + 1) {
+			printf(
+					"MSRI tries to write out of memory data. Shift: %d, MSGLEN: %d, Writestart: %d, Writesize: %d, MTU:%d\n",
+					msri->shift, msri->msg_length,
+					((bytes_per_submessage * segment)
+							+ (segment == 0 ? msri->shift : 0)), size,
+					get_mtu());
 			throw std::invalid_argument("out of memory MSRI");
 		}
 
-		if(msri->msg_length > get_mtu()+1){
-				printf("MSRI is bigger than MTU. MSGLEN: %d, MTU:%d\n", msri->msg_length, get_mtu());
-				throw std::invalid_argument("MSRI too big");
-			}
+		if (msri->msg_length > get_mtu() + 1) {
+			printf("MSRI is bigger than MTU. MSGLEN: %d, MTU:%d\n",
+					msri->msg_length, get_mtu());
+			throw std::invalid_argument("MSRI too big");
+		}
 #ifdef DEBUG_LOG
 		printf("Writing %d bytes at MSRI b+%d, MSGLEN: %d", size, (bytes_per_submessage * segment)
 				+ (segment == 0 ? msri->shift : 0), msri->msg_length);
 #endif
 
-		for(int i = 0; i < size; i++){
-			msri->buffer[(bytes_per_submessage * segment) + (segment == 0 ? msri->shift : 0) + i] = data[i];
+		for (unsigned int i = 0; i < size; i++) {
+			msri->buffer[(bytes_per_submessage * segment)
+					+ (segment == 0 ? msri->shift : 0) + i] = data[i];
 		}
 		msri->received[segment] = true;
 	}
@@ -146,20 +166,23 @@ public:
 		if (msri->total_packets == 0)
 			return (false);
 		if (msri->id == 0)
-			std::cout << "Note: message_reception_identikit has no id. Messages can't be recognised later on.\n";
-		if(msri->id > id_max)
-			std::cout << "Note: message_reception_identikit invalid id. This is likely due to corruption.\n";
+			std::cout
+					<< "Note: message_reception_identikit has no id. Messages can't be recognised later on.\n";
+		if (msri->id > id_max)
+			std::cout
+					<< "Note: message_reception_identikit invalid id. This is likely due to corruption.\n";
 
 		msri->missing_array_length = 0;
-		int i = 0;
+		unsigned int i = 0;
 		for (; i <= msri->total_packets && i < segment_max; i++)
 			if (!msri->received[i])
-				msri->missing[msri->missing_array_length++] = pack(msri->id, i,
-						false);
+				msri->missing[msri->missing_array_length++] = pack(msri->id, i, false);
 
-		if(msri->total_packets > segment_max){
-			printf("Total packets %d is bigger than segment_max %d", msri->total_packets, segment_max);
-			throw std::invalid_argument("total packets bigger than segment_max");
+		if (msri->total_packets > segment_max) {
+			printf("Total packets %d is bigger than segment_max %d",
+					msri->total_packets, segment_max);
+			throw std::invalid_argument(
+					"total packets bigger than segment_max");
 		}
 
 		if (i > segment_max) {
@@ -167,6 +190,17 @@ public:
 		}
 
 		return (msri->missing_array_length == 0);
+	}
+
+	void reset_msri(message_reception_identikit *msri){
+		msri->msg_length = 0;
+		msri->shift = 0;
+		msri->total_packets = 0;
+		msri->written_to_buffer = 0;
+		msri->missing_array_length = 0;
+		memcpy(msri->received, zeroarray_segment_max, segment_max);
+		memcpy(msri->missing, zeroarray_segment_max, segment_max);
+
 	}
 
 	unsigned int get_mtu();
@@ -274,7 +308,7 @@ protected:
 
 	void flush_acked() {
 
-		for (int i = 0; i < packet_queue_max_len; i++) {
+		for (unsigned int i = 0; i < packet_queue_max_len; i++) {
 			if (sendqueue_frames[i] && packets_acked[i]) {
 				packets_acked[i] = false;
 				free_frame(sendqueue_frames[i]);
@@ -302,7 +336,7 @@ protected:
 		}
 	}
 
-	void catch_lost(uint8_t *lostpackets, int size) {
+	bool catch_lost(uint8_t *lostpackets, int size) {
 		for (int i = 0; i < size; i++) {
 			uint8_t p_id, p_seg;
 			bool p_b;
@@ -313,19 +347,20 @@ protected:
 #endif
 			if (p_id < 1 || p_id > packet_queue_max_len) {
 				std::cout << "P_ID out of range, I quit\n";
-				return;
+				return (false);
 			}
 			if (!sendqueue_frames[p_id - 1]) {
 
-				std::cout << "Requested a finished packet! Holy crap! I'm sorry, I refuse\n";
+				std::cout
+						<< "Requested a finished packet! Holy crap! I'm sorry, I refuse\n";
 
-				return;
+				return (false);
 			}
 			if (sendqueue_frames[p_id - 1]->packets.size() <= p_seg) {
 				std::cout << "Segment is greater than packets length. L: "
 						<< sendqueue_frames[p_id - 1]->packets.size() << " S:"
-						<< p_seg << "\n";
-				return;
+						<< static_cast<int>(p_seg) << "\n";
+				return (false);
 			}
 #ifdef DEBUG_LOG
 			std::cout << "Reloading packet: ";
@@ -343,7 +378,7 @@ protected:
 #ifdef DEBUG_LOG
 		std::cout << "\n";
 #endif
-
+		return (true);
 	}
 
 	void checktimers();
@@ -373,14 +408,14 @@ protected:
 		rp->data[0] = pack(id, packets - 1, true);
 		rp->data[1] = rem;
 		memcpy(rp->data + 2, nums[0] + (bytes_per_submessage - rem), rem);
-		rsc.efficient_encode(rp->data, rp->size);
+		//rsc.efficient_encode(rp->data, rp->size);
 		f->packets.push_front(rp);
 
 		for (int i = 1; i < packets; i++) {
 			rp = new RadioPacket { { 0 }, 32 };
 			rp->data[0] = pack(id, i, false);
 			memcpy(rp->data + 1, nums[i], bytes_per_submessage);
-			rsc.efficient_encode(rp->data, rp->size);
+			//rsc.efficient_encode(rp->data, rp->size);
 			f->packets.push_front(rp);
 		}
 
@@ -392,13 +427,18 @@ protected:
 		return (true);
 	}
 
-	void print_rp_data(uint8_t *data) {
+	void print_rp_data(uint8_t *data, bool printletters=true, bool printidseg=false) {
 		for (int i = 1; i < bytes_per_submessage + 1; i++) {
 			std::cout << " ";
-			if (((data[i] > 31) && (data[i] < 129))) {
+			if (((data[i] > 31) && (data[i] < 129)) && printletters) {
 				std::cout << static_cast<unsigned char>(data[i]);
-			} else {
+			} else if(!printidseg) {
 				std::cout << static_cast<int>(data[i]);
+			} else{
+				uint8_t id, seg;
+				bool l;
+				unpack(data[i], id, seg, l);
+				std::cout << static_cast<int>(id) << ":" << static_cast<int>(seg) << ":" << l;
 			}
 
 		}
@@ -408,21 +448,6 @@ protected:
 	bool receive_packet(RadioPacket *rp) {
 
 		editing_packages_mutex.lock();
-		//memory_test_reception();
-
-		int error_count = 0;
-
-		if (!rsc.efficient_decode(rp->data, 32, &error_count)) {
-#ifdef DEBUG_LOG
-			std::cout << "\tPacket broken\n";
-#endif
-			quality_count++;
-			//memory_test_reception();
-			editing_packages_mutex.unlock();
-			return (false);
-		}
-		quality_sum += 1.0 - (error_count / Settings::ReedSolomon::k);
-		quality_count++;
 
 		static uint8_t waiting_id = 1;
 
@@ -457,6 +482,11 @@ protected:
 				// Is this ACK or NACK or BOTH??
 				int len = 0;
 				while (rp->data[1 + len] != 0 && len < bytes_per_submessage) {
+					if((rp->data[1+len]==rp->data[len]) && len>0){
+						printf("GUESS: Radio fucked up\n");
+						editing_packages_mutex.unlock();
+						return (false);
+					}
 					len++;
 				}
 				if (len != 0) {
@@ -470,7 +500,11 @@ protected:
 						printf("ID %d SEG %d ", a, b);
 					}
 #endif
-					catch_lost(rp->data + 1, len);
+					if (!catch_lost(rp->data + 1, len)) {
+						printf("Len: %d, ID %d, SEG %d\n RP DATA\t", len, id, segment);
+						print_rp_data(rp->data, false, true);
+						printf("\n");
+					}
 				} else if (segment > 0 && segment < id_max) {
 					// ACK!
 #ifdef DEBUG_LOG
@@ -525,16 +559,7 @@ protected:
 
 					//printf("Clearing msri id %d len %d, addr %d. Call had size: %d, buffer content: %s\n",id,work_msri->msg_length,work_msri,receptions.size(), work_msri->buffer);
 					//memory_test_reception();
-					work_msri->msg_length = 0;
-					work_msri->shift = 0;
-					work_msri->total_packets = 0;
-					work_msri->written_to_buffer = 0;
-					work_msri->missing_array_length = 0;
-					//memory_test_reception();
-					for (int i = 0; i < segment_max; i++) {
-						work_msri->received[i] = 0;
-						work_msri->missing[i] = 0;
-					}
+					reset_msri(work_msri);
 					delete_id_from_NACK(id);
 					//memory_test_reception();
 #ifdef DEBUG_LOG
@@ -564,9 +589,15 @@ protected:
 			//	receptions.push_back(work_msri = make_MSRI(id));
 			if (last_packet) {
 				work_msri->shift = bytes_per_submessage - rp->data[1];
-				if(work_msri->shift < 0){
+				if (work_msri->shift < 0) {
 					work_msri->shift = 0;
-					printf("DETECTED NEGATIVE SHIFT: bytes_per_submessage: %d, rp->data[1]: %d. MSGLEN: %d", bytes_per_submessage, static_cast<int>(rp->data[1]), work_msri->msg_length);
+					printf(
+							"DETECTED NEGATIVE SHIFT: bytes_per_submessage: %d, rp->data[1]: %d. MSGLEN: %d",
+							bytes_per_submessage, static_cast<int>(rp->data[1]),
+							work_msri->msg_length);
+					printf("\nRP DATA\t");
+					print_rp_data(rp->data, false);
+					printf("\n");
 					editing_packages_mutex.unlock();
 					return (false);
 					//throw std::invalid_argument("NEGATIVE SHIFT DETECTED");
@@ -582,7 +613,7 @@ protected:
 				std::cout << "\tMISSING: " << work_msri->missing_array_length;
 #endif
 				//memory_test_reception();
-			} else{
+			} else {
 				write_msri_data(work_msri, rp->data + (1), bytes_per_submessage,
 						segment);
 				//memory_test_reception();
@@ -595,7 +626,7 @@ protected:
 					if (waiting_id == 0)
 						waiting_id++;
 					//memory_test_reception();
-					send_ACK_NACK(id);
+					send_ACK_NACK(id, nullptr, 0);
 					//memory_test_reception();
 #ifdef DEBUG_LOG
 					std::cout << "\tCOMPLETED ";
@@ -626,9 +657,7 @@ protected:
 					}
 					//memory_test_reception();
 				}
-			}
-			//memory_test_reception();
-			if (last_packet && work_msri->missing_array_length > 0) {
+			}else if (last_packet && work_msri->missing_array_length > 0) {
 
 				send_ACK_NACK(0, work_msri->missing,
 						work_msri->missing_array_length);
@@ -655,25 +684,37 @@ protected:
 		rp_ok->size = 32;
 
 		int i = 0;
-		if (size > bytes_per_submessage-1)
-			size = bytes_per_submessage-1;
-		if (lost_list){
+		if (size > bytes_per_submessage - 1)
+			size = bytes_per_submessage - 1;
+		if (lost_list && size!=0) {
+
+
 #ifdef DEBUG_LOG
 			printf("Sending NACK. Data: id %d, segments id: ",
 					static_cast<int>(id));
 #endif
-			for (; i < size; i++){
+			bool found_duplicate = false;
+			for (; i < size; i++) {
 				rp_ok->data[1 + i] = lost_list[i];
+				for(int k = i-1; k >= 0; k--){
+					if(rp_ok->data[1 + i] == rp_ok->data[1 + k]){
+						printf("Requested the same packet twice in NACK\n");
+						found_duplicate=true;
+					}
+				}
+
 #ifdef DEBUG_LOG
 				printf(" %d",
 						static_cast<int>((unpack_id(rp_ok->data[1 + i]))));
 #endif
 			}
+			if(found_duplicate)
+				print_rp_data(lost_list, false, true);
 		}
-		for(;i<bytes_per_submessage-1;i++){
-			rp_ok->data[1+i]=0;
+		for (; i < bytes_per_submessage - 1; i++) {
+			rp_ok->data[1 + i] = 0;
 		}
-		rsc.efficient_encode(rp_ok->data, rp_ok->size);
+
 		send_queue_system.packets.push_back(rp_ok);
 	}
 
@@ -696,8 +737,6 @@ protected:
 			frames_dropped = 0, frames_timedout = 0, fragments_retired = 0,
 			nacks_retired = 0; // @suppress("Multiple variable declaration")
 
-	float quality_sum = 0;
-	unsigned long quality_count = 0;
 
 };
 

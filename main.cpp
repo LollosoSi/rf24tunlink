@@ -4,12 +4,15 @@
  */
 
 // Defines
-// #define UNIT_TEST
+//#define UNIT_TEST
+
 // Basic
 #include <iostream>
 using namespace std;
 
 #include "settings/Settings.h"
+
+#include "unit_tests/unit_tests.h"
 
 // Utilities
 #include <cstring>
@@ -30,6 +33,8 @@ using namespace std;
 #include "packetization/selectiverepeat_rs/RSSelectiveRepeatPacketizer.h"
 #include "packetization/harq/HARQ.h"
 
+#include "interfaces/UARTHandler.h"
+
 #include "radio/NRF24/RF24Radio.h"
 #include "radio/NRF24_DUAL/RF24DualRadio.h"
 #include "radio/NRF24_CSMA/RF24CSMARadio.h"
@@ -49,30 +54,7 @@ PacketHandler<RadioPacket> *csp = nullptr;
 RadioHandler<RadioPacket> *rh0 = nullptr;
 RadioHandler<RadioPacket> *rh1 = nullptr;
 
-#include "unit_tests/FakeRadio.h"
-void test_run() {
 
-	Settings::control_packets = false;
-
-	FakeRadio<RadioPacket> fr(0, 10);
-	csp = new HARQ();
-	Settings::mtu = csp->get_mtu();
-
-	fr.register_packet_handler(csp);
-
-	std::string st[7] =
-			{ "Hello, my name is Andrea",
-					"And I am the developer behind rf24tunlink",
-					"This is a very important test in order to understand how strong and well thought the packetizer is",
-					"At the moment we have two packetizers available",
-					"One is based on the old simple character stuffing technique with no retransmission",
-					"The other is based on ARQ algorithms, in particular, Selective Retransmission. something weird is happening the longer the message. but the packetizer seems to be correct",
-					"This message should be exactly long as the MTU size, which for this test is 93, if you don't believe me, you are probably right. But who am I to argue?" };
-	int sz = sizeof(st) / sizeof(std::string);
-	fr.test(st, sz);
-
-	exit(0);
-}
 
 bool running = true;
 void ctrlcevent(int s) {
@@ -92,6 +74,7 @@ extern "C" void handle_aborts(int signal_number) {
 	 */
 	std::cout << "SIGABORT caught. Ouch.\n";
 }
+
 
 int main(int argc, char **argv) {
 
@@ -231,6 +214,8 @@ int main(int argc, char **argv) {
 	tp.add_element(dynamic_cast<Telemetry*>(tunh));
 
 	std::thread lp([&] {
+		pthread_setname_np(pthread_self(), "Telemetry");
+
 		while (running) {
 			tp.tick();
 
@@ -253,7 +238,7 @@ int main(int argc, char **argv) {
 	// Program loop (radio loop)
 	if(Settings::radio_handler==5){
 		while(running){
-			usleep(100000);
+			usleep(1000000);
 			std::this_thread::yield();
 		}
 		reinterpret_cast<RF24DualThreadsafeRadio*>(rh0)->stop_quit();

@@ -14,11 +14,13 @@ RF24DualThreadsafeRadio::RF24DualThreadsafeRadio(bool primary) :
 	radio0 = nullptr;
 	radio1 = nullptr;
 
-	t0=nullptr;
-	t1=nullptr;
+	t0 = nullptr;
+	t1 = nullptr;
 
-	returnvector = new std::string[6] { "", "", "", "", "", "" };
-	register_elements(new std::string[6] { "Packets OUT", "Packets IN", "Kbps OUT", "Kbps IN", "Kbps OUT RS" , "Kbps IN RS" }, 6);
+	returnvector = new std::string[7] { "", "", "", "", "", "", "" };
+	register_elements(new std::string[7] { "Packets OUT", "Packets IN",
+			"Kbps OUT", "Kbps IN", "Kbps OUT RS", "Kbps IN RS",
+			"Signal Quality (%)" }, 7);
 
 	setup();
 }
@@ -39,47 +41,44 @@ void RF24DualThreadsafeRadio::setup() {
 	resetRadio0();
 	resetRadio1();
 	running = true;
-	t0 = new std::thread(
-			[&] {
-				while (running) {
-					if (radio0->failureDetected
-							|| radio0->getDataRate()
-									!= Settings::RF24::data_rate
-							|| !radio0->isChipConnected()) {
-						radio0->failureDetected = 0;
-						resetRadio0();
-						printf("Radio 0 Reset after failure\n");
-					}
+	t0 = new std::thread([&] {
+		pthread_setname_np(pthread_self(), "Radio 0 (Read)");
 
-					read();
+		while (running) {
+			if (radio0->failureDetected || radio0->getDataRate() != Settings::RF24::data_rate
+	|| !radio0->isChipConnected()) {
+		radio0->failureDetected = 0;
+		resetRadio0();
+		printf("Radio 0 Reset after failure\n");
+	}
 
-					std::this_thread::yield();
-				}
-				delete radio0;
-				radio0=nullptr;
-			});
+	read();
+
+	//std::this_thread::yield();
+}
+		delete radio0;
+		radio0 = nullptr;
+	});
 	t0->detach();
 
-	t1 = new std::thread(
-			[&] {
-				while (running) {
-					if (radio1->failureDetected
-							|| radio1->getDataRate()
-									!= Settings::RF24::data_rate
-							|| !radio1->isChipConnected()) {
-						radio1->failureDetected = 0;
-						resetRadio1();
-						printf("Radio 1 Reset after failure\n");
-					}
+	t1 = new std::thread([&] {
+		pthread_setname_np(pthread_self(), "Radio 1 (Write)");
+		while (running) {
+			if (radio1->failureDetected || radio1->getDataRate() != Settings::RF24::data_rate
+	|| !radio1->isChipConnected()) {
+		radio1->failureDetected = 0;
+		resetRadio1();
+		printf("Radio 1 Reset after failure\n");
+	}
 
-					write();
+	write();
 
-					std::this_thread::yield();
-				}
+	//std::this_thread::yield();
+}
 
-				delete radio1;
-				radio1=nullptr;
-			});
+		delete radio1;
+		radio1 = nullptr;
+	});
 	t1->detach();
 
 }
@@ -224,6 +223,7 @@ void RF24DualThreadsafeRadio::write() {
 		rp = next_packet();
 		if (rp) {
 			packets_out++;
+			rsc.efficient_encode(rp->data, rp->size);
 			radio1->writeFast(rp->data, 32, !Settings::DUAL_RF24::auto_ack);
 		} else
 			break;
@@ -242,6 +242,18 @@ void RF24DualThreadsafeRadio::read() {
 	while (radio0->available(&pipe)) {
 		radio0->read(&rp, 32);
 		rp.size = 32;
+
+		int error_count = 0;
+		if (!rsc.efficient_decode(rp.data, 32, &error_count)) {
+#ifdef DEBUG_LOG
+					std::cout << "\tPacket broken\n";
+		#endif
+			quality_count++;
+			return;
+		}
+		quality_sum += 1.0 - (error_count / Settings::ReedSolomon::k);
+		quality_count++;
+
 		switch (pipe) {
 		default:
 			break;

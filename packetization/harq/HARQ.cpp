@@ -18,26 +18,25 @@ HARQ::HARQ() :
 
 
 
-	returnvector = new std::string[11] { std::to_string(0), std::to_string(0),
+	returnvector = new std::string[10] { std::to_string(0), std::to_string(0),
 			std::to_string(0), std::to_string(0), std::to_string(0),
 			std::to_string(0), std::to_string(0), std::to_string(0),
-			std::to_string(0), std::to_string(0), std::to_string(0) };
+			std::to_string(0), std::to_string(0) };
 
-	register_elements(new std::string[11] { "Fragments Received",
+	register_elements(new std::string[10] { "Fragments Received",
 			"Fragments Sent", "Fragments Resent", "Frames Completed",
-			"Control Fragments", "Bytes Discarded", "Dropped (interface)",
-			"Signal Quality (%)", "Timed out", "Retired", "NACKs retired" },
-			11);
+			"Control Fragments", "Bytes Discarded", "Dropped (interface)",  "Timed out", "Retired", "NACKs retired" },
+			10);
 
 	//rsc = RSCodec();
 
-	id_bits = 2, segment_bits = 5, last_packet_bits = 1; // @suppress("Multiple variable declaration")
+	id_bits = 1, segment_bits = 6, last_packet_bits = 1; // @suppress("Multiple variable declaration")
 	id_max = pow(2, id_bits), segment_max = pow(2, segment_bits); // @suppress("Multiple variable declaration")
 	id_byte_pos_offset = 8 - id_bits;
 	segment_byte_pos_offset = 8- id_bits - segment_bits;
 	last_packet_byte_pos_offset = 8 - id_bits- segment_bits - last_packet_bits; // @suppress("Multiple variable declaration")
 	id_mask = bits_to_mask(id_bits);
-	segment_mask =bits_to_mask(segment_bits);
+	segment_mask = bits_to_mask(segment_bits);
 	last_packet_mask = bits_to_mask(last_packet_bits); // @suppress("Multiple variable declaration")
 	submessage_bytes = 32;
 	header_bytes = 1;
@@ -54,8 +53,9 @@ HARQ::HARQ() :
 	outgoing_frame_first_sendtime = new uint64_t[packet_queue_max_len+2]{ 0 };
 	sendqueue_frames = new Frame<RadioPacket>*[packet_queue_max_len+2]{ nullptr };
 	receptions = new message_reception_identikit[packet_queue_max_len+2];
+	zeroarray_segment_max=new uint8_t[segment_max]{0};
 
-	for(int i = 0; i < packet_queue_max_len; i++){
+	for(unsigned int i = 0; i < packet_queue_max_len; i++){
 		receptions[i].id=i+1;
 		receptions[i].msg_length=0;
 		receptions[i].shift=0;
@@ -71,7 +71,7 @@ HARQ::HARQ() :
 		for(int i = 0; i < 32; i++)
 			empty_packet->data[i]=0;
 		empty_packet->size=32;
-		rsc.efficient_encode(empty_packet->data,32);
+		//rsc.efficient_encode(empty_packet->data,32);
 }
 
 HARQ::~HARQ() {
@@ -87,17 +87,14 @@ std::string* HARQ::telemetry_collect(const unsigned long delta) {
 	returnvector[4] = (std::to_string(fragments_control));
 	returnvector[5] = (std::to_string(bytes_discarded));
 	returnvector[6] = (std::to_string(frames_dropped));
-	returnvector[7] = (std::to_string(
-			quality_count ? 100.0 * (quality_sum / quality_count) : 0));
-	returnvector[8] = (std::to_string(frames_timedout));
-	returnvector[9] = (std::to_string(fragments_retired));
-	returnvector[10] = (std::to_string(nacks_retired));
+	returnvector[7] = (std::to_string(frames_timedout));
+	returnvector[8] = (std::to_string(fragments_retired));
+	returnvector[9] = (std::to_string(nacks_retired));
 
 	//returnvector = { std::to_string(fragments_received), std::to_string( fragments_sent), std::to_string(fragments_resent), std::to_string(frames_completed), std::to_string(fragments_control) };
 
 	fragments_received = fragments_sent = fragments_resent = frames_completed =
-			fragments_control = bytes_discarded = frames_dropped = quality_sum =
-					quality_count = frames_timedout = fragments_retired =
+			fragments_control = bytes_discarded = frames_dropped = frames_timedout = fragments_retired =
 							nacks_retired = 0;
 
 	return (returnvector);
@@ -164,9 +161,9 @@ void HARQ::checktimers() {
 	uint64_t ms = current_millis();
 	for (unsigned int i = 0; i < packet_queue_max_len; i++) {
 		if ((sendqueue_frames[i]) && (!packets_acked[i])) {
-			if (kill_timeout
-					&& (ms >= outgoing_frame_first_sendtime[i] + timeout)) {
+			if (kill_timeout && (ms >= outgoing_frame_first_sendtime[i] + timeout)) {
 				frames_timedout++;
+				printf("Packet ID %d died\n", i+1);
 				received_ok(i+1);
 			} else if (ms >= outgoing_frame_sendtime[i] + resend_wait_time) {
 				outgoing_frame_sendtime[i] = ms;

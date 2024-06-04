@@ -7,10 +7,17 @@
 
 #include "RSCodec.h"
 
+#include <iostream>
+
 RSCodec::RSCodec() {
 	bits = Settings::ReedSolomon::bits;
 	k = Settings::ReedSolomon::k;
 	nsym = Settings::ReedSolomon::nsym;
+
+	if(nsym==0){
+		std::cout << "nsym can't be zero!\n";
+		throw std::invalid_argument("nsym is zero");
+	}
 
 	printf("BITS %d, K %d, NSYM %d\n", bits, k, nsym);
 }
@@ -18,9 +25,21 @@ RSCodec::RSCodec() {
 RSCodec::~RSCodec() {
 
 }
-
+static uint8_t gencrc(uint8_t *data, size_t len) {
+	uint8_t crc = 0xff;
+	size_t i, j;
+	for (i = 0; i < len; i++) {
+		crc ^= data[i];
+		for (j = 0; j < 8; j++) {
+			if ((crc & 0x80) != 0)
+				crc = static_cast<uint8_t>(((crc << 1) ^ 0x31));
+			else crc <<= 1;
+		}
+	}
+	return (crc);
+}
 // NOTE: size must be correct k+nsym or the function will fail.
-bool RSCodec::efficient_encode(uint8_t* inout, int size) {
+bool RSCodec::efficient_encode(uint8_t* inout, unsigned int size) {
 	if (size != (k + nsym)) {
 		printf(
 				"Encoder requires messages of size %i, it was given %i. Correct the mistake and recompile\n",
@@ -28,20 +47,22 @@ bool RSCodec::efficient_encode(uint8_t* inout, int size) {
 		exit(1);
 	}
 
+	inout[k]=gencrc(inout,k);
+
 	RS_WORD data[k+nsym];
 	RS_WORD data_out[k+nsym];
-	for (int i = 0; i < k + nsym; i++)
+	for (unsigned int i = 0; i < k + nsym; i++)
 		data[i] = inout[i];
 	//Poly conv(k + nsym, data);
-	rs.encode(data_out, data, k, nsym);
-	for (int i = 0; i < k + nsym; i++)
+	rs.encode(data_out, data, k+1, nsym-1);
+	for (unsigned int i = 0; i < k + nsym; i++)
 		inout[i] = static_cast<uint8_t>(data_out[i]);
 
 	return (true);
 }
 
 // NOTE: size must be correct k+nsym or the function will fail.
-bool RSCodec::efficient_decode(uint8_t* inout, int size, int* error_count) {
+bool RSCodec::efficient_decode(uint8_t* inout, unsigned int size, int* error_count) {
 	if (size != (k + nsym)) {
 		printf(
 				"Decoder requires messages of size %i, it was given %i. Correct the mistake and recompile\n",
@@ -50,21 +71,30 @@ bool RSCodec::efficient_decode(uint8_t* inout, int size, int* error_count) {
 	}
 
 	RS_WORD data[k + nsym];
-	for (int i = 0; i < k + nsym; i++)
+	for (unsigned int i = 0; i < k + nsym; i++)
 		data[i] = static_cast<RS_WORD>(inout[i]);
 	//Poly conv(k + nsym, data);
 
-	Poly msg(k, data);
+	Poly msg(k+1, data);
 
-	if (!rs.decode(nullptr, msg.coef, data, k, nsym, nullptr, false, error_count))
+	if (!rs.decode(nullptr, msg.coef, data, k+1, nsym-1, nullptr, false, error_count))
 		return (false);
-	for (int i = 0; i < k + nsym; i++)
+
+	for (unsigned int i = 0; i < k + nsym; i++)
 		inout[i] = static_cast<unsigned char>(data[i]);
+
+	if(inout[k]!=gencrc(inout,k)){
+		printf("CRC FAILED\n");
+		return (false);
+	}
+
+
+
 	return (true);
 }
 
-bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
-		int insize) {
+bool RSCodec::encode(unsigned char **out, unsigned int &outsize, unsigned char *in,
+		unsigned int insize) {
 
 	if (insize != k) {
 		printf(
@@ -74,7 +104,7 @@ bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
 	}
 
 	RS_WORD m[k];
-	for (int i = 0; i < k; i++)
+	for (unsigned int i = 0; i < k; i++)
 		m[i] = (unsigned long) in[i];
 
 	Poly msg(k, m);
@@ -86,7 +116,7 @@ bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
 		*out = new unsigned char[k + nsym];
 	outsize = k + nsym;
 	//printf("OutMSG: ");
-	for (int i = 0; i < k + nsym; i++) {
+	for (unsigned int i = 0; i < k + nsym; i++) {
 		(*out)[i] = static_cast<char>(a.coef[i]);
 		//	printf("%i ", (*out)[i]);
 
@@ -101,8 +131,8 @@ bool RSCodec::encode(unsigned char **out, int &outsize, unsigned char *in,
 	return (true);
 }
 
-bool RSCodec::decode(unsigned char **out, int &outsize, unsigned char *in,
-		int insize) {
+bool RSCodec::decode(unsigned char **out, unsigned int &outsize, unsigned char *in,
+		unsigned int insize) {
 
 	//std::vector<unsigned int> erasePos;
 
@@ -124,7 +154,7 @@ bool RSCodec::decode(unsigned char **out, int &outsize, unsigned char *in,
 
 	RS_WORD c[k] = { 0 };
 	//printf("Packet:");
-	for (int i = 0; i < insize; i++) {
+	for (unsigned int i = 0; i < insize; i++) {
 		m[i] = (unsigned long) in[i];
 		//	printf("%i ", in[i]);
 	}
@@ -146,7 +176,7 @@ bool RSCodec::decode(unsigned char **out, int &outsize, unsigned char *in,
 	if ((*out) == nullptr)
 		*out = new unsigned char[k] { 0 };
 
-	for (int i = 0; i < k; i++)
+	for (unsigned int i = 0; i < k; i++)
 		(*out)[i] = (unsigned char) msg.coef[i];
 	outsize = k;
 

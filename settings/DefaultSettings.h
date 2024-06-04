@@ -14,10 +14,10 @@ namespace Settings {
 
 bool display_telemetry = true;
 
-char address[18]={ '\0' };
-char destination[18]={ '\0' };
-char netmask[18]={ '\0' };
-char interface_name[6]={ 'a', 'r', 'o', 'c', 'c', '\0' };
+char address[18] = { '\0' };
+char destination[18] = { '\0' };
+char netmask[18] = { '\0' };
+char interface_name[6] = { 'a', 'r', 'o', 'c', 'c', '\0' };
 unsigned int mtu = 9600;
 bool control_packets = true;
 
@@ -59,7 +59,7 @@ void apply_settings(std::string &name, std::string &value) {
 		maximum_frame_time = atol(value.c_str());
 	} else if (name == "radio_handler") {
 		radio_handler = atoi(value.c_str());
-	}else if (name == "minimum_ARQ_wait") {
+	} else if (name == "minimum_ARQ_wait") {
 		minimum_ARQ_wait = atoi(value.c_str());
 	}
 
@@ -256,9 +256,9 @@ void apply_settings(std::string &name, std::string &value) {
 
 namespace Settings::ReedSolomon {
 
-int bits = 8;
-int k = 20;
-int nsym = 12;
+unsigned int bits = 8;
+unsigned int k = 20;
+unsigned int nsym = 12;
 
 void apply_settings(std::string &name, std::string &value) {
 

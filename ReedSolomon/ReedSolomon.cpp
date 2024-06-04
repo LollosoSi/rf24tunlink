@@ -457,16 +457,16 @@ bool ReedSolomon::correctErrata(Poly* msg, Poly* synd, vector<unsigned int>* err
 	this->findErrorEvaluator(&errEval, synd, &errLoc, errLoc.n); //TODO determine if correct
 	//Poly_Reverse(errEval, errEval); //reverse it for later use
 	vector<RS_WORD> x(coefPos.size());
-	for (int i = 0; i < x.size(); i++)
+	for (unsigned int i = 0; i < x.size(); i++)
 	{
 		x[i] = this->gf.powTable[coefPos[i]]; //TODO determine if correct
 	}
 	Poly e(msg->n, nullptr);
-	for (int i = 0; i < x.size(); i++)
+	for (unsigned int i = 0; i < x.size(); i++)
 	{
 		RS_WORD xi = this->gf.powTable[this->gf.characteristic - coefPos[i]]; //TODO determine if equivalent to GaloisField::Inv(x[i])
 		RS_WORD errLocPrime = 1;
-		for (int j = 0; j < x.size(); j++)
+		for (unsigned int j = 0; j < x.size(); j++)
 		{
 			if (j != i)
 			{

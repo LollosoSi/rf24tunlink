@@ -146,7 +146,7 @@ bool RSSelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 
 	int ct = numpacks;
 
-	int dummysize = 0;
+	unsigned int dummysize = 0;
 
 	int cursor = tunmsg->size;
 	while ((cursor = (cursor - packsize)) > -1) {
@@ -158,7 +158,7 @@ bool RSSelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 		dummysize = 0;
 
 		memcpy(pointer->data + 1, tunmsg->data + cursor, packsize);
-		rsc->encode(&dt, dummysize, (unsigned char*) pointer->data,
+		rsc->encode(&dt, dummysize, static_cast<unsigned char*>(pointer->data),
 				packsize + 1);
 		memcpy(pointer->data, dt, dummysize);
 		delete[] dt;
@@ -176,7 +176,8 @@ bool RSSelectiveRepeatPacketizer::packetize(TUNMessage *tunmsg) {
 	dummysize = 0;
 
 	memcpy(pointer->data + 2, tunmsg->data, _finish);
-	rsc->encode(&dt, dummysize, (unsigned char*) pointer->data, packsize + 1);
+	rsc->encode(&dt, dummysize, static_cast<unsigned char*>(pointer->data),
+			packsize + 1);
 	memcpy(pointer->data, dt, dummysize);
 	delete[] dt;
 
@@ -240,8 +241,8 @@ inline void RSSelectiveRepeatPacketizer::response_packet_ok(uint8_t id) {
 	rp_answer->size = 32;
 	rp_answer->data[0] = pack_info(true, 0, id);
 	unsigned char *dt = nullptr;
-	int dummysize = 0;
-	rsc->encode(&dt, dummysize, (unsigned char*) rp_answer->data,
+	unsigned int dummysize = 0;
+	rsc->encode(&dt, dummysize, static_cast<unsigned char*>(rp_answer->data),
 			Settings::ReedSolomon::k);
 	memcpy(rp_answer->data, dt, dummysize);
 	delete[] dt;
@@ -268,8 +269,9 @@ bool RSSelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 	static bool *received_packs = new bool[120] { 0 };
 
 	static unsigned char *msg = new unsigned char[32];
-	int dummysize = 32;
-	if (!rsc->decode(&msg, dummysize, (unsigned char*) rp->data, 32)) {
+	unsigned int dummysize = 32;
+	if (!rsc->decode(&msg, dummysize, static_cast<unsigned char*>(rp->data),
+			32)) {
 		--last_seg;
 		printf("Decode failed!");
 		if (last_seg > 0) {
@@ -280,7 +282,7 @@ bool RSSelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 			mrp->data[0] = pack_info(true, 0, 1);
 			mrp->data[1] = pack_info(true, 0, last_seg);
 			static unsigned char *dt = new unsigned char[32] { 0 };
-			int dummysize = 0;
+			unsigned int dummysize = 0;
 			rsc->encode(&dt, dummysize, (unsigned char*) mrp->data,
 					Settings::ReedSolomon::k);
 			memcpy(mrp->data, dt, dummysize);
@@ -316,7 +318,7 @@ bool RSSelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 		if (first) {
 
 			// This packetizer is meant to be used with 32 byte packets, let's count the non-zero bytes
-			int size = 0;
+			unsigned int size = 0;
 			if (!frames.empty()) {
 				if (seg != get_pack_id(frames.front()->packets.front())) {
 					size = seg + 1;
@@ -340,7 +342,7 @@ bool RSSelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 				if (!frames.empty()) {
 
 					// Lets queue all the requested packets.
-					for (int i = 1; i < size; i++) {
+					for (unsigned int i = 1; i < size; i++) {
 						bool pkt_boolean = 0;
 						uint8_t pkt_id = 0;
 						uint8_t pkt_seg = 0;
@@ -491,15 +493,16 @@ bool RSSelectiveRepeatPacketizer::receive_packet(RadioPacket *rp) {
 		//printf("\t");
 
 		printf("Missing %i packets!\n", missing_count);
-		for (int i = missing_count; i < Settings::ReedSolomon::k + 1; i++) {
+		for (unsigned int i = missing_count; i < Settings::ReedSolomon::k + 1; i++) {
 			missing_rp->data[1 + i] = 0;
 		}
 
 		missing_rp->size = 32;
 		missing_rp->data[0] = pack_info(true, 0, missing_count);
 		unsigned char *dt = nullptr;
-		int dummysize = 0;
-		rsc->encode(&dt, dummysize, (unsigned char*) missing_rp->data,
+		unsigned int dummysize = 0;
+		rsc->encode(&dt, dummysize,
+				static_cast<unsigned char*>(missing_rp->data),
 				Settings::ReedSolomon::k);
 		memcpy(missing_rp->data, dt, dummysize);
 		delete[] dt;

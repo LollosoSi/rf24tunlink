@@ -142,9 +142,9 @@ extern void apply_settings(std::string &name, std::string &value);
 
 namespace Settings::ReedSolomon {
 
-extern int bits;
-extern int k;
-extern int nsym;
+extern unsigned int bits;
+extern unsigned int k;
+extern unsigned int nsym;
 
 extern void apply_settings(std::string &name, std::string &value);
 }

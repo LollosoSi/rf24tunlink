@@ -76,6 +76,7 @@ void TUNHandler::startThread() {
 	this->running = true;
 
 	std::thread read_thread([&] {
+		pthread_setname_np(pthread_self(), "TUN Read");
 
 		int nread = 0;
 		TUNMessage *message = new TUNMessage;

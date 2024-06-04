@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.12)
 
 set(CMAKE_BUILD_TYPE Debug) 
 
@@ -7,17 +7,14 @@ project (rf24tunlink
 	VERSION 0.1
 	DESCRIPTION "A RF24 TUN Link")
 
-cmake_minimum_required(VERSION 3.12)
+add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
 
-# add_compile_options(-Ofast -Wall) # passing the compiler a `-pthread` flag doesn't work here
-
-# Aggiungi le flag di compilazione e linking per AddressSanitizer
-set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
-# Aggiungi le flag per ASan
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
-set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
+# AddressSanitizer flags, only needed for debugging
+#set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -g")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -g")
+#set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -fsanitize=address")
+#set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -fsanitize=address")
 
 # detect the CPU make and type
 include(~/rf24libs/RF24/cmake/detectCPU.cmake) # sets the variable SOC accordingly
@@ -76,6 +73,7 @@ set(packetizers
     packetization/harq/HARQ.cpp
 )
 set(unit_tests
+    unit_tests/unit_tests.h
     unit_tests/FakeRadio.h
     unit_tests/FakeRadio.cpp
 )

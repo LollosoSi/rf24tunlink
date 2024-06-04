@@ -16,8 +16,9 @@
 
 #include <thread>
 
-class UARTHandler {
+class UARTHandler: public Messenger<TUNMessage> {
 public:
+	unsigned long receivedbytes = 0;
 	UARTHandler(const char *device) {
 		if (!device) {
 			printf("Null serial device was passed!\n");
@@ -50,8 +51,8 @@ public:
 		tty.c_oflag &= ~ONLCR;
 		tty.c_cc[VTIME] = 10;
 		tty.c_cc[VMIN] = 0;
-		cfsetispeed(&tty, B9600);
-		cfsetospeed(&tty, B9600);
+		cfsetispeed(&tty, B115200);
+		cfsetospeed(&tty, B115200);
 		if (tcsetattr(file, TCSANOW, &tty) != 0) {
 			printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
 			return;
@@ -76,12 +77,18 @@ public:
 
 				/* Do whatever with the data */
 				message->size = nread;
-
-				printf("From UART (%i)\n", message->size);
+				receivedbytes+=nread;
+				message->data[message->size]=0;
+				//printf("From UART %s (%i)\n", message->data, message->size);
 				//print_hex(message->data, message->size);
 
-				this->process_message(message);
+				//this->process_message(message);
+
+
 			}
+
+			delete [] message->data;
+			delete message;
 
 		});
 		readthread->detach();
@@ -95,13 +102,17 @@ public:
 
 	}
 
-	virtual void process_message(TUNMessage *tmsg) = 0;
+	bool receive_message(TUNMessage *tunmsg){
+
+		write(file, tunmsg->data, tunmsg->size);
+
+		return (true);
+	}
 
 protected:
 	bool running = false;
 	int file;
 	std::thread *readthread = nullptr;
 
-}
-;
+};
 

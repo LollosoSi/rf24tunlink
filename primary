@@ -1,4 +1,0 @@
-primary=yes
-addr=192.168.10.1
-dest_addr=192.168.10.2
-netmask=255.255.255.0

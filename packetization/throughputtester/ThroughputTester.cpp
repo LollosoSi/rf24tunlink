@@ -28,7 +28,7 @@ ThroughputTester::ThroughputTester(bool rs) :
 	printf("Preparing send packets\n");
 	for (unsigned int i = 0; i < 10; i++) {
 		test_packets[i].size = 32;
-		for (int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++)
+		for (unsigned int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++)
 			if (Settings::test_bits) {
 				test_packets[i].data[j] = 0x55;
 			} else {
@@ -83,7 +83,7 @@ std::string* ThroughputTester::telemetry_collect(const unsigned long delta) {
 			int error_burst_count = 0;
 			int separate_burst_count = 0;
 			bool error_trig = 0;
-			for (int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++) {
+			for (unsigned int j = 0; j < (use_rs ? Settings::ReedSolomon::k : 32); j++) {
 				if (received_packets[i].data[j] == test_packets[0].data[j]) {
 					bits_valid++;
 					ets->representation[etest_bit_count++] = 0;
@@ -275,13 +275,13 @@ RadioPacket* ThroughputTester::next_packet() {
 	rp->size = 32;
 	if (use_rs) {
 		static unsigned char *dt = new unsigned char[32];
-		int s = 32;
+		unsigned int s = 32;
 		rsc->encode(&dt, s,
 				(unsigned char*) (test_packets + (iterator++))->data,
 				use_rs ? Settings::ReedSolomon::k : 32);
 
 		//printf("MSG: ");
-		for (int i = 0; i < s; i++) {
+		for (unsigned int i = 0; i < s; i++) {
 			rp->data[i] = dt[i];
 			//	printf("%i ", rp->data[i]);
 		}
@@ -301,7 +301,7 @@ bool ThroughputTester::receive_packet(RadioPacket *rp) {
 
 	if (use_rs) {
 		static unsigned char *out = new unsigned char[32] { 0 };
-		int outsize = use_rs ? Settings::ReedSolomon::k : 32;
+		unsigned int outsize = use_rs ? Settings::ReedSolomon::k : 32;
 
 		rsc->decode(&out, outsize, rp->data, 32);
 		//printf("MSG: ");
@@ -310,7 +310,7 @@ bool ThroughputTester::receive_packet(RadioPacket *rp) {
 		//}
 		//printf("\n");
 		//printf("DECODED: ");
-		for (int i = 0; i < outsize; i++) {
+		for (unsigned int i = 0; i < outsize; i++) {
 			rp->data[i] = out[i];
 			//	printf("%i ", out[i]);
 		}

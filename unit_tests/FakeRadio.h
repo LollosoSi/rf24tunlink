@@ -43,6 +43,7 @@ public:
 		for (unsigned int i = 0; i < msize; i++) {
 			tunmessages[i].data = new uint8_t[messages[i].length()];
 			tunmessages[i].size = messages[i].length();
+			printf("len %d\n",tunmessages[i].size);
 			std::strcpy((char*) tunmessages[i].data,
 					(const char*) messages[i].c_str());
 			std::cout << messages[i] << std::endl;
@@ -55,7 +56,7 @@ public:
 
 		packet *p = nullptr;
 		uint64_t start_ms = current_millis();
-		while (current_millis() - start_ms < 20000) {
+		while (current_millis() - start_ms < 100) {
 			if (pkt_ref->next_packet_ready()) {
 				p = pkt_ref->next_packet();
 				if (p) {
@@ -81,6 +82,9 @@ public:
 		std::cout << "\n\tSent: " << sent << "   Lost: " << cut << std::endl;
 
 		print_telemetry();
+		for (unsigned int i = 0; i < msize; i++)
+			delete [] tunmessages[i].data;
+		delete [] tunmessages;
 
 	}
 
