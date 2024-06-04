@@ -4,7 +4,7 @@ radio_handler=dualrf24
 
 #	SPI Speed in Hz for all RF24 radios
 #	Type:	uint32
-spi_speed=10000000
+spi_speed=12000000
 
 #	The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )
 #	Type:	uint8
@@ -16,11 +16,11 @@ radio_power=0
 
 #	Delay for each automatic retransmission of failed packets from the radio
 #	Type:	uint8
-radio_delay=1
+radio_delay=0
 
 #	How many retries the radio should do before skipping the packet
 #	Type:	uint8
-radio_retries=15
+radio_retries=0
 
 #	CE pin for the radio0
 #	Type:	integer
