@@ -24,12 +24,14 @@ HARQ::HARQ() : Packetizer() {
 #endif
 	//apply_settings({});
 
+
+
 }
 
 HARQ::~HARQ() {
 
 }
-
+/*
 inline void HARQ::add_frame_to_queue(Frame &f, unsigned int queue_id) {
 	{
 		std::unique_lock<std::mutex> lock(*packet_queues_locks[queue_id]);
@@ -54,80 +56,55 @@ inline HARQ::Frame HARQ::next_frame(unsigned int& queue_id) {
 inline bool HARQ::is_next_frame_available(unsigned int& queue_id) {
 	return !packet_queues[queue_id].get()->empty();
 }
+*/
 
 inline void HARQ::substitute_packet(unsigned int queue_id){
-	Frame getframe = next_frame(queue_id);
-			if(getframe.packets.size() == 0)
-				return;
-
-			packet_outgoing_tfh[queue_id].apply_parameters(this->timeout, getframe.resend_time);
-			{
-				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
-				current_packet_outgoings[queue_id] = std::move(getframe);
-			}
-
-	#ifdef USE_PML
-			PML->packet_out(current_packet_outgoings[queue_id]);
-	#endif
-		send_to_radio(current_packet_outgoings[queue_id]);
-		packet_outgoing_tfh[queue_id].start();
 }
 
 inline void HARQ::worker_packetout(){
 	printf("Packetout starting\n");
-	for(unsigned int queue_id = 0; queue_id < packet_queue_max_len; queue_id++){
-	packet_outgoing_tfh[queue_id].set_resend_call([this, queue_id] {
+
+	packet_outgoing_tfh.set_resend_call([this] {
 #ifdef USE_PML
-		PML->packet_out(current_packet_outgoings[queue_id].packets.back());
+		PML->packet_out(current_packet_outgoing.packets.back());
 	#endif
-		this->send_to_radio(current_packet_outgoings[queue_id].packets.back(), true);
+		this->send_to_radio(current_packet_outgoing.packets.back(), true);
 	});
 
-	packet_outgoing_tfh[queue_id].set_fire_call([this, queue_id] {
+	packet_outgoing_tfh.set_fire_call([this] {
 		//printf("Fired pack %d\n",queue_id);
 		#ifdef USE_PML
-		PML->expired(current_packet_outgoings[queue_id]);
+		PML->expired(current_packet_outgoing);
 		#endif
 
 
-		printf("Packet %d EXPIRED\n", queue_id);
+		printf("Packet EXPIRED\n");
 
 	});
-	packet_outgoing_tfh[queue_id].set_invalidated_call([this, queue_id] {
+	packet_outgoing_tfh.set_invalidated_call([this] {
 		//printf("Invalidated pack %d\n",queue_id);
 		#ifdef USE_PML
-		PML->acked(current_packet_outgoings[queue_id]);
+		PML->acked(current_packet_outgoing);
 		#endif
 
 	});
-	}
 
-	TimedFrameHandler thread_core(1000, 1);
-	thread_core.set_resend_call([&] {
-		if(!running_nxp){
-			thread_core.invalidate_timer();
-			return;
-		}
-		for(unsigned int queue_id = 0; queue_id < packet_queue_max_len; queue_id++){
-			if(!packet_outgoing_tfh[queue_id].finished()){
-				packet_outgoing_tfh[queue_id].run();
-			} else if(is_next_frame_available(queue_id)){
-				substitute_packet(queue_id);
-			}
-		}
-
-	});
-	thread_core.set_fire_call([&] {
-
-	});
-	thread_core.set_invalidated_call([&] {
-
-	});
 
 	while (running_nxp) {
 
+		Frame getframe = next_frame();
+		if(getframe.packets.size() == 0)
+			return;
+		packet_outgoing_tfh.apply_parameters(this->timeout, getframe.resend_time);
+		{
+			std::unique_lock<std::mutex> lk(packet_outgoing_lock);
+			current_packet_outgoing = std::move(getframe);
+		}
 
-		thread_core.start();
+		send_to_radio(current_packet_outgoing);
+		packet_outgoing_tfh.start();
+
+
 
 	}
 	printf("Packetout exiting\n");
@@ -188,7 +165,7 @@ inline void HARQ::process_tun(TunMessage &m) {
 #ifdef USE_PML
 	PML->tun_in_to_out(m, f);
 #endif
-	add_frame_to_queue(f, id-1);
+	add_frame_to_queue(f);
 
 }
 
@@ -241,20 +218,27 @@ inline void HARQ::process_packet(RFMessage &m) {
 					return;
 				}
 
-				unsigned int queue_id = unpack_id(m.data.get()[2])-1;
+				unsigned int p_id = unpack_id(m.data.get()[2]);
 
-				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
+				std::unique_lock<std::mutex> lk(packet_outgoing_lock);
 				uint8_t u_id, u_seg;
 				bool u_lp;
-				int current_out_size = current_packet_outgoings[queue_id].packets.size();
+				int current_out_size = current_packet_outgoing.packets.size();
 				if(current_out_size == 0){
 					printf("No packet is outgoing, quitting\n");
 					return;
 				}
 
+				if (p_id != unpack_id(current_packet_outgoing.packets.front().data[0])) {
+					printf("Requested packet not in consideration\n");
+					return;
+				}
+
+
+
 				for(int i = 0; i < len_or_crc; i++){
 					unpack(m.data.get()[2+i],u_id, u_seg, u_lp);
-					if(unpack_id(current_packet_outgoings[queue_id].packets.front().data.get()[0]) != u_id){
+					if(unpack_id(current_packet_outgoing.packets.front().data[0]) != u_id){
 						printf("Invalid id in NACK request\n");
 						continue;
 					}
@@ -264,32 +248,33 @@ inline void HARQ::process_packet(RFMessage &m) {
 					}
 					//printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
 #ifdef USE_PML
-					PML->recalled(current_packet_outgoings[queue_id].packets[current_out_size-1-u_seg]);
+					PML->recalled(current_packet_outgoing.packets[current_out_size-1-u_seg]);
 #endif
 
-					send_to_radio(current_packet_outgoings[queue_id].packets[current_out_size-1-u_seg]);
+					send_to_radio(current_packet_outgoing.packets[current_out_size-1-u_seg]);
 				}
 
 				//if (packet_outgoing_tfh[queue_id])
-					if (!packet_outgoing_tfh[queue_id].finished())
-						packet_outgoing_tfh[queue_id].reset_resend();
+				if (!packet_outgoing_tfh.finished())
+					packet_outgoing_tfh.reset_resend();
 
 
 
 			}else if(seg < id_max){
-				unsigned int queue_id = seg-1;
-				std::unique_lock<std::mutex> lock(*packet_outgoing_locks[queue_id]);
-				bool c1 = (current_packet_outgoings[queue_id].packets.size() == 1 ? true : (len_or_crc == current_packet_outgoings[queue_id].packets[1].data.get()[1]));
-				//c1 = 1;
-				if(c1){
+
+				std::unique_lock<std::mutex> lk(packet_outgoing_lock);
+				//bool c1 = (current_packet_outgoing.packets.size() == 1 ? true : (len_or_crc == current_packet_outgoing.packets[1].data.get()[1]));
+				//c1 = true;
+				bool c2 = seg==unpack_id(current_packet_outgoing.packets.front().data.get()[0]);
+				if(/*c1 &&*/ c2){
 					// ACK ID!
 					//printf("Ack! %d\t",seg);
 					//if (packet_outgoing_tfh[queue_id])
-						if (!packet_outgoing_tfh[queue_id].finished())
-							packet_outgoing_tfh[queue_id].invalidate_timer();
-				}else{
-					//printf("This is an ACK, but we couldn't verify either CRC: %d, or id: %d, %d -> %d\n",c1,seg,unpack_id(current_packet_outgoings[queue_id].packets.front().data.get()[0]),c2);
-				}
+					if (!packet_outgoing_tfh.finished())
+						packet_outgoing_tfh.invalidate_timer();
+				}//else{
+				//   printf("This is an ACK, but we couldn't verify either CRC: %d, or id: %d, %d -> %d\n",c1,seg,unpack_id(current_packet_outgoing.packets.front().data.get()[0]),c2);
+				//}
 
 			}else{
 				printf("GUESS: Radio screwed up (seg, len %d)\n", len_or_crc);
@@ -375,32 +360,11 @@ inline void HARQ::apply_settings(const Settings &settings) {
 	running_nxfq = true;
 
 	packet_eaters.clear();
-	packet_outgoing_tfh.clear();
-	packet_queues.clear();
-	packet_outgoing_locks.clear();
-	packet_queues_locks.clear();
-	packet_queues_cvs.clear();
-	current_packet_outgoings.clear();
-
 	packet_eaters.reserve(packet_queue_max_len);
-	packet_queues.reserve(packet_queue_max_len);
-	packet_outgoing_locks.reserve(packet_queue_max_len);
-	packet_queues_locks.reserve(packet_queue_max_len);
-	packet_queues_cvs.reserve(packet_queue_max_len);
-	current_packet_outgoings.reserve(packet_queue_max_len);
-	packet_outgoing_tfh.reserve(packet_queue_max_len);
+
 
 	for (unsigned int pippo = 0; pippo < packet_queue_max_len; ++pippo) {
-		packet_eaters.push_back(
-				std::make_unique<PacketConsumer>(bytes_per_submessage, mtu,
-						segment_max, this));
-		packet_queues.push_back(std::make_unique<std::queue<Frame>>());
-		current_packet_outgoings.emplace_back(); // Construct a new Frame
-		packet_outgoing_tfh.emplace_back(); // Construct a new NonBlockingTimer
-		packet_outgoing_locks.push_back(std::make_unique<std::mutex>()); // Construct a new std::mutex
-		packet_queues_locks.push_back(std::make_unique<std::mutex>()); // Construct a new std::mutex
-		packet_queues_cvs.push_back(
-				std::make_unique<std::condition_variable>()); // Construct a new std::condition_variable
+		packet_eaters.push_back(std::make_unique<PacketConsumer>(bytes_per_submessage, mtu,segment_max, this));
 	}
 
 	frame_thread = std::thread([this]() {

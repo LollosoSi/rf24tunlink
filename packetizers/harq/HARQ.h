@@ -43,17 +43,14 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		bool use_estimate;
 		double estimate_resend_wait_time;
 
-		std::vector<Frame> current_packet_outgoings;
+		Frame current_packet_outgoing;
 		std::thread frame_thread;
-		std::vector<std::unique_ptr<std::queue<Frame>>> packet_queues;
-		std::vector<std::unique_ptr<std::mutex>> packet_outgoing_locks;
-		std::vector<std::unique_ptr<std::mutex>> packet_queues_locks;
-		std::vector<std::unique_ptr<std::condition_variable>> packet_queues_cvs;
-		std::vector<NonBlockingTimer> packet_outgoing_tfh;
+		std::mutex packet_outgoing_lock;
+		TimedFrameHandler packet_outgoing_tfh = TimedFrameHandler(1000,1);
 
-		inline bool is_next_frame_available(unsigned int& queue_id);
-		inline Frame next_frame(unsigned int& queue_id);
-		inline void add_frame_to_queue(Frame &f, unsigned int queue_id);
+		//inline bool is_next_frame_available(unsigned int& queue_id);
+		//inline Frame next_frame(unsigned int& queue_id);
+		//inline void add_frame_to_queue(Frame &f, unsigned int queue_id);
 
 		std::vector<std::unique_ptr<PacketConsumer>> packet_eaters;
 
@@ -69,19 +66,6 @@ class HARQ : public Packetizer<TunMessage,RFMessage> {
 		inline void stop_worker() {
 			running_nxp = false;
 			running_nxfq = false;
-
-			for (auto &cv : packet_queues_cvs) {
-				cv->notify_all();
-			}
-
-			for (size_t i = 0; i < packet_queues.size(); ++i) {
-				std::unique_lock<std::mutex> lock(*packet_queues_locks[i]);
-				running_nxfq = false;
-			}
-
-			for (auto &cv : packet_queues_cvs) {
-				cv->notify_all();
-			}
 
 			if (frame_thread.joinable()) {
 				std::cout << "Waiting for packetout to join...";

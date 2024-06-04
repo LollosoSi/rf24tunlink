@@ -26,8 +26,9 @@ class DualRF24 : public RadioInterface {
 
 		bool role = true;
 
-		RF24* radio0 = nullptr;
-		RF24* radio1 = nullptr;
+		RF24 radio0;
+		RF24 radio1;
+		bool radio_ready_to_use = false;
 
 		inline void resetRadio0(bool print_info = true, bool acquire_lock = true);
 		inline void resetRadio1(bool print_info = true, bool acquire_lock = true);
