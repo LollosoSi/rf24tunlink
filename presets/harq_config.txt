@@ -1,0 +1,44 @@
+#	The packetizer (Accepted values: HARQ, latency_evaluator)
+#	Type:	string
+packetizer=harq
+
+#	Whether to use the estimated latency instead of the fixed wait time. If enabled, the actual wait time will be (number of packets)*tuned_ARQ_wait_singlepacket
+#	Type:	bool
+use_tuned_arq_wait=yes
+
+#	Estimate of the worst case latency in ms (send packet - receive). Evaluate with your pair using the packetizer: latency_evaluator
+#	Type:	double
+tuned_arq_wait_singlepacket=0.800000
+
+#	The minimum time in milliseconds the ARQ algorithm should wait before declaring one packet lost
+#	Type:	uint16
+minimum_arq_wait=10
+
+#	The maximum time in milliseconds to retry sending one frame before dropping it
+#	Type:	uint16
+maximum_frame_time=150
+
+#	Filename for the CSV output (leave empty for no output)
+#	Type:	string
+csv_out_filename=
+
+#	The data bytes for the Reed-Solomon codec
+#	Type:	uint8
+data_bytes=30
+
+#	The ECC bytes for the Reed-Solomon codec (note, one byte might be used as CRC, this element must be >0)
+#	Type:	uint8
+ecc_bytes=2
+
+#	(HARQ only) How many bits should be used for packet identification (range: 1-2) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8
+#	Type:	uint8
+bits_id=2
+
+#	(HARQ only) How many bits should be used for packet segmentation (range: 4-5) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8
+#	Type:	uint8
+bits_segment=5
+
+#	(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8
+#	Type:	uint8
+bits_lastpacketmarker=1
+

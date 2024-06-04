@@ -1,0 +1,105 @@
+#	The radio handler (Accepted values: DualRF24)
+#	Type:	string
+radio_handler=dualrf24
+
+#	SPI Speed in Hz for all RF24 radios
+#	Type:	uint32
+spi_speed=10000000
+
+#	The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )
+#	Type:	uint8
+data_rate=1
+
+#	Power setting for all radios (Accepted values: 0 - MIN, 1 - LOW, 2 - HIGH, 3 - MAX)
+#	Type:	uint8
+radio_power=0
+
+#	Delay for each automatic retransmission of failed packets from the radio
+#	Type:	uint8
+radio_delay=1
+
+#	How many retries the radio should do before skipping the packet
+#	Type:	uint8
+radio_retries=15
+
+#	CE pin for the radio0
+#	Type:	integer
+ce_0_pin=24
+
+#	CSN pin for the radio0 (it's system CE)
+#	Type:	integer
+csn_0_pin=0
+
+#	CE pin for the radio1
+#	Type:	integer
+ce_1_pin=26
+
+#	CSN pin for the radio1 (it's system CE)
+#	Type:	integer
+csn_1_pin=12
+
+#	IRQ pin of the radio 0
+#	Type:	integer
+irq_pin_radio0=5
+
+#	IRQ pin of the radio 1
+#	Type:	integer
+irq_pin_radio1=6
+
+#	Whether the RF24 should auto ack. Used in one radio setups
+#	Type:	bool
+auto_ack=no
+
+#	Whether the RF24 radio should use dynamic sized payloads (best performance is no)
+#	Type:	bool
+dynamic_payloads=no
+
+#	Whether the RF24 radio should use ACK payloads (only for single radio setups)
+#	Type:	bool
+ack_payloads=no
+
+#	The CRC length for the RF24 module in bytes. (Accepted values 0 to 2). Should be disabled with the double radio setup.
+#	Type:	uint8
+crc_length=0
+
+#	Channel of the radio 0 (Accepted values: 0 to 124)
+#	Type:	uint8
+channel_0=10
+
+#	Channel of the radio 1 (Accepted values: 0 to 124)
+#	Type:	uint8
+channel_1=120
+
+#	Bytes for the radio address. (Accepted values: 3 to 5). Recommended to leave this as 3.
+#	Type:	uint8
+address_bytes=3
+
+#	Size of the payload. This value is 32 and shouldn't be touched unless you intend to use radios different than RF24
+#	Type:	uint8
+payload_size=32
+
+#	Pipe address 0
+# (NOTE: all pipes must share the first 32 bits. Example: nn1, nn2, nn3 are valid addresses and should work)
+# (NOTE: All pipes must have the byte length specified in address_bytes)
+#	Type:	string
+address_0_1=nn1
+
+#	Pipe address 1
+#	Type:	string
+address_0_2=nn2
+
+#	Pipe address 2
+#	Type:	string
+address_0_3=nn3
+
+#	Pipe address 3
+#	Type:	string
+address_1_1=nn4
+
+#	Pipe address 4
+#	Type:	string
+address_1_2=nn5
+
+#	Pipe address 5
+#	Type:	string
+address_1_3=nn6

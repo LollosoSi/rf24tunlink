@@ -1,0 +1,15 @@
+#	The tunnel handler (Accepted values: TUN, UART)
+#	Type:	string
+tunnel_handler=tun
+
+#	The network mask of the interface
+#	Type:	string
+netmask=255.255.255.0
+
+#	The interface name
+#	Type:	string
+iname=arocc
+
+#	How many packets can be queued for TX
+#	Type:	integer
+tx_queuelength=500
