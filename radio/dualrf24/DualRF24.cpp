@@ -31,12 +31,17 @@ inline void DualRF24::apply_settings(const Settings &settings){
 	RadioInterface::apply_settings(settings);
 	role = settings.primary;
 
+	stop_module();
+
 	my_instance = this;
 
 	if(settings.irq_pin_radio0 == 0){
 		std::cout << "IRQ PIN for radio 0 can't be unset\n";
 		throw std::invalid_argument("IRQ PIN RADIO0 UNSET");
 	}
+
+	payload_size = current_settings()->payload_size;
+	auto_ack = current_settings()->auto_ack;
 
 	if (!radio0)
 		radio0 = new RF24(settings.ce_0_pin,
@@ -50,6 +55,8 @@ inline void DualRF24::apply_settings(const Settings &settings){
 	resetRadio0();
 	resetRadio1();
 	running = true;
+
+	//radio_read_thread_ptr = std::make_unique<std::thread>([&]{radio_read_thread();});
 }
 
 inline bool DualRF24::check_radio_status(RF24* radio) {
@@ -94,6 +101,7 @@ inline void DualRF24::receive_ISR_rx(){
 			}
 		}
 		//printf("[Radio Read]Collected packets: %ld\n",messages.size());
+		// TODO: Check if this is safe
 		packetizer->input(messages);
 	}
 
@@ -101,15 +109,39 @@ inline void DualRF24::receive_ISR_rx(){
 		resetRadio0(false, false);
 }
 
+inline void DualRF24::radio_read_thread() {
+	while (running) {
+		std::deque<RFMessage> messages;
+		uint8_t pipe = 0;
+		while (radio0->available(&pipe)) {
+			RFMessage rfm = pmf->make_new_packet();
+			radio0->read(rfm.data.get(), radio0->getPayloadSize());
+			switch (pipe) {
+			default:
+				break;
+			case 0:
+			case 1:
+				messages.push_back(std::move(rfm));
+				break;
+			}
+		}
+		//printf("[Radio Read]Collected packets: %ld\n",messages.size());
+		// TODO: Check if this is safe
+		packetizer->input(messages);
+	}
+	printf("Radio read exiting\n");
+}
+
 inline void DualRF24::receive_ISR_tx(){
 	bool tx_ds = 0, tx_df = 0, rx_dr = 0;  // declare variables for IRQ masks
 	{
 	std::unique_lock lock(radio1_mtx);
 	radio1->whatHappened(tx_ds, tx_df, rx_dr);
-	tx_done = true;
+	if(tx_ds || tx_df)
+		tx_done = true;
 	}
 	radio1_cv.notify_all();
-	printf("TX ISR %d, %d, %d\n",tx_ds,tx_df,rx_dr);
+	//printf("TX ISR %d, %d, %d\n",tx_ds,tx_df,rx_dr);
 }
 
 inline void DualRF24::input_finished(){
@@ -121,10 +153,12 @@ inline void DualRF24::input_finished(){
 }
 
 inline void DualRF24::send_tx(){
+	tx_done = false;
 	if(!radio1->txStandBy()){
 		radio1->flush_tx();
-		radio1->flush_rx();
+	//	radio1->flush_rx();
 	}
+	//std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 
 inline bool DualRF24::input(RFMessage &m){
@@ -136,22 +170,51 @@ inline bool DualRF24::input(RFMessage &m){
 	});
 	if(!running) return (false);
 
-	if (check_radio_status(radio1))
-		resetRadio1(false, false);
+	//if (check_radio_status(radio1))
+	//	resetRadio1(false, false);
 
 
 	//tx_done = false;
-	if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack) || buffer_counter++ == 1)
-		send_tx();
+	radio1->write(m.data.get(), 32);  // Write data to the radio
 
-	if(buffer_counter > 1)
-		buffer_counter = 0;
+	//if(++buffer_counter == 3){
+		send_tx();
+	//	buffer_counter = 0;
+	//}
+
+
+
+	//if(buffer_counter > 1)
+	//	buffer_counter = 0;
 
 	// Get all packets out of the way
-	if (!radio1->isFifo(true, true))
-		send_tx();
+	//if (!radio1->isFifo(true, true))
+	//	send_tx();
 
 	return (true);
+}
+
+inline bool DualRF24::input(std::vector<RFMessage> &q){
+	std::unique_lock lock(radio1_mtx);
+		radio1_cv.wait(lock, [&] {
+			return (!running || radio1);
+		});
+		if(!running) return (false);
+
+		if(check_radio_status(radio1))
+			resetRadio1(false,false);
+
+		auto m = q.begin();
+		while (m != q.end()) {
+			for (uint8_t i = 0; i < 3 && m != q.end(); ++i) {
+				// Send up to 3 messages
+				radio1->write(m->data.get(), 32);  // Write data to the radio
+				++m;
+			}
+			send_tx();  // Send the current batch
+
+		}
+return true;
 }
 
 inline bool DualRF24::input(std::deque<RFMessage> &q){
@@ -165,18 +228,23 @@ inline bool DualRF24::input(std::deque<RFMessage> &q){
 	if(check_radio_status(radio1))
 		resetRadio1(false,false);
 
-
-	for(auto& m : q){
-		if(!radio1->writeFast(m.data.get(), current_settings()->payload_size, !current_settings()->auto_ack) || buffer_counter++ == 1)
-			send_tx();
-
-		if(buffer_counter > 1)
-				buffer_counter = 0;
+	auto m = q.begin();
+	while (m != q.end()) {
+		for (uint8_t i = 0; i < 3 && m != q.end(); ++i) {
+			// Send up to 3 messages
+			radio1->write(m->data.get(), 32);  // Write data to the radio
+			++m;
+		}
+		send_tx();  // Send the current batch
+		//radio1_cv.wait(lock, [&] {
+		//	return tx_done;  // Wait for the transmission to complete
+		//});
 	}
 
 	// Get all packets out of the way
-	if (!radio1->isFifo(true, true))
-		send_tx();
+	//if (!radio1->isFifo(true, true))
+	//	send_tx();
+
 
 
 	return (true);
@@ -371,7 +439,7 @@ inline void DualRF24::resetRadio1(bool print_info, bool acquire_lock) {
 	}
 
 	// Configure radio1 to interrupt for write events
-	//radio1->maskIRQ(false, false, true);
+	radio1->maskIRQ(false, false, true);
 
 	if (!attached_tx) {
 		//attached_tx = true;
@@ -393,17 +461,23 @@ inline void DualRF24::resetRadio1(bool print_info, bool acquire_lock) {
 
 
 inline void DualRF24::stop_module(){
-	radio0->stopListening();
-	radio1->stopListening();
-	radio0->flush_rx();
-	radio0->flush_tx();
-	radio1->flush_rx();
-	radio1->flush_tx();
 
 	running = false;
 	radio0_cv.notify_all();
 	radio1_cv.notify_all();
+	if (radio_read_thread_ptr)
+		if (radio_read_thread_ptr->joinable())
+			radio_read_thread_ptr->join();
+	radio_read_thread_ptr.reset();
 
+	if (radio0) {
+		radio0->stopListening();
+		radio1->stopListening();
+		radio0->flush_rx();
+		radio0->flush_tx();
+		radio1->flush_rx();
+		radio1->flush_tx();
+	}
 
 	if (attached_rx) {
 		attached_rx = false;

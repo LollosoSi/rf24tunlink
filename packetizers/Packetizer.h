@@ -94,6 +94,9 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 				inline bool input(radio_message_class &m) {
 					return (p->receive_radio(m));
 				}
+				inline bool input(std::deque<radio_message_class> &m) {
+					return (p->receive_radio(m));
+				}
 				inline void apply_settings(const Settings &settings){};
 				inline void stop_module(){};
 		};
@@ -135,12 +138,23 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			return (true);
 		}
 		inline bool receive_radio(radio_message_class &m) {
-			//{
-			//	std::lock_guard lock(radio_in_mtx);
-			//	incoming_packets.push_back(std::move(m));
-			//}
-			//radio_cv.notify_all();
-			process_packet(m);
+			{
+				std::lock_guard lock(radio_in_mtx);
+				incoming_packets.push_back(std::move(m));
+			}
+			radio_cv.notify_all();
+			//process_packet(m);
+			return (true);
+		}
+		inline bool receive_radio(std::deque<radio_message_class> &m) {
+			{
+				std::lock_guard lock(radio_in_mtx);
+				incoming_packets.insert(incoming_packets.end(),
+				  std::make_move_iterator(m.begin()),
+				  std::make_move_iterator(m.end()));
+			}
+			radio_cv.notify_all();
+			//process_packet(m);
 			return (true);
 		}
 
@@ -168,8 +182,8 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		}
 
 		inline void worker_packet() {
-			printf("Worker packet thread is disabled for this instance\n");
-			return;
+			//printf("Worker packet thread is disabled for this instance\n");
+			//return;
 			while (running_wpk) {
 				//radio_message_class f = nullptr;
 				{

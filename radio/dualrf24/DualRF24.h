@@ -20,6 +20,8 @@
 
 class DualRF24 : public RadioInterface {
 
+		std::unique_ptr<std::thread> radio_read_thread_ptr;
+
 		unsigned int payload_size = 32;
 
 		bool role = true;
@@ -31,6 +33,9 @@ class DualRF24 : public RadioInterface {
 		inline void resetRadio1(bool print_info = true, bool acquire_lock = true);
 
 		inline bool check_radio_status(RF24* radio);
+		inline void radio_read_thread();
+
+		bool auto_ack = false;
 
 		std::mutex radio0_mtx, radio1_mtx;
 		std::condition_variable radio0_cv, radio1_cv;
@@ -49,6 +54,7 @@ class DualRF24 : public RadioInterface {
 		inline void input_finished();
 		inline bool input(RFMessage &m);
 		inline bool input(std::deque<RFMessage> &q) override;
+		inline bool input(std::vector<RFMessage> &q) override;
 
 		inline void apply_settings(const Settings &settings);
 		inline void stop_module();
