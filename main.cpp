@@ -10,8 +10,10 @@
 #include "radio/RadioInterface.h"
 
 #include "radio/dualrf24/DualRF24.h"
+#include "radio/singlerf24/SingleRF24.h"
 
 #include "packetizers/harq/HARQ.h"
+#include "packetizers/arq/ARQ.h"
 #include "packetizers/latency_evaluator/LatencyEvaluator.h"
 
 // Thread naming
@@ -76,6 +78,9 @@ Packetizer<TunMessage, RFMessage>* select_packetizer_from_settings(const Setting
 	case Settings::packetizers_available::latency_evaluator:
 			return new LatencyEvaluator();
 			break;
+	case Settings::packetizers_available::arq:
+		return new ARQ();
+		break;
 	}
 }
 
@@ -89,6 +94,9 @@ RadioInterface* select_radio_from_settings(const Settings &settings) {
 		break;
 	case Settings::radios_available::dualrf24:
 		return new DualRF24();
+		break;
+	case Settings::radios_available::singlerf24:
+		return new SingleRF24();
 		break;
 	}
 }
@@ -164,6 +172,7 @@ int main(int argc, char **argv) {
 			stop_program = true;
 			break;
 		case 'r':
+			read_settings_function();
 			reload_settings_function();
 			break;
 		}

@@ -89,6 +89,7 @@ class Settings {
 		uint16_t maximum_frame_time = 150;
 		double tuned_ARQ_wait_singlepacket = 0.8;
 		bool use_tuned_ARQ_wait = true;
+		uint16_t empty_packet_delay = 20;
 
 		bool display_telemetry = false;
 		std::string csv_out_filename = "";	// CSV output, NULLPTR for no output
@@ -295,10 +296,11 @@ class Settings {
 		}
 
 		// NOTE: names and enum have to be in corresponding order!
-		std::vector<std::string> packetizers_names = { "harq", "latency_evaluator" };
+		std::vector<std::string> packetizers_names = { "harq", "latency_evaluator", "arq" };
 		enum packetizers_available {
 			harq,
-			latency_evaluator
+			latency_evaluator,
+			arq
 		};
 
 		const packetizers_available find_packetizer_index() const {
@@ -315,9 +317,10 @@ class Settings {
 		}
 
 		// NOTE: names and enum have to be in corresponding order!
-		std::vector<std::string> radios_names = { "dualrf24" };
+		std::vector<std::string> radios_names = { "dualrf24", "singlerf24" };
 		enum radios_available {
-			dualrf24
+			dualrf24,
+			singlerf24
 		};
 
 		const radios_available find_radio_index() const {
@@ -350,7 +353,7 @@ class Settings {
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
 				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
-		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker};
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -361,13 +364,13 @@ class Settings {
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
 				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
-                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker"};
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
 				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
-		        double_fp, boolean, integer, uint8, uint8, uint8};
+		        double_fp, boolean, integer, uint8, uint8, uint8, uint16};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -379,8 +382,8 @@ class Settings {
 						"Filename for the CSV output (leave empty for no output)",
 						"Divider character for the output file values",
 						"The tunnel handler (Accepted values: TUN, UART)",
-						"The packetizer (Accepted values: HARQ, latency_evaluator)",
-						"The radio handler (Accepted values: DualRF24)",
+						"The packetizer (Accepted values: HARQ, latency_evaluator, ARQ)",
+						"The radio handler (Accepted values: DualRF24, SingleRF24)",
 						"Whether the RF24 should auto ack. Used in one radio setups",
 						"CE pin for the radio0",
 						"CSN pin for the radio0 (it's system CE)",
@@ -411,7 +414,8 @@ class Settings {
 						"How many packets can be queued for TX",
 						"(HARQ only) How many bits should be used for packet identification (range: 1-2) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
 						"(HARQ only) How many bits should be used for packet segmentation (range: 4-5) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
-						"(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8"};
+						"(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"The ARQ inactive delay in ms before sending one empty packet (to be used with ACK payloads in SingleRF24)"};
 };
 
 class SettingsCompliant {
