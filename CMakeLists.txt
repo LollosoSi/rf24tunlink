@@ -6,9 +6,9 @@ project (rf24tunlink2
 	DESCRIPTION "TUN Link Driver")
 
 
-#add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
+add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
 
-set(CMAKE_BUILD_TYPE Debug) 
+#set(CMAKE_BUILD_TYPE Debug) 
 
 # AddressSanitizer flags, only needed for debugging
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
