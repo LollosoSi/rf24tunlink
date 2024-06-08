@@ -6,9 +6,9 @@ project (rf24tunlink2
 	DESCRIPTION "TUN Link Driver")
 
 
-add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
+#add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
 
-#set(CMAKE_BUILD_TYPE Debug) 
+set(CMAKE_BUILD_TYPE Debug) 
 
 # AddressSanitizer flags, only needed for debugging
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
@@ -49,6 +49,7 @@ set(generics
 set(dialogators
     system_dialogators/tun/TUNInterface.h
     system_dialogators/tun/TUNInterface.cpp
+    system_dialogators/uart/UARTHandler.h
     packetizers/Packetizer.h
     packetizers/latency_evaluator/LatencyEvaluator.h
     packetizers/latency_evaluator/LatencyEvaluator.cpp
@@ -60,6 +61,8 @@ set(radios
 	radio/dualrf24/DualRF24.cpp
 	radio/singlerf24/SingleRF24.h
 	radio/singlerf24/SingleRF24.cpp
+	radio/picorf24/PicoRF24.h
+	radio/picorf24/PicoRF24.cpp
 )
 
 set(packetizers

@@ -6,11 +6,14 @@
 
 #include "generic_structures.h"
 #include "system_dialogators/tun/TUNInterface.h"
+#include "system_dialogators/uart/UARTHandler.h"
+
 #include "packetizers/Packetizer.h"
 #include "radio/RadioInterface.h"
 
 #include "radio/dualrf24/DualRF24.h"
 #include "radio/singlerf24/SingleRF24.h"
+#include "radio/picorf24/PicoRF24.h"
 
 #include "packetizers/harq/HARQ.h"
 #include "packetizers/arq/ARQ.h"
@@ -37,6 +40,30 @@ bool ready_to_exit = false;
 
 bool stop_program = false;
 
+void test(){
+
+	//UARTHandler ua("/dev/ttyACM0");
+	/*unsigned long msecs = 0;
+	while (true) {
+		if (current_millis() > msecs + 1000) {
+			msecs = current_millis();
+			printf("Mbps: %f\n", (ua.receivedbytes * 8) / 1000000.0f);
+			ua.receivedbytes = 0;
+		}
+		std::this_thread::yield();
+	}*/
+
+	Settings S;
+
+	PicoRF24 prf = PicoRF24();
+	prf.apply_settings(S);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+
+	prf.apply_settings(S);
+	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+}
+
 void catch_setups() {
 	/*Do this early in your program's initialization */
 	signal(SIGABRT, [](int signal_number) {
@@ -46,6 +73,7 @@ void catch_setups() {
 		 (with a dialog box on Windows).
 		 */
 		stop_program=true;
+		cv.notify_all();
 		std::cout << "SIGABORT caught. Ouch.\n";
 	});
 
@@ -57,6 +85,7 @@ void catch_setups() {
 			printf("Caught exit signal\n");
 			// TODO: Handle signals gracefully
 			stop_program=true;
+			cv.notify_all();
 		}
 	};
 	sigemptyset(&sigIntHandler.sa_mask);
@@ -81,6 +110,7 @@ Packetizer<TunMessage, RFMessage>* select_packetizer_from_settings(const Setting
 	case Settings::packetizers_available::arq:
 		return new ARQ();
 		break;
+
 	}
 }
 
@@ -98,6 +128,9 @@ RadioInterface* select_radio_from_settings(const Settings &settings) {
 	case Settings::radios_available::singlerf24:
 		return new SingleRF24();
 		break;
+	case Settings::radios_available::picorf24:
+		return new PicoRF24();
+		break;
 	}
 }
 
@@ -106,6 +139,10 @@ int main(int argc, char **argv) {
 	catch_setups();
 
 	prctl(PR_SET_NAME, "Main Thread", 0, 0, 0);
+
+
+	//test();
+	//return 0;
 
 	Settings settings;
 
@@ -162,21 +199,26 @@ int main(int argc, char **argv) {
 	//read_settings_function();
 	//reload_settings_function();
 
-	while(!stop_program){
-		printf("Type 'r' to reload settings, type 'q' to quit\n");
+	//while(!stop_program){
+	//	printf("Type 'r' to reload settings, type 'q' to quit\n");
 		//std::this_thread::sleep_for(1000ms);
-	char a;
-		cin >> a;
-		switch (a) {
-		case 'q':
-			stop_program = true;
-			break;
-		case 'r':
-			read_settings_function();
-			reload_settings_function();
-			break;
-		}
+//	char a;
+//		cin >> a;
+//		switch (a) {
+//		case 'q':
+//			stop_program = true;
+//			break;
+//		case 'r':
+//			read_settings_function();
+//			reload_settings_function();
+//			break;
+//		}
+	//	std::this_thread::sleep_for(std::chrono::microseconds(1000));
+	//}
 
+	{
+		std::unique_lock lock(sleep_mutex);
+		cv.wait(lock, [&]{return stop_program;});
 	}
 
 	TUNI.stop();
