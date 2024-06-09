@@ -78,7 +78,7 @@ void PicoRF24::transfer_settings(PicoSettingsBlock *psb){
 
 	uint8_t* cast_psb = (uint8_t*)psb;
 	int transfersize = sizeof(PicoSettingsBlock);
-
+	printf("Writing %d bytes of PSB\n",transfersize);
 	write(uart_file_descriptor, cast_psb, transfersize);
 
 }
@@ -115,7 +115,6 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 			apply_settings_to_pico_block(psb, current_settings());
 
 			initialize_uart();
-			transfer_settings(&psb);
 			running = true;
 			readthread = std::make_unique<std::thread>([this] {
 
@@ -137,7 +136,7 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 					if (nread != 0) {
 						message.length = nread;
 						//receivedbytes += nread;
-						//printf("From UART %i\n",message.length);
+						//printf("From UART %i %s\n",message.length, message.data.get());
 						//printf("Compares? %d\n",
 						//		std::memcmp(message.data.get(), bfs, bfs_size));
 						//print_hex(message.data.get(), nread);
@@ -148,10 +147,21 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 				}
 
 			});
+			usleep(10000);
+			transfer_settings(&psb);
 		}
 }
 
 inline void PicoRF24::input_finished(){}
+
+inline bool PicoRF24::input(std::vector<RFMessage> &ms) {
+	std::unique_lock<std::mutex>(out_mtx);
+	for (auto &m : ms)
+		write(uart_file_descriptor, m.data.get(), m.length);
+
+	return true;
+}
+
 inline bool PicoRF24::input(RFMessage &m){
 
 	std::unique_lock<std::mutex>(out_mtx);

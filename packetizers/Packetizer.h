@@ -184,6 +184,8 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		inline void worker_packet() {
 			//printf("Worker packet thread is disabled for this instance\n");
 			//return;
+			std::vector<radio_message_class> temp_in;
+
 			while (running_wpk) {
 				//radio_message_class f = nullptr;
 				{
@@ -194,13 +196,17 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 
 					if (!running_wpk)
 						break;
-
-					radio_message_class f = std::move(incoming_packets.front());
-					incoming_packets.pop_front();
-					lock.unlock();
-					process_packet(f);
+					temp_in.reserve(incoming_packets.size());
+					temp_in.insert(temp_in.end(),
+									  std::make_move_iterator(incoming_packets.begin()),
+									  std::make_move_iterator(incoming_packets.end()));
+					incoming_packets.clear();
 				}
-
+				auto it = temp_in.begin();
+				while(it != temp_in.end()){
+					process_packet(*(it++));
+				}
+				temp_in.clear();
 			}
 		}
 

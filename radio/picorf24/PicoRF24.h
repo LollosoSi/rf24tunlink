@@ -22,6 +22,7 @@
 
 #include <mutex>
 
+#pragma pack(push, 1)
 struct PicoSettingsBlock{
 		bool auto_ack = false;
 		bool dynamic_payloads = false;
@@ -44,6 +45,7 @@ struct PicoSettingsBlock{
 		uint8_t address_1_2[6] = "nn5\0\0";
 		uint8_t address_1_3[6] = "nn6\0\0";
 };
+#pragma pack(pop)
 
 static void apply_settings_to_pico_block(PicoSettingsBlock& psb, const Settings* settings){
 	psb.auto_ack = settings->auto_ack;
@@ -86,6 +88,7 @@ class PicoRF24 : public RadioInterface {
 
 		inline void input_finished();
 		inline bool input(RFMessage &m);
+		inline bool input(std::vector<RFMessage> &ms)override;
 		inline void apply_settings(const Settings &settings) override;
 		inline void stop_module();
 
