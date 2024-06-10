@@ -89,7 +89,7 @@ class PicoRF24 : public RadioInterface {
 		inline void input_finished();
 		inline bool input(RFMessage &m);
 		inline bool input(std::vector<RFMessage> &ms)override;
-		inline void apply_settings(const Settings &settings) override;
+		void apply_settings(const Settings &settings) override;
 		inline void stop_module();
 
 };

@@ -7,6 +7,16 @@
 
 #include "PicoRF24.h"
 
+//#define debug_reader
+
+inline void print_hex(uint8_t *d, int l) {
+	for (int i = 0; i < l; i++) {
+		std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0')
+				<< static_cast<int>(d[i]) << " ";
+	}
+	std::cout << std::endl;
+}
+
 PicoRF24::PicoRF24() {
 	uart_file_descriptor = 0;
 
@@ -63,10 +73,16 @@ void PicoRF24::initialize_uart(){
 	tty.c_oflag &= ~OPOST; // No special interpretation of output bytes
 	tty.c_oflag &= ~ONLCR; // Prevent conversion of newline to carriage return/line feed
 
+#ifdef debug_reader
+	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
+		tty.c_cc[VMIN] = 0;
+#else
 	tty.c_cc[VTIME] = 0; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
-	tty.c_cc[VMIN] = 32;
-	cfsetispeed(&tty, B115200);
-	cfsetospeed(&tty, B115200);
+		tty.c_cc[VMIN] = 32;
+#endif
+
+	//cfsetispeed(&tty, B115200);
+	//cfsetospeed(&tty, B115200);
 	if (tcsetattr(uart_file_descriptor, TCSANOW, &tty) != 0) {
 		printf("Error %i from tcsetattr: %s\n", errno, strerror(errno));
 		return;
@@ -100,7 +116,7 @@ void PicoRF24::close_file(){
 	uart_file_descriptor = 0;
 }
 
-inline void PicoRF24::apply_settings(const Settings &settings) {
+void PicoRF24::apply_settings(const Settings &settings) {
 		RadioInterface::apply_settings(settings);
 
 		std::unique_lock<std::mutex>(out_mtx);
@@ -116,6 +132,7 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 
 			initialize_uart();
 			running = true;
+			transfer_settings(&psb);
 			readthread = std::make_unique<std::thread>([this] {
 
 				int nread = 0;
@@ -126,8 +143,9 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 				//			write(file, bfs, bfs_size);
 
 				while (running) {
-					TunMessage message(32);
-					nread = read(uart_file_descriptor, message.data.get(), 32);
+					RFMessage message(50000);
+					memset(message.data.get(), '\0', 50000);
+					nread = read(uart_file_descriptor, message.data.get(), 50000);
 					if (nread < 0) {
 						perror("Reading from interface");
 						close(uart_file_descriptor);
@@ -142,13 +160,28 @@ inline void PicoRF24::apply_settings(const Settings &settings) {
 						//print_hex(message.data.get(), nread);
 						//print_hex(bfs, bfs_size);
 						//write(file, bfs, 32);
-						this->packetizer->input(message);
+						#ifdef debug_reader
+						std::cout << "From UART " << message.length << " . "<< message.data.get()<< std::endl;
+
+						#else
+						/*if((nread%current_settings()->payload_size == 0) && nread > current_settings()->payload_size){
+							for(int i = 0; i < nread/current_settings()->payload_size; i++){
+								TunMessage ms(current_settings()->payload_size);
+								memcpy(ms.data.get(), message.data.get()+(i*current_settings()->payload_size),current_settings()->payload_size);
+								this->packetizer->input(ms);
+							}
+						}else*/
+						//print_hex(message.data.get(), nread);
+							this->packetizer->input(message);
+						#endif
+
 					}
 				}
 
 			});
-			usleep(10000);
-			transfer_settings(&psb);
+			//std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 		}
 }
 

@@ -10,7 +10,6 @@
 #include <inttypes.h>
 
 LatencyEvaluator::LatencyEvaluator() {
-
 	
 }
 
@@ -22,25 +21,22 @@ void LatencyEvaluator::apply_settings(const Settings &settings) {
 	Packetizer::apply_settings(settings);
 	//sendtime = current_millis();
 
-
 	static unique_ptr<std::thread> tt, t;
 
 	//this_thread::sleep_for(std::chrono::milliseconds(1500));
-
-
 
 	sent = 0;
 	received = 0;
 	running = false;
 
 	if (tt)
-		if(tt->joinable()){
+		if (tt->joinable()) {
 			tt->join();
 		}
 	tt.reset();
 	running = false;
 	if (t)
-		if(t->joinable()){
+		if (t->joinable()) {
 			t->join();
 		}
 	t.reset();
@@ -55,7 +51,8 @@ void LatencyEvaluator::apply_settings(const Settings &settings) {
 			uint32_t diffr = received - last_recv, diffs = sent - last_sent;
 			float rate_r = diffr * 32 * 8 / 100.0f, rate_s = diffs * 32 * 8 /100.0f ;
 			float avg_lat = (diffsum / counter);
-			printf("Received %" PRIu64 ", sent: %" PRIu64", rate_r: %f, rate_s: %f kbps, avg lat: %f ms\n",
+			printf(
+					"Received %" PRIu64 ", sent: %" PRIu64", rate_r: %f, rate_s: %f kbps, avg lat: %f ms\n",
 					received, sent, rate_r, rate_s, avg_lat);
 			last_sent = sent;
 			last_recv = received;
@@ -64,32 +61,34 @@ void LatencyEvaluator::apply_settings(const Settings &settings) {
 	});
 
 	if (current_settings()->primary) {
-		t = make_unique<std::thread>([this] {
+		t = make_unique<std::thread>(
+				[this] {
 
-			Frame fg = build_out();
-			while(fg.packets.size() == 0){
-				fg = build_out();
-			}
-			uint64_t j = 0;
-			while ((j++ < 30000) && running) {
-				send_now(fg);
-				//this_thread::sleep_for(std::chrono::milliseconds(100));
-			}
-			printf("Write thread exiting. Reason: %d - %d\n",(j >= 30000), !running);
-		});
+					Frame fg = build_out();
+					while (fg.packets.size() == 0) {
+						fg = build_out();
+					}
+					uint64_t j = 0;
+					while ((j++ < 30000) && running) {
+						send_now(fg);
+						this_thread::sleep_for(std::chrono::milliseconds(10));
+					}
+					printf("Write thread exiting. Reason: %d - %d\n",
+							(j >= 30000), !running);
+				});
 
 	}
 
 }
 
-constexpr unsigned int packets_in_frame = 500;
+constexpr unsigned int packets_in_frame = 1;
 
 Packetizer<TunMessage, RFMessage>::Frame LatencyEvaluator::build_out() {
-	if (!pmf){
-			Frame ff;
-			ff.packets.clear();
-			return ff;
-		}
+	if (!pmf) {
+		Frame ff;
+		ff.packets.clear();
+		return ff;
+	}
 	Frame f;
 	f.packets.reserve(packets_in_frame);
 
@@ -99,46 +98,50 @@ Packetizer<TunMessage, RFMessage>::Frame LatencyEvaluator::build_out() {
 		rfm.length = 32;
 		f.packets.emplace_back(move(rfm));
 	}
-	//sent += 5;
+
 	return f;
 }
 
 void LatencyEvaluator::send_now(Frame &f) {
-	if(f.packets.size() == 0)
+	if (f.packets.size() == 0)
 		return;
-	if(f.packets[0].length != 32)
+	if (f.packets[0].length != 32)
 		return;
-
 
 	uint64_t sendtime = current_millis();
 	uint8_t *split = (uint8_t*) &sendtime;
+	//f.packets[0].data[0] = 0xf3;
 	for (int i = 0; i < 8; i++) {
-		f.packets[0].data.get()[1 + i] = split[i];
-	}
+	 f.packets[0].data.get()[1 + i] = split[i];
+	 }
 
-	sent+=f.packets.size();
+	sent += f.packets.size();
 
 	send_to_radio(f);
 }
 
-void LatencyEvaluator::process_tun(TunMessage &m){
-
+void LatencyEvaluator::process_tun(TunMessage &m) {
 
 }
 
-void LatencyEvaluator::process_packet(RFMessage &m){
+void LatencyEvaluator::process_packet(RFMessage &m) {
 
-
-	if(current_settings()->primary){
+	if (current_settings()->primary) {
 		received++;
+
+		/*if (m.data.get()[0] != 0xf3) {
+
+			printf("not 0xf3\n");
+		}*/
+
 		uint64_t now = current_millis();
 		uint8_t received_time[8];
 		for (int i = 0; i < 8; i++) {
 			received_time[i] = m.data.get()[1 + i];
 		}
-		uint64_t* recv = (uint64_t*)received_time;
-		uint64_t diff = (now-*recv);
-		if(diff > 5000)
+		uint64_t *recv = (uint64_t*) received_time;
+		uint64_t diff = (now - *recv);
+		if (diff > 5000)
 			return;
 		sendtime += diff;
 		diffsum += diff;
@@ -148,8 +151,12 @@ void LatencyEvaluator::process_packet(RFMessage &m){
 		//this_thread::sleep_for(std::chrono::milliseconds(100));
 		//send_now();
 
-	}else{
+	} else {
 		received++;
+		if (m.data.get()[0] != 0xf3) {
+
+			printf("not 0xf3\n");
+		}
 		send_to_radio(m);
 	}
 
