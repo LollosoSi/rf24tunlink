@@ -182,6 +182,7 @@ int main(int argc, char **argv) {
 
 
 	std::function<void()> reload_settings_function([&] {
+		RSC.apply_settings(settings);
 		// MTU can only be calcd after applying the settings
 		packetizer->apply_settings(settings);
 		settings.mtu = packetizer->get_mtu();

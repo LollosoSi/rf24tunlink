@@ -16,6 +16,7 @@ class LatencyEvaluator : public Packetizer<TunMessage,RFMessage>{
 		Packetizer<TunMessage,RFMessage>::Frame build_out();
 
 		uint64_t received = 0, sent = 0;
+		uint64_t received_bytes = 0;
 
 		void process_tun(TunMessage &m);
 		void process_packet(RFMessage &m);

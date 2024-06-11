@@ -12,6 +12,7 @@
 #include <assert.h>
 #include "../../crc.h"
 
+//#define harq_debug_log
 
 static unsigned char bits_to_mask(const int bits) {
 	return (pow(2, bits) - 1);
@@ -192,8 +193,15 @@ inline void HARQ::push_ack_nack(PacketConsumer* pkc){
 inline void HARQ::process_packet(RFMessage &m) {
 	int e_count = 0;
 	if(!rsc->efficient_decode(m.data.get(),settings->payload_size, &e_count)){
+#ifdef harq_debug_log
+		printf("Packet broken\n");
+#endif
 		return;
 	}
+#ifdef harq_debug_log
+	if(e_count)
+		printf("Errors found: %d\n",e_count);
+#endif
 #ifdef USE_PML
 	PML->packet_in(m);
 #endif
@@ -202,8 +210,10 @@ inline void HARQ::process_packet(RFMessage &m) {
 	uint8_t id, seg;
 	bool lp;
 	unpack(m.data.get()[0], id, seg, lp);
-
-	//printf("Decoded; id %d, seg %d, lp %d\t",id,seg,lp);
+#ifdef harq_debug_log
+	printf("Decoded; id %d, seg %d, lp %d\n",id,seg,lp);
+	//print_hex(m.data.get(), settings->payload_size);
+#endif
 
 	switch(id){
 	case 0:
@@ -246,7 +256,9 @@ inline void HARQ::process_packet(RFMessage &m) {
 						printf("Invalid segment in NACK request\n");
 						continue;
 					}
-					//printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
+#ifdef harq_debug_log
+					printf("Rsnd: id %d, seg %d\t",u_id,u_seg);
+#endif
 #ifdef USE_PML
 					PML->recalled(current_packet_outgoing.packets[current_out_size-1-u_seg]);
 #endif
@@ -267,14 +279,19 @@ inline void HARQ::process_packet(RFMessage &m) {
 				//c1 = true;
 				bool c2 = seg==unpack_id(current_packet_outgoing.packets.front().data.get()[0]);
 				if(/*c1 &&*/ c2){
+#ifdef harq_debug_log
 					// ACK ID!
-					//printf("Ack! %d\t",seg);
+					printf("Ack! %d\t",seg);
+#endif
 					//if (packet_outgoing_tfh[queue_id])
 					if (!packet_outgoing_tfh.finished())
 						packet_outgoing_tfh.invalidate_timer();
-				}//else{
-				//   printf("This is an ACK, but we couldn't verify either CRC: %d, or id: %d, %d -> %d\n",c1,seg,unpack_id(current_packet_outgoing.packets.front().data.get()[0]),c2);
-				//}
+				}
+#ifdef harq_debug_log
+				else{
+				   printf("This is an ACK, but we couldn't verify either CRC: -, or id: %d, %d -> %d\n",seg,unpack_id(current_packet_outgoing.packets.front().data.get()[0]),c2);
+				}
+#endif
 
 			}else{
 				printf("GUESS: Radio screwed up (seg, len %d)\n", len_or_crc);
@@ -352,8 +369,6 @@ inline void HARQ::apply_settings(const Settings &settings) {
 	mtu = (((pow(2, segment_bits) * bytes_per_submessage)));
 
 	assert(bytes_per_submessage > 0 && "Invalid payload size");
-
-
 
 	stop_worker();
 	running_nxp = true;

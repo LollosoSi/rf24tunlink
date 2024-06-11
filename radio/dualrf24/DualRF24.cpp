@@ -163,6 +163,14 @@ inline void DualRF24::send_tx(){
 	//std::this_thread::sleep_for(std::chrono::milliseconds(2));
 }
 
+inline void print_hex(uint8_t* d, int l){
+	for (int i = 0; i < l; i++) {
+		std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0')
+				<< static_cast<int>(d[i]) << " ";
+	}
+	std::cout << std::endl;
+}
+
 inline bool DualRF24::input(RFMessage &m){
 
 	std::unique_lock lock(radio1_mtx);
@@ -171,6 +179,8 @@ inline bool DualRF24::input(RFMessage &m){
 		return (!running || radio_ready_to_use);
 	});
 	if(!running || !radio_ready_to_use) return (false);
+	//printf("Data out: ");
+	//print_hex(m.data.get(), settings->payload_size);
 
 	if (!radio1.writeFast(m.data.get(), payload_size, !auto_ack))
 		send_tx();

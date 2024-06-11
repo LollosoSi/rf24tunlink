@@ -143,15 +143,27 @@ void PicoRF24::apply_settings(const Settings &settings) {
 				//			write(file, bfs, bfs_size);
 
 				while (running) {
-					RFMessage message(50000);
-					memset(message.data.get(), '\0', 50000);
-					nread = read(uart_file_descriptor, message.data.get(), 50000);
+					RFMessage message = pmf->make_new_packet();
+					nread = read(uart_file_descriptor, message.data.get(), current_settings()->payload_size);
+
+					//memset(message.data.get(), '\0', current_settings()->payload_size);
+					/*int n = 0;
+					while(n < current_settings()->payload_size){
+						nread = read(uart_file_descriptor, buffer+n, current_settings()->payload_size);
+						n+=nread;
+					}
+					memcpy(message.data.get(), buffer, current_settings()->payload_size);
+					if(n>current_settings()->payload_size){
+						memcpy(buffer, buffer + current_settings()->payload_size,n-current_settings()->payload_size);
+						n-=current_settings()->payload_size;
+					}*/
+
 					if (nread < 0) {
 						perror("Reading from interface");
 						close(uart_file_descriptor);
 						exit(1);
 					}
-					if (nread != 0) {
+					//if (nread == current_settings()->payload_size) {
 						message.length = nread;
 						//receivedbytes += nread;
 						//printf("From UART %i %s\n",message.length, message.data.get());
@@ -171,11 +183,17 @@ void PicoRF24::apply_settings(const Settings &settings) {
 								this->packetizer->input(ms);
 							}
 						}else*/
+
+						//std::cout << std::dec << "From UART " << (int)message.length << "\t";
+								//<< " . "<< message.data.get()<< std::endl;
 						//print_hex(message.data.get(), nread);
+						//std::cout << std::endl;
 							this->packetizer->input(message);
 						#endif
 
-					}
+					//}else{
+					//	std::cout << "From UART different packet length" << message.length << "\t";
+					//}
 				}
 
 			});
@@ -188,6 +206,7 @@ void PicoRF24::apply_settings(const Settings &settings) {
 inline void PicoRF24::input_finished(){}
 
 inline bool PicoRF24::input(std::vector<RFMessage> &ms) {
+	//printf("Writing vector\n");
 	std::unique_lock<std::mutex>(out_mtx);
 	for (auto &m : ms)
 		write(uart_file_descriptor, m.data.get(), m.length);
@@ -196,7 +215,7 @@ inline bool PicoRF24::input(std::vector<RFMessage> &ms) {
 }
 
 inline bool PicoRF24::input(RFMessage &m){
-
+	//printf("Writing packet\n");
 	std::unique_lock<std::mutex>(out_mtx);
 
 	write(uart_file_descriptor, m.data.get(), m.length);
