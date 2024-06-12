@@ -230,8 +230,9 @@ inline bool UARTRF::input(std::vector<RFMessage> &ms) {
 	for (auto &m : ms) {
 		write_stuff(m.data.get(), m.length);
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	return true;
 }
