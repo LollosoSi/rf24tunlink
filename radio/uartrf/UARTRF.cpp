@@ -192,7 +192,7 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	std::unique_lock<std::mutex>(out_mtx);
 	int nread = 0;
 	uint8_t reception[350];
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
 	nread = read(uart_file_descriptor, reception, 350);
 
 	if (nread < 0) {
@@ -203,7 +203,7 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	if (nread > 0)
 		receive_bytes(reception, nread);
 
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	std::this_thread::sleep_for(std::chrono::milliseconds(300));
 
 	uint8_t final_string[receive_buffer_max_size];
 	unsigned int cur = 0, i = 0;
