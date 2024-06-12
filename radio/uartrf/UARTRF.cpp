@@ -78,7 +78,7 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 	std::unique_lock<std::mutex>(out_mtx);
 
 	payload_size = settings.payload_size;
-	receive_buffer_max_size = 2 * payload_size;
+	receive_buffer_max_size = 4 * payload_size;
 	if (receive_buffer)
 		delete[] receive_buffer;
 	receive_buffer = new uint8_t[receive_buffer_max_size];
@@ -121,14 +121,21 @@ void UARTRF::message_reset() {
 
 void UARTRF::message_read_completed() {
 	RFMessage rfm = pmf->make_new_packet(receive_buffer, receive_buffer_cursor);
+#ifdef debug_log
+	if(receive_buffer_cursor==payload_size){
+		printf("Received packet correct size\n");
+	}else{
+		printf("Received packet incorrect size\n");
+	}
+#endif
 	this->packetizer->input(rfm);
 }
 
 void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
-	if (receive_buffer_cursor >= payload_size) {
+	if (receive_buffer_cursor >= ((payload_size*2)+4)) {
 		message_reset();
 #ifdef debug_log
-		printf("Message reset -> payload_size\n");
+		printf("Message reset -> max payload_size\n");
 #endif
 	}
 
