@@ -9,6 +9,14 @@
 
 #define debug_log
 
+inline void print_hex(uint8_t *d, int l) {
+	for (int i = 0; i < l; i++) {
+		std::cout << "0x" << std::hex << std::setw(2) << std::setfill('0')
+				<< static_cast<int>(d[i]) << " ";
+	}
+	std::cout << std::endl;
+}
+
 UARTRF::UARTRF() {
 	// TODO Auto-generated constructor stub
 	
@@ -168,10 +176,15 @@ void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
 		}
 	}
 
+#ifdef debug_log
+	printf("Buffer contains %d bytes\t", receive_buffer_cursor);
+	print_hex(data, receive_buffer_cursor);
+#endif
+
 }
 
 void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
-	uint8_t final_string[length * 3];
+	uint8_t final_string[receive_buffer_max_size];
 	unsigned int cur = 0, i = 0;
 	final_string[cur++] = byte_escape;
 	final_string[cur++] = byte_SOF;
@@ -183,6 +196,10 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	}
 	final_string[cur++] = byte_escape;
 	final_string[cur++] = byte_EOF;
+#ifdef debug_log
+	printf("Writing %d bytes\t", cur);
+	print_hex(data, cur);
+#endif
 	write(uart_file_descriptor, final_string, cur);
 }
 
