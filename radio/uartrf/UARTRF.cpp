@@ -68,7 +68,7 @@ void UARTRF::initialize_uart() {
 	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 		tty.c_cc[VMIN] = 0;
 #else
-	tty.c_cc[VTIME] = 100; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
+	tty.c_cc[VTIME] = 5; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 	tty.c_cc[VMIN] = 0;
 #endif
 
