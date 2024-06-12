@@ -67,8 +67,8 @@ void UARTRF::initialize_uart() {
 	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 		tty.c_cc[VMIN] = 0;
 #else
-	tty.c_cc[VTIME] = 0; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
-	tty.c_cc[VMIN] = 2;
+	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
+	tty.c_cc[VMIN] = 1;
 #endif
 
 	cfsetispeed(&tty, current_settings()->uart_baudrate);
@@ -201,6 +201,7 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	print_hex(data, cur);
 #endif
 	write(uart_file_descriptor, final_string, cur);
+	std::this_thread::sleep_for(std::chrono::milliseconds(35));
 }
 
 void UARTRF::stop_read_thread() {
