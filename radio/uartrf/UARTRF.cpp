@@ -201,7 +201,7 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	print_hex(data, cur);
 #endif
 	write(uart_file_descriptor, final_string, cur);
-	std::this_thread::sleep_for(std::chrono::milliseconds(35));
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 }
 
 void UARTRF::stop_read_thread() {
