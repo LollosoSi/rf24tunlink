@@ -69,7 +69,7 @@ void UARTRF::initialize_uart() {
 		tty.c_cc[VMIN] = 0;
 #else
 	tty.c_cc[VTIME] = 100; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
-	tty.c_cc[VMIN] = 1;
+	tty.c_cc[VMIN] = 0;
 #endif
 
 	cfsetispeed(&tty, current_settings()->uart_baudrate);
@@ -108,12 +108,10 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 			int nread = 0;
 			uint8_t reception[350];
 			while (running) {
-
-				RFMessage message = pmf->make_new_packet();
 				{
-					std::this_thread::sleep_for(std::chrono::milliseconds(100));
-					std::unique_lock<std::mutex>(out_mtx);
-					nread = read(uart_file_descriptor, reception, 350);
+				std::unique_lock<std::mutex>(out_mtx);
+				std::this_thread::sleep_for(std::chrono::milliseconds(100));
+				nread = read(uart_file_descriptor, reception, 350);
 				}
 
 				if (nread < 0) {
