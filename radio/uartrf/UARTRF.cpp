@@ -20,8 +20,8 @@ UARTRF::~UARTRF() {
 
 void UARTRF::initialize_uart() {
 
-	printf("Opening device file: %s\n",
-			current_settings()->uart_device_file.c_str());
+	printf("Opening device file: %s with baudrate %d\n",
+			current_settings()->uart_device_file.c_str(), current_settings()->uart_baudrate);
 	if (current_settings()->uart_device_file.length() == 0) {
 		printf("Empty serial device was passed!\n");
 		return;
