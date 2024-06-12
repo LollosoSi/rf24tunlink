@@ -67,7 +67,7 @@ void UARTRF::initialize_uart() {
 	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 		tty.c_cc[VMIN] = 0;
 #else
-	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
+	tty.c_cc[VTIME] = 20; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 	tty.c_cc[VMIN] = 1;
 #endif
 
@@ -107,6 +107,8 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 			while (running) {
 
 				RFMessage message = pmf->make_new_packet();
+				{
+				std::unique_lock<std::mutex>(out_mtx);
 				nread = read(uart_file_descriptor, reception, 350);
 
 				if (nread < 0) {
@@ -114,7 +116,9 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 					close(uart_file_descriptor);
 					exit(1);
 				}
-				receive_bytes(reception, nread);
+				if(nread>0)
+					receive_bytes(reception, nread);
+				}
 
 			}
 
@@ -201,7 +205,7 @@ void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
 	print_hex(data, cur);
 #endif
 	write(uart_file_descriptor, final_string, cur);
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 }
 
 void UARTRF::stop_read_thread() {
@@ -221,9 +225,12 @@ inline void UARTRF::input_finished() {
 
 inline bool UARTRF::input(std::vector<RFMessage> &ms) {
 	//printf("Writing vector\n");
+	{
 	std::unique_lock<std::mutex>(out_mtx);
 	for (auto &m : ms) {
 		write_stuff(m.data.get(), m.length);
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 	}
 
 	return true;
@@ -231,9 +238,11 @@ inline bool UARTRF::input(std::vector<RFMessage> &ms) {
 
 inline bool UARTRF::input(RFMessage &m) {
 	//printf("Writing packet\n");
+	{
 	std::unique_lock<std::mutex>(out_mtx);
-
 	write_stuff(m.data.get(), m.length);
+	}
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	return true;
 }
