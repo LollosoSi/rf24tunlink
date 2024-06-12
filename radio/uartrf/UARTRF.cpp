@@ -125,6 +125,9 @@ void UARTRF::message_read_completed() {
 }
 
 void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
+	if (receive_buffer_cursor >= payload_size)
+		message_reset();
+
 	for (unsigned int i = 0; i < length; i++) {
 		if (is_waiting_next_escape) {
 			switch (data[i]) {
