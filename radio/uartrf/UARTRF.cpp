@@ -29,7 +29,8 @@ UARTRF::~UARTRF() {
 void UARTRF::initialize_uart() {
 
 	printf("Opening device file: %s with baudrate %d\n",
-			current_settings()->uart_device_file.c_str(), current_settings()->uart_baudrate);
+			current_settings()->uart_device_file.c_str(),
+			current_settings()->uart_baudrate);
 	if (current_settings()->uart_device_file.length() == 0) {
 		printf("Empty serial device was passed!\n");
 		return;
@@ -67,7 +68,7 @@ void UARTRF::initialize_uart() {
 	tty.c_cc[VTIME] = 10; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 		tty.c_cc[VMIN] = 0;
 #else
-	tty.c_cc[VTIME] = 20; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
+	tty.c_cc[VTIME] = 100; // Wait for up to 1s (10 deciseconds), return as soon as 1 byte is received
 	tty.c_cc[VMIN] = 1;
 #endif
 
@@ -101,6 +102,8 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 		running = true;
 
 		readthread = std::make_unique<std::thread>([this] {
+			printf("Readthread is disabled for this instance\n");
+			return;
 
 			int nread = 0;
 			uint8_t reception[350];
@@ -108,18 +111,18 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 
 				RFMessage message = pmf->make_new_packet();
 				{
-				std::unique_lock<std::mutex>(out_mtx);
-				nread = read(uart_file_descriptor, reception, 350);
+					std::this_thread::sleep_for(std::chrono::milliseconds(100));
+					std::unique_lock<std::mutex>(out_mtx);
+					nread = read(uart_file_descriptor, reception, 350);
+				}
 
 				if (nread < 0) {
 					perror("Reading from interface");
 					close(uart_file_descriptor);
 					exit(1);
 				}
-				if(nread>0)
+				if (nread > 0)
 					receive_bytes(reception, nread);
-				}
-
 			}
 
 		});
@@ -134,9 +137,9 @@ void UARTRF::message_reset() {
 void UARTRF::message_read_completed() {
 	RFMessage rfm = pmf->make_new_packet(receive_buffer, receive_buffer_cursor);
 #ifdef debug_log
-	if(receive_buffer_cursor==payload_size){
+	if (receive_buffer_cursor == payload_size) {
 		printf("Received packet correct size\n");
-	}else{
+	} else {
 		printf("Received packet incorrect size\n");
 	}
 #endif
@@ -144,7 +147,7 @@ void UARTRF::message_read_completed() {
 }
 
 void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
-	if (receive_buffer_cursor >= ((payload_size*2)+4)) {
+	if (receive_buffer_cursor >= ((payload_size * 2) + 4)) {
 		message_reset();
 #ifdef debug_log
 		printf("Message reset -> max payload_size\n");
@@ -188,6 +191,22 @@ void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
 }
 
 void UARTRF::write_stuff(uint8_t *data, unsigned int length) {
+	std::unique_lock<std::mutex>(out_mtx);
+	int nread = 0;
+	uint8_t reception[350];
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	nread = read(uart_file_descriptor, reception, 350);
+
+	if (nread < 0) {
+		perror("Reading from interface");
+		close(uart_file_descriptor);
+		exit(1);
+	}
+	if (nread > 0)
+		receive_bytes(reception, nread);
+
+	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+
 	uint8_t final_string[receive_buffer_max_size];
 	unsigned int cur = 0, i = 0;
 	final_string[cur++] = byte_escape;
@@ -226,13 +245,14 @@ inline void UARTRF::input_finished() {
 inline bool UARTRF::input(std::vector<RFMessage> &ms) {
 	//printf("Writing vector\n");
 	{
-	std::unique_lock<std::mutex>(out_mtx);
-	for (auto &m : ms) {
-		write_stuff(m.data.get(), m.length);
-	}
+		//	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		//std::unique_lock<std::mutex>(out_mtx);
+		for (auto &m : ms) {
+			write_stuff(m.data.get(), m.length);
+		}
 
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	return true;
 }
@@ -240,10 +260,11 @@ inline bool UARTRF::input(std::vector<RFMessage> &ms) {
 inline bool UARTRF::input(RFMessage &m) {
 	//printf("Writing packet\n");
 	{
-	std::unique_lock<std::mutex>(out_mtx);
-	write_stuff(m.data.get(), m.length);
+		//	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+		//std::unique_lock<std::mutex>(out_mtx);
+		write_stuff(m.data.get(), m.length);
 	}
-	std::this_thread::sleep_for(std::chrono::milliseconds(100));
+	//std::this_thread::sleep_for(std::chrono::milliseconds(100));
 
 	return true;
 }
