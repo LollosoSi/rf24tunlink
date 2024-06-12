@@ -83,7 +83,7 @@ class Settings {
 
 		std::string pico_device_file = "/dev/ttyACM0";
 		std::string uart_device_file = "/dev/ttyUSB0";
-		uint32_t uart_baudrate = 38400;
+		uint32_t uart_baudrate = 9600;
 
 		std::string address = "192.168.10.1"; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
 		std::string destination = "192.168.10.2"; // Destination of the interface
