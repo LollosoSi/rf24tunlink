@@ -102,8 +102,8 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 		running = true;
 
 		readthread = std::make_unique<std::thread>([this] {
-			printf("Readthread is disabled for this instance\n");
-			return;
+			//printf("Readthread is disabled for this instance\n");
+			//return;
 
 			int nread = 0;
 			uint8_t reception[350];
