@@ -7,6 +7,8 @@
 
 #include "UARTRF.h"
 
+#define debug_log
+
 UARTRF::UARTRF() {
 	// TODO Auto-generated constructor stub
 	
@@ -90,27 +92,25 @@ inline void UARTRF::apply_settings(const Settings &settings) {
 		initialize_uart();
 		running = true;
 
-		readthread =
-				std::make_unique<std::thread>(
-						[this] {
+		readthread = std::make_unique<std::thread>([this] {
 
-							int nread = 0;
-							uint8_t reception[350];
-							while (running) {
+			int nread = 0;
+			uint8_t reception[350];
+			while (running) {
 
-								RFMessage message = pmf->make_new_packet();
-								nread = read(uart_file_descriptor, reception, 350);
+				RFMessage message = pmf->make_new_packet();
+				nread = read(uart_file_descriptor, reception, 350);
 
-								if (nread < 0) {
-									perror("Reading from interface");
-									close(uart_file_descriptor);
-									exit(1);
-								}
-								receive_bytes(reception, nread);
+				if (nread < 0) {
+					perror("Reading from interface");
+					close(uart_file_descriptor);
+					exit(1);
+				}
+				receive_bytes(reception, nread);
 
-						}
+			}
 
-					});
+		});
 		std::this_thread::sleep_for(std::chrono::milliseconds(1000));
 	}
 }
@@ -125,8 +125,12 @@ void UARTRF::message_read_completed() {
 }
 
 void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
-	if (receive_buffer_cursor >= payload_size)
+	if (receive_buffer_cursor >= payload_size) {
 		message_reset();
+#ifdef debug_log
+		printf("Message reset -> payload_size\n");
+#endif
+	}
 
 	for (unsigned int i = 0; i < length; i++) {
 		if (is_waiting_next_escape) {
@@ -136,10 +140,17 @@ void UARTRF::receive_bytes(uint8_t *data, unsigned int length) {
 				break;
 			case UARTRF::byte_SOF:
 				message_reset();
+#ifdef debug_log
+				printf("Message reset -> SOF\n");
+#endif
 				break;
 			case UARTRF::byte_EOF:
 				if (receive_buffer_cursor <= payload_size)
 					message_read_completed();
+				else
+#ifdef debug_log
+				printf("Message reset -> invalid size at EOF\n");
+#endif
 				break;
 			}
 			is_waiting_next_escape = false;
