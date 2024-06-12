@@ -82,6 +82,8 @@ class Settings {
 		}
 
 		std::string pico_device_file = "/dev/ttyACM0";
+		std::string uart_device_file = "/dev/ttyUSB0";
+		uint32_t uart_baudrate = 9600;
 
 		std::string address = "192.168.10.1"; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
 		std::string destination = "192.168.10.2"; // Destination of the interface
@@ -186,6 +188,12 @@ class Settings {
 			}
 		}
 
+		bool is_case_whitelisted(std::string b) {
+			auto name_handle = std::find(settings_names_case_whitelist.begin(),
+					settings_names_case_whitelist.end(), b);
+			return (name_handle != settings_names_case_whitelist.end());
+		}
+
 		void read_settings(const char *settings_file) {
 
 			uint64_t entries = 0, lines = 0;
@@ -246,6 +254,7 @@ class Settings {
 						[](unsigned char c) {
 							return std::tolower(c);
 						});
+				if(!is_case_whitelisted(b))
 				std::transform(b.begin(), b.end(), b.begin(),
 						[](unsigned char c) {
 							return std::tolower(c);
@@ -320,11 +329,12 @@ class Settings {
 		}
 
 		// NOTE: names and enum have to be in corresponding order!
-		std::vector<std::string> radios_names = { "dualrf24", "singlerf24", "picorf24" };
+		std::vector<std::string> radios_names = { "dualrf24", "singlerf24", "picorf24", "uartrf" };
 		enum radios_available {
 			dualrf24,
 			singlerf24,
-			picorf24
+			picorf24,
+			uartrf
 		};
 
 		const radios_available find_radio_index() const {
@@ -347,6 +357,7 @@ class Settings {
 		std::vector<std::string> name_types = { "bool", "string", "uint8",
 				"uint16", "uint32", "integer", "double" };
 
+		std::vector<std::string> settings_names_case_whitelist = {"pico_device_file", "uart_device_file"};
 		std::vector<void*> references = { &address, &destination, &netmask,
 				&interface_name, &minimum_ARQ_wait, &maximum_frame_time,
 				&display_telemetry, &csv_out_filename, &csv_divider,
@@ -357,7 +368,7 @@ class Settings {
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
 				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
-		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file};
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -368,13 +379,13 @@ class Settings {
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
 				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
-                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file"};
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
 				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
-		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string};
+		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -387,7 +398,7 @@ class Settings {
 						"Divider character for the output file values",
 						"The tunnel handler (Accepted values: TUN, UART)",
 						"The packetizer (Accepted values: HARQ, latency_evaluator, ARQ)",
-						"The radio handler (Accepted values: DualRF24, SingleRF24, PicoRF24)",
+						"The radio handler (Accepted values: DualRF24, SingleRF24, PicoRF24, UARTRF)",
 						"Whether the RF24 should auto ack. Used in one radio setups",
 						"CE pin for the radio0",
 						"CSN pin for the radio0 (it's system CE)",
@@ -420,7 +431,9 @@ class Settings {
 						"(HARQ only) How many bits should be used for packet segmentation (range: 4-5) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
 						"(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
 						"The ARQ inactive delay in ms before sending one empty packet (to be used with ACK payloads in SingleRF24)",
-						"The Pico RF24 linux file descriptor (default: /dev/ttyACM0)"};
+						"The Pico RF24 linux file descriptor (default: /dev/ttyACM0)",
+						"The UART Radio linux file descriptor (default: /dev/ttyUSB0)",
+						"The UART baud rate to use for UARTRF"};
 };
 
 class SettingsCompliant {

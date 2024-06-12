@@ -63,6 +63,8 @@ set(radios
 	radio/singlerf24/SingleRF24.cpp
 	radio/picorf24/PicoRF24.h
 	radio/picorf24/PicoRF24.cpp
+	radio/uartrf/UARTRF.h
+	radio/uartrf/UARTRF.cpp
 )
 
 set(packetizers

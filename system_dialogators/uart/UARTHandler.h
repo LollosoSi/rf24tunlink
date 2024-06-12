@@ -32,10 +32,10 @@ class UARTHandler : public Messenger<TunMessage> {
 	public:
 		unsigned long receivedbytes = 0;
 		UARTHandler(const char *device) {
-			const int bfs_size = 512;
+			const unsigned int bfs_size = 32;
 			uint8_t* bfs = new uint8_t[bfs_size];
 			uint8_t c = 255;
-			for (int i = 0; i < bfs_size; i++) {
+			for (unsigned int i = 0; i < bfs_size; i++) {
 				bfs[i] = c++;
 			}
 

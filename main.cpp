@@ -14,6 +14,7 @@
 #include "radio/dualrf24/DualRF24.h"
 #include "radio/singlerf24/SingleRF24.h"
 #include "radio/picorf24/PicoRF24.h"
+#include "radio/uartrf/UARTRF.h"
 
 #include "packetizers/harq/HARQ.h"
 #include "packetizers/arq/ARQ.h"
@@ -131,6 +132,9 @@ RadioInterface* select_radio_from_settings(const Settings &settings) {
 	case Settings::radios_available::picorf24:
 		return new PicoRF24();
 		break;
+	case Settings::radios_available::uartrf:
+			return new UARTRF();
+			break;
 	}
 }
 

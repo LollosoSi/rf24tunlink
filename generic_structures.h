@@ -109,6 +109,12 @@ class PacketMessageFactory : public SettingsCompliant{
 				mm.data.get()[i]=m.data.get()[i];
 			return mm;
 		}
+		inline Message make_new_packet(uint8_t *data, unsigned int length) {
+			Message mm(length);
+			for (unsigned int i = 0; i < length; i++)
+				mm.data.get()[i] = data[i];
+			return mm;
+		}
 		virtual ~PacketMessageFactory(){printf("Factory destructor\n");}
 };
 
