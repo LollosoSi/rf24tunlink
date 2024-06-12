@@ -254,7 +254,7 @@ class Settings {
 						[](unsigned char c) {
 							return std::tolower(c);
 						});
-				if(!is_case_whitelisted(b))
+				if(!is_case_whitelisted(a))
 				std::transform(b.begin(), b.end(), b.begin(),
 						[](unsigned char c) {
 							return std::tolower(c);
