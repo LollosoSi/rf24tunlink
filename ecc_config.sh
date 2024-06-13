@@ -25,4 +25,5 @@ data_bytes=$val
 ecc_bytes=$1
 " > presets/rs_config
 
-./restartservice.sh
+./stopservice.sh
+./startservice.sh
