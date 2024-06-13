@@ -11,6 +11,7 @@ ARG1=${PWD}/presets/radio_config.txt
 ARG2=${PWD}/presets/tunlink_config.txt
 ARG3=${PWD}/presets/harq_config.txt
 ARG4=${PWD}/presets/primary
+ARG5=${PWD}/presets/rs_config
 " > .progconf
 elif [ "$1" == "secondary" ]
 then
@@ -19,6 +20,7 @@ ARG1=${PWD}/presets/radio_config.txt
 ARG2=${PWD}/presets/tunlink_config.txt
 ARG3=${PWD}/presets/harq_config.txt
 ARG4=${PWD}/presets/secondary
+ARG5=${PWD}/presets/rs_config
 " > .progconf
 else
  echo "Bad argument supplied, you must specify whether to install as \"primary\" or \"secondary\""
@@ -31,7 +33,7 @@ Description=rf24tunlink2
 [Service]
 WorkingDirectory=${PWD}
 EnvironmentFile=${PWD}/.progconf
-ExecStart=${PWD}/rf24tunlink2 \${ARG1} \${ARG2} \${ARG3} \${ARG4}
+ExecStart=${PWD}/rf24tunlink2 \${ARG1} \${ARG2} \${ARG3} \${ARG4} \${ARG5}
 Restart=always
 
 [Install]

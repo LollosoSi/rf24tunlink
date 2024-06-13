@@ -22,14 +22,6 @@ maximum_frame_time=400
 #	Type:	string
 csv_out_filename=
 
-#	The data bytes for the Reed-Solomon codec
-#	Type:	uint8
-data_bytes=30
-
-#	The ECC bytes for the Reed-Solomon codec (note, one byte might be used as CRC, this element must be >0)
-#	Type:	uint8
-ecc_bytes=2
-
 #	(HARQ only) How many bits should be used for packet identification (range: 1-2) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8
 #	Type:	uint8
 bits_id=2
