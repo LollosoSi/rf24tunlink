@@ -27,3 +27,4 @@ ecc_bytes=$1
 
 ./stopservice.sh
 ./startservice.sh
+./restartservice.sh
