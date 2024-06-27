@@ -44,6 +44,8 @@ set(settings
 
 set(generics
     generic_structures.h
+    activity_led.h
+    timer_handlers.h
 )
 
 set(dialogators

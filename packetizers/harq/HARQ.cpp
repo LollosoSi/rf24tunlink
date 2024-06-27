@@ -205,7 +205,7 @@ inline void HARQ::process_packet(RFMessage &m) {
 #ifdef USE_PML
 	PML->packet_in(m);
 #endif
-
+	this->trigger_led();
 
 	uint8_t id, seg;
 	bool lp;

@@ -81,6 +81,9 @@ class Settings {
 
 		}
 
+		int activity_led_gpio = 0;
+		bool use_activity_led = false;
+
 		std::string pico_device_file = "/dev/ttyACM0";
 		std::string uart_device_file = "/dev/ttyUSB0";
 		uint32_t uart_baudrate = 9600;
@@ -368,7 +371,7 @@ class Settings {
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
 				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
-		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate};
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate, &activity_led_gpio, &use_activity_led};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -379,13 +382,13 @@ class Settings {
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
 				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
-                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate"};
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate", "activity_led_gpio", "use_activity_led"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
 				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
-		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32};
+		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32, integer, boolean};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -433,7 +436,9 @@ class Settings {
 						"The ARQ inactive delay in ms before sending one empty packet (to be used with ACK payloads in SingleRF24)",
 						"The Pico RF24 linux file descriptor (default: /dev/ttyACM0)",
 						"The UART Radio linux file descriptor (default: /dev/ttyUSB0)",
-						"The UART baud rate to use for UARTRF"};
+						"The UART baud rate to use for UARTRF",
+						"The activity LED GPIO number",
+						"Whether to enable the activity LED. Don't forget to set its GPIO number"};
 };
 
 class SettingsCompliant {

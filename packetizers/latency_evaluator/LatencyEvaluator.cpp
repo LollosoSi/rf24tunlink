@@ -147,6 +147,7 @@ void LatencyEvaluator::process_packet(RFMessage &m) {
 
 		if(!rsc->efficient_decode(m.data.get(), m.length))
 			return;
+		this->trigger_led();
 
 		//received_bytes += m.length;
 
@@ -179,6 +180,8 @@ void LatencyEvaluator::process_packet(RFMessage &m) {
 	} else {
 		if(!rsc->efficient_decode(m.data.get(), m.length))
 					return;
+		this->trigger_led();
+
 		received++;
 		//received_bytes += m.length;
 		//print_hex(m.data.get(), 32);

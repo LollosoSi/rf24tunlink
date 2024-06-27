@@ -4,6 +4,8 @@
 #include "Settings.h"
 #include "rs_codec/RSCodec.h"
 
+#include "activity_led.h"
+
 #include "generic_structures.h"
 #include "system_dialogators/tun/TUNInterface.h"
 #include "system_dialogators/uart/UARTHandler.h"
@@ -171,10 +173,15 @@ int main(int argc, char **argv) {
 
 
 	RSCodec RSC(settings);
+	ActivityLed* actl = nullptr;
+	if(settings.use_activity_led)
+		actl = new ActivityLed(settings);
+
 
 	TUNInterface TUNI;
 	RadioInterface* radio = select_radio_from_settings(settings);
 	Packetizer<TunMessage, RFMessage>* packetizer = select_packetizer_from_settings(settings);
+	if(actl) packetizer->register_activity_led(actl);
 
 	packetizer->register_rsc(&RSC);
 	packetizer->register_tun(&TUNI);
@@ -229,9 +236,11 @@ int main(int argc, char **argv) {
 	TUNI.stop();
 	radio->stop();
 	packetizer->stop();
+	actl->stop();
 
 	delete packetizer;
 	delete radio;
+	delete actl;
 
 	return 0;
 }
