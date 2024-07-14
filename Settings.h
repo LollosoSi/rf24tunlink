@@ -1,218 +1,456 @@
 /*
  * Settings.h
  *
- *  Created on: Oct 11, 2023
- *      Author: andrea
+ *  Created on: 26 May 2024
+ *      Author: Andrea Roccaccino
  */
 
-#ifndef SETTINGS_H
-#define SETTINGS_H
+#pragma once
 
-#include <RF24/RF24.h>
-
-#include <bitset>
+#include <algorithm>
+#include <string>
+#include <vector>
+#include <fstream>
+#include <filesystem>
 #include <iostream>
 
-#include <unistd.h>
-#include <cmath>
+#include <sstream>
 
-#pragma pack(push, 1)
-typedef struct {
-	uint8_t info = 0;
-	uint8_t data[31] = { 0 };
-} radiopacket;
-#pragma pack(pop)
+class Settings {
 
-static unsigned int mtu = 45000;
+	public:
+		Settings() {
+			std::filesystem::path cwd = std::filesystem::current_path();
+			printf("Relative directory:\t%s\n", cwd.string().c_str());
 
-namespace Settings {
-
-static bool one_way = 0;
-
-static bool use_empty_packets = 1;
-static bool resuscitate_packets = 0;
-
-static const int maxbadpackets = 30;
-
-static bool auto_ack = !one_way;
-static bool dynamic_payloads = 1;
-static bool ack_payloads = !one_way;
-
-static int ce_pin = 25;
-static uint8_t channel = (uint8_t)(110);
-
-static uint8_t payload_size = 32;
-static rf24_datarate_e data_rate = RF24_2MBPS;
-static rf24_pa_dbm_e power = RF24_PA_MAX;
-static rf24_crclength_e crclen = RF24_CRC_8;
-
-static uint8_t radio_delay_tuned[3] = {6,4,1};
-static uint8_t radio_retries_tuned[3] = {10, 3, 15};
-
-static uint8_t radio_delay = data_rate == RF24_2MBPS ? radio_delay_tuned[2] : data_rate == RF24_1MBPS ? radio_delay_tuned[1] : radio_delay_tuned[0];
-static uint8_t radio_retries = data_rate == RF24_2MBPS ? radio_retries_tuned[2] : data_rate == RF24_1MBPS ? radio_retries_tuned[1] : radio_retries_tuned[0];
-
-
-static const uint8_t addressbytes = 3;
-
-static uint8_t address1[addressbytes + 1] = "1No";
-static uint8_t address2[addressbytes + 1] = "2No";
-
-static int retrylimit = 2;
-static const int buffersize = 3;
-
-static const int rolling_average_size = 100;
-
-static const int segmentbits = 5;
-static const int idbits = 8-1-segmentbits;
-
-static const int zeropacketlimit = 3;
-
-static const uint8_t precisionmask = 0x80;
-static const uint8_t segmask = pow(2,segmentbits)-1, idmask = pow(2,idbits)-1; // Will be filled at runtime
-static const uint8_t segmaskwildcard = (pow(2,8)-1)-idmask, idmaskwildcard = (pow(2,8)-1)-segmask-precisionmask;
-
-//static const unsigned int mtu = 31*(pow(2,segmentbits)-1);
-
-
-inline void apply_settings(int ce_pin, uint8_t channel, uint8_t radio_delay,
-		uint8_t radio_retries, rf24_crclength_e crclen, bool auto_ack,
-		bool dynamic_payloads, bool ack_payloads, uint8_t payload_size,
-		rf24_datarate_e data_rate, rf24_pa_dbm_e power) {
-
-	Settings::ce_pin = ce_pin;
-	Settings::channel = channel;
-	Settings::radio_delay = radio_delay;
-	Settings::radio_retries = radio_retries;
-	Settings::crclen = crclen;
-	Settings::auto_ack = auto_ack;
-	Settings::dynamic_payloads = dynamic_payloads;
-	Settings::ack_payloads = ack_payloads;
-	Settings::payload_size = payload_size;
-	Settings::data_rate = data_rate;
-	Settings::power = power;
-
-}
-
-}
-
-static uint8_t extractpacketprecision(uint8_t number) {
-	return (number>> 7) & 0x01;
-}
-static uint8_t extractpacketprecision(radiopacket *rp) {
-	return extractpacketprecision(rp->info);
-}
-static uint8_t extractpacketid(uint8_t number) {
-	return (number>> Settings::segmentbits) & Settings::idmask;
-}
-static uint8_t extractpacketid(radiopacket *rp) {
-	return extractpacketid(rp->info);
-}
-static uint8_t extractpacketsegment(uint8_t number) {
-	return number & Settings::segmask;
-}
-static uint8_t extractpacketsegment(radiopacket *rp) {
-	return extractpacketsegment(rp->info);
-}
-
-static uint8_t makeidsegment(uint8_t id, uint8_t segment, bool precision){
-	return (uint8_t) (((precision<<7)& Settings::precisionmask) | ((id << Settings::segmentbits) & ((uint8_t) Settings::segmaskwildcard))| ((segment) & Settings::segmask));
-}
-
-static uint8_t gencrc(uint8_t *data, size_t len) {
-	uint8_t crc = 0xff;
-	size_t i, j;
-	for (i = 0; i < len; i++) {
-		crc ^= data[i];
-		for (j = 0; j < 8; j++) {
-			if ((crc & 0x80) != 0)
-				crc = (uint8_t)((crc << 1) ^ 0x31);
-			else
-				crc <<= 1;
+			if (settings_types.size() != settings_names.size()
+					|| settings_types.size() != references.size()
+					|| references.size() != settings_names.size()
+					|| settings_descriptions.size() != references.size()) {
+				std::cout
+						<< "Inappropriate size of settings vectors, this may be an hardcoded problem. Fix it and recompile.\n";
+				throw std::invalid_argument("Illegal settings");
+			}
 		}
-	}
-	return crc;
-}
-
-
-// Unused, left for compatibility
-static uint8_t genpackcrc(radiopacket *rp) {
-	return gencrc((uint8_t*) rp, 31);
-}
-
-// Unused, left for compatibility
-static bool validatepackcrc(radiopacket *rp) {
-	return genpackcrc(rp) == rp->data[30];
-}
-
-
-
-static char radioppppprintchararray(uint8_t *data, int len) {
-
-	std::cout << "\n";
-	for (int i = 0; i < len; i++) {
-		std::cout << (int) data[i] << "\t";
-		if (((i + 1) % 8 == 0) && (i + 1) != 0)
-			std::cout << "\n";
-	}
-	std::cout << "\n";
-
-	/*
-	 std::cout << "\n";
-	 for (int i = 0; i < len; i++) {
-	 std::bitset<8> x(data[i]);
-	 std::cout << x << " ";
-	 if (((i + 1) % 8 == 0) && (i + 1) != 0)
-	 std::cout << "\n";
-	 }
-	 std::cout << "\n";
-	 */
-	return ' ';
-}
-
-class rollingaverage {
-
-private:
-	double values[Settings::rolling_average_size] = { 0.0 };
-	int cursor = 0;
-
-	void incrementCursor() {
-		cursor = (cursor + 1) % Settings::rolling_average_size;
-	}
-
-public:
-
-	void addValue(double value) {
-		values[cursor] = value;
-		incrementCursor();
-	}
-
-	double getAverage() {
-		static double sum;
-		sum=0;
-		for (int i = 0; i < Settings::rolling_average_size; i++) {
-			sum += values[i];
+		~Settings() {
 		}
-		return (double)sum / (double)Settings::rolling_average_size;
-	}
+		void print_all_settings(std::ostream &out = std::cout, bool file_ready =
+				false, bool print_descriptions = false) {
+			if (!file_ready)
+				out << "Printing all settings:\nType\t\t\tName\t\t\tValue\n";
+			for (unsigned int k = 0; k < name_types.size(); k++)
+				for (unsigned int i = 0; i < settings_names.size(); i++) {
+					if (settings_types[i] != k)
+						continue;
+					if (!file_ready)
+						out << name_types[settings_types[i]] << "\t\t\t";
 
+					if (print_descriptions) {
+						out << "\n#\t" << settings_descriptions[i];
+						out << "\n#\tType:\t" << name_types[settings_types[i]]
+								<< "\n";
+					}
+					out << settings_names[i] << (file_ready ? "=" : "\t\t\t");
+
+					switch (settings_types[i]) {
+					case boolean:
+						out << ((*((bool*) references[i])) ? "yes" : "no");
+						break;
+					case uint8:
+						out << (int) (*((uint8_t*) references[i]));
+						break;
+					case uint16:
+						out << (int) (*((uint16_t*) references[i]));
+						break;
+					case uint32:
+						out << (int) (*((uint32_t*) references[i]));
+						break;
+					case integer:
+						out << (*((int*) references[i]));
+						break;
+					case string:
+						out << (*((std::string*) references[i]));
+						break;
+					case double_fp:
+						out << std::to_string((*(double*)references[i]));
+						break;
+					}
+
+					out << "\n";
+				}
+
+		}
+
+		int activity_led_gpio = 0;
+		bool use_activity_led = false;
+
+		std::string pico_device_file = "/dev/ttyACM0";
+		std::string uart_device_file = "/dev/ttyUSB0";
+		uint32_t uart_baudrate = 9600;
+
+		std::string address = "192.168.10.1"; // Address of the interface		NOTE: Address and destination must be swapped based on the radio role
+		std::string destination = "192.168.10.2"; // Destination of the interface
+		std::string netmask = "255.255.255.0";			// Network address mask
+		std::string interface_name = "arocc";	// Interface name (arocc)
+
+		uint16_t minimum_ARQ_wait = 10;
+		uint16_t maximum_frame_time = 150;
+		double tuned_ARQ_wait_singlepacket = 0.8;
+		bool use_tuned_ARQ_wait = true;
+		uint16_t empty_packet_delay = 20;
+
+		bool display_telemetry = false;
+		std::string csv_out_filename = "";	// CSV output, NULLPTR for no output
+		char csv_divider = ',';
+
+		std::string tunnel_handler = "tun";
+		std::string packetizer = "harq";
+		std::string radio_handler = "dualrf24";
+
+		int tx_queuelength = 500;
+		uint8_t bits_id = 2;
+		uint8_t bits_segment = 5;
+		uint8_t bits_lastpacketmarker = 1;
+
+		bool auto_ack = false;
+
+		bool dynamic_payloads = false;
+		bool ack_payloads = false;
+
+		bool primary = true;
+
+		int ce_0_pin = 24;
+		int csn_0_pin = 0;
+
+		int ce_1_pin = 26;
+		int csn_1_pin = 12;
+
+		int irq_pin_radio0 = 5;
+		int irq_pin_radio1 = 6;
+
+		uint32_t spi_speed = 5000000;
+
+		uint8_t payload_size = 32;
+		uint8_t data_bytes = 30;
+		uint8_t ecc_bytes = 2;
+
+		uint8_t data_rate = 1;
+		uint8_t radio_power = 0;
+		uint8_t crc_length = 0;
+
+		uint8_t radio_delay = 1;
+		uint8_t radio_retries = 15;
+
+		uint8_t channel_0 = 10;
+		uint8_t channel_1 = 120;
+		uint8_t address_bytes = 3;
+		std::string address_0_1 = "nn1";
+		std::string address_0_2 = "nn2";
+		std::string address_0_3 = "nn3";
+
+		std::string address_1_1 = "nn4";
+		std::string address_1_2 = "nn5";
+		std::string address_1_3 = "nn6";
+
+		unsigned int mtu = 500;
+
+		void apply_settings(std::string &name, std::string &value) {
+
+			auto name_handle = std::find(settings_names.begin(),
+					settings_names.end(), name);
+			if (name_handle == settings_names.end()) {
+				std::cout << "Couldn't find setting of name: " << name
+						<< ". Please check typos.\n";
+				return;
+			}
+
+			int i = name_handle - settings_names.begin();
+
+			switch (settings_types[i]) {
+			case boolean:
+				((*((bool*) references[i])) = (value == "yes"));
+				break;
+			case uint8:
+				(*((uint8_t*) references[i])) = atoi(value.c_str());
+				break;
+			case uint16:
+				(*((uint16_t*) references[i])) = atoi(value.c_str());
+				break;
+			case uint32:
+				(*((uint32_t*) references[i])) = atol(value.c_str());
+				break;
+			case integer:
+				(*((int*) references[i])) = atoi(value.c_str());
+				break;
+			case string:
+				(*((std::string*) references[i])) = value;
+				break;
+			case double_fp:
+				(*((double*) references[i])) = std::stod(value.c_str());
+				break;
+			}
+		}
+
+		bool is_case_whitelisted(std::string b) {
+			auto name_handle = std::find(settings_names_case_whitelist.begin(),
+					settings_names_case_whitelist.end(), b);
+			return (name_handle != settings_names_case_whitelist.end());
+		}
+
+		void read_settings(const char *settings_file) {
+
+			uint64_t entries = 0, lines = 0;
+
+			if (!settings_file) {
+				printf("No settings to apply\n");
+				return;
+			}
+
+			printf("Opening file:\t%s\t\t", settings_file);
+
+			std::ifstream file;
+			file.open(settings_file);
+			if (!file.good()) {
+				printf("Problem reading settings file\n");
+
+				if (file.fail()) {
+					// Get the error code
+					std::ios_base::iostate state = file.rdstate();
+
+					// Check for specific error bits
+					if (state & std::ios_base::eofbit)
+						std::cout << "End of file reached." << std::endl;
+
+					if (state & std::ios_base::failbit)
+						std::cout << "Non-fatal I/O error occurred."
+								<< std::endl;
+
+					if (state & std::ios_base::badbit)
+						std::cout << "Fatal I/O error occurred." << std::endl;
+
+					// Print system error message
+					std::perror("Error: ");
+				}
+
+				file.close();
+				return;
+			}
+			std::string a;
+			std::string b;
+			while (!file.eof()) {
+				char buf[2000] = { 0 };
+				file.getline(buf, 2000);
+				std::istringstream buffer(buf);
+
+				lines++;
+
+				if (buffer.str().size() == 0)
+					continue;
+				else if (buffer.str()[0] == '#')
+					continue;
+
+				entries++;
+
+				std::getline(buffer, a, '=');
+				std::getline(buffer, b);
+				std::transform(a.begin(), a.end(), a.begin(),
+						[](unsigned char c) {
+							return std::tolower(c);
+						});
+				if(!is_case_whitelisted(a))
+				std::transform(b.begin(), b.end(), b.begin(),
+						[](unsigned char c) {
+							return std::tolower(c);
+						});
+				//printf("Buf A: %s\n", a.c_str());
+				//printf("Buf B: %s\n", b.c_str());
+
+				apply_settings(a, b);
+
+			}
+			file.close();
+
+			std::cout << "Loaded " << entries << " entries and removed "
+					<< (lines - entries) << " extra lines\n";
+		}
+
+		void to_file(const char *settings_file) {
+
+			std::ofstream file;
+			file.open(settings_file);
+			if (!file.good()) {
+				printf("Problem opening file\n");
+
+				if (file.fail()) {
+					// Get the error code
+					std::ios_base::iostate state = file.rdstate();
+
+					// Check for specific error bits
+					if (state & std::ios_base::eofbit) {
+						std::cout << "End of file reached." << std::endl;
+					}
+					if (state & std::ios_base::failbit) {
+						std::cout << "Non-fatal I/O error occurred."
+								<< std::endl;
+					}
+					if (state & std::ios_base::badbit) {
+						std::cout << "Fatal I/O error occurred." << std::endl;
+					}
+
+					// Print system error message
+					std::perror("Error: ");
+				}
+
+				file.close();
+				return;
+			}
+
+			print_all_settings(file, true, true);
+
+			file.close();
+		}
+
+		// NOTE: names and enum have to be in corresponding order!
+		std::vector<std::string> packetizers_names = { "harq", "latency_evaluator", "arq" };
+		enum packetizers_available {
+			harq,
+			latency_evaluator,
+			arq
+		};
+
+		const packetizers_available find_packetizer_index() const {
+			auto name_handle = std::find(packetizers_names.begin(),
+					packetizers_names.end(), packetizer);
+			if (name_handle == packetizers_names.end()) {
+				std::cout << "Couldn't find packetizer of name: " << packetizer
+						<< ". Please check typos.\n";
+				throw std::invalid_argument("Invalid packetizer");
+			}
+
+			return (packetizers_available) (name_handle
+					- packetizers_names.begin());
+		}
+
+		// NOTE: names and enum have to be in corresponding order!
+		std::vector<std::string> radios_names = { "dualrf24", "singlerf24", "picorf24", "uartrf" };
+		enum radios_available {
+			dualrf24,
+			singlerf24,
+			picorf24,
+			uartrf
+		};
+
+		const radios_available find_radio_index() const {
+			auto name_handle = std::find(radios_names.begin(),
+					radios_names.end(), radio_handler);
+			if (name_handle == radios_names.end()) {
+				std::cout << "Couldn't find radio handler of name: " << radio_handler
+						<< ". Please check typos.\n";
+				throw std::invalid_argument("Invalid radio");
+			}
+
+			return (radios_available) (name_handle
+					- radios_names.begin());
+		}
+
+	private:
+		enum types {
+			boolean, string, uint8, uint16, uint32, integer, double_fp
+		};
+		std::vector<std::string> name_types = { "bool", "string", "uint8",
+				"uint16", "uint32", "integer", "double" };
+
+		std::vector<std::string> settings_names_case_whitelist = {"pico_device_file", "uart_device_file"};
+		std::vector<void*> references = { &address, &destination, &netmask,
+				&interface_name, &minimum_ARQ_wait, &maximum_frame_time,
+				&display_telemetry, &csv_out_filename, &csv_divider,
+				&tunnel_handler, &packetizer, &radio_handler, &auto_ack,
+				&ce_0_pin, &csn_0_pin, &ce_1_pin, &csn_1_pin, &spi_speed,
+				&payload_size, &data_bytes, &ecc_bytes, &data_rate,
+				&radio_power, &crc_length, &radio_delay, &radio_retries,
+				&channel_0, &channel_1, &address_bytes, &address_0_1,
+				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
+				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate, &activity_led_gpio, &use_activity_led};
+		std::vector<std::string> settings_names = { "address", "destination",
+				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
+				"display_telemetry", "csv_out_filename", "csv_divider",
+				"tunnel_handler", "packetizer", "radio_handler", "auto_ack",
+				"ce_0_pin", "csn_0_pin", "ce_1_pin", "csn_1_pin", "spi_speed",
+				"payload_size", "data_bytes", "ecc_bytes", "data_rate",
+				"radio_power", "crc_length", "radio_delay", "radio_retries",
+				"channel_0", "channel_1", "address_bytes", "address_0_1",
+				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
+				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate", "activity_led_gpio", "use_activity_led"};
+		std::vector<types> settings_types = { string, string, string, string,
+				uint16, uint16, boolean, string, uint8, string, string, string,
+				boolean, integer, integer, integer, integer, uint32, uint8,
+				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
+				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
+		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32, integer, boolean};
+		std::vector<std::string> settings_descriptions =
+				{ "The address of the interface",
+						"The destination address of the interface",
+						"The network mask of the interface",
+						"The interface name",
+						"The minimum time in milliseconds the ARQ algorithm should wait before declaring one packet lost",
+						"The maximum time in milliseconds to retry sending one frame before dropping it",
+						"Displays telemetry to the command line",
+						"Filename for the CSV output (leave empty for no output)",
+						"Divider character for the output file values",
+						"The tunnel handler (Accepted values: TUN, UART)",
+						"The packetizer (Accepted values: HARQ, latency_evaluator, ARQ)",
+						"The radio handler (Accepted values: DualRF24, SingleRF24, PicoRF24, UARTRF)",
+						"Whether the RF24 should auto ack. Used in one radio setups",
+						"CE pin for the radio0",
+						"CSN pin for the radio0 (it's system CE)",
+						"CE pin for the radio1",
+						"CSN pin for the radio1 (it's system CE)",
+						"SPI Speed in Hz for all RF24 radios",
+						"Size of the payload. This value is 32 and shouldn't be touched unless you intend to use radios different than RF24",
+						"The data bytes for the Reed-Solomon codec",
+						"The ECC bytes for the Reed-Solomon codec (note, one byte might be used as CRC, this element must be >0)",
+						"The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )",
+						"Power setting for all radios (Accepted values: 0 - MIN, 1 - LOW, 2 - HIGH, 3 - MAX)",
+						"The CRC length for the RF24 module in bytes. (Accepted values 0 to 2). Should be disabled with the double radio setup.",
+						"Delay for each automatic retransmission of failed packets from the radio",
+						"How many retries the radio should do before skipping the packet",
+						"Channel of the radio 0 (Accepted values: 0 to 124)",
+						"Channel of the radio 1 (Accepted values: 0 to 124)",
+						"Bytes for the radio address. (Accepted values: 3 to 5). Recommended to leave this as 3.",
+						"Pipe address 0\n# (NOTE: all pipes must share the first 32 bits. Example: nn1, nn2, nn3 are valid addresses and should work)\n# (NOTE: All pipes must have the byte length specified in address_bytes)",
+						"Pipe address 1", "Pipe address 2", "Pipe address 3",
+						"Pipe address 4", "Pipe address 5",
+						"Role of this instance (sets up the correct addresses) (Accepted values: yes, no)",
+						"Whether the RF24 radio should use dynamic sized payloads (best performance is no)",
+						"Whether the RF24 radio should use ACK payloads (only for single radio setups)",
+						"IRQ pin of the radio 0",
+						"IRQ pin of the radio 1",
+						"Estimate of the worst case latency in ms (send packet - receive). Evaluate with your pair using the packetizer: latency_evaluator",
+						"Whether to use the estimated latency instead of the fixed wait time. If enabled, the actual wait time will be (number of packets)*tuned_ARQ_wait_singlepacket",
+						"How many packets can be queued for TX",
+						"(HARQ only) How many bits should be used for packet identification (range: 1-2) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"(HARQ only) How many bits should be used for packet segmentation (range: 4-5) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"(HARQ only) How many bits should be used to mark transmission finished (leave to 1) Note: bits_id + bits_segment + bits_lastpacketmarker must be 8",
+						"The ARQ inactive delay in ms before sending one empty packet (to be used with ACK payloads in SingleRF24)",
+						"The Pico RF24 linux file descriptor (default: /dev/ttyACM0)",
+						"The UART Radio linux file descriptor (default: /dev/ttyUSB0)",
+						"The UART baud rate to use for UARTRF",
+						"The activity LED GPIO number",
+						"Whether to enable the activity LED. Don't forget to set its GPIO number"};
 };
 
-#include <chrono>
-#include <time.h>      // CLOCK_MONOTONIC_RAW, timespec, clock_gettime()
-#include <ctime>       // time()
-#include <cmath>
-#include <vector>
-#include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
-
-using namespace std::chrono;
-static uint64_t currentMillis() {
-	return duration_cast < milliseconds
-			> (system_clock::now().time_since_epoch()).count();
-}
-using namespace std;
-
-#endif
+class SettingsCompliant {
+	protected:
+		const Settings* settings = nullptr;
+	public:
+		SettingsCompliant() = default;
+		virtual ~SettingsCompliant() {
+			settings = nullptr;
+		}
+		virtual inline void apply_settings(const Settings &settings) {
+			this->settings = &settings;
+		}
+		inline const Settings* current_settings() const {return (settings);}
+};
