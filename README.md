@@ -29,10 +29,6 @@ Primary and secondary have these addresses respectively: 192.168.10.1 and 192.16
 <table>
   <tr>
  <td><b>two-RF24</b></td><td>The primary radio streams their packets (and if configured, empty packets) and reads the Ack Payloads of the secondary radio.</br>Note: A good portion of the total received packets are discarded automatically from the modules in the two-RF24 setup, just because there usually are a couple corrupted bytes out of 32.
-</br>Here is a representation of the errors in close range</br>
-![image](https://github.com/user-attachments/assets/030ba1eb-4e7a-4324-a6ae-4c61f67b9fd6)
-</br>Here is one test done after implementing the RS ECC</br>
-![image](https://github.com/user-attachments/assets/1bd38d37-7a09-49e1-b92b-7d0838d1c436)
 </td>
   </tr>
    <tr>
@@ -43,6 +39,13 @@ Primary and secondary have these addresses respectively: 192.168.10.1 and 192.16
    </tr>
 </table>
 You should be able to ping each other when everything is set up correctly. Test the bridge speed using iperf.</br>
+
+## Error Correction
+</br>Here is a representation of the errors in close range, before RS ECC was implemented</br>
+![Just out of my room](https://github.com/user-attachments/assets/030ba1eb-4e7a-4324-a6ae-4c61f67b9fd6)
+</br>Here is one test done after implementing the RS ECC</br>
+![RS ECC](https://github.com/user-attachments/assets/1bd38d37-7a09-49e1-b92b-7d0838d1c436)
+</br>Note that error correction is available only for the four-RF24 setup.</br>Unfortunately for two-RF24 you cannot disable ack payloads unless you intend to send a one way stream (unsupported at the moment)
 
 ## Performance
 _Results depend on the configuration used._</br>
