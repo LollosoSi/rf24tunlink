@@ -57,6 +57,9 @@ A realistic expectation would be using more bytes for ECC and streaming continou
 ## PCB
 A PCB is in the works and will be released later this year.</br>
 Meant for a stable point to point communication or a remote-RC car/drone setup.
+Sneak peek:
+![PCB development sneak peek](https://github.com/user-attachments/assets/62ae1e27-5be0-4276-a51b-902cc5fce84a)
+
 
 ## Installation (Raspberry Pi)
 - You need a pair of Raspberry Pi boards. Raspberry 3B and 4 are tested but virtually every linux board should work.
