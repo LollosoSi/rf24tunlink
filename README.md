@@ -28,7 +28,12 @@ Primary and secondary have these addresses respectively: 192.168.10.1 and 192.16
 <h3>Notable setups</h3>
 <table>
   <tr>
- <td><b>two-RF24</b></td><td>The primary radio streams their packets (and if configured, empty packets) and reads the Ack Payloads of the secondary radio.</td>
+ <td><b>two-RF24</b></td><td>The primary radio streams their packets (and if configured, empty packets) and reads the Ack Payloads of the secondary radio.</br>Note: A good portion of the total received packets are discarded automatically from the modules in the two-RF24 setup, just because there usually are a couple corrupted bytes out of 32.
+</br>Here is a representation of the errors in close range</br>
+![image](https://github.com/user-attachments/assets/030ba1eb-4e7a-4324-a6ae-4c61f67b9fd6)
+</br>Here is one test done after implementing the RS ECC</br>
+![image](https://github.com/user-attachments/assets/1bd38d37-7a09-49e1-b92b-7d0838d1c436)
+</td>
   </tr>
    <tr>
   <td><b>four-RF24</b></td><td>Full duplex communication with higher performance compared to the two-RF24 setup.</br>Each end of the bridge has two NRF24L01 radio modules.</br><b>The four-RF24 setup is strongly recommended</b> because it allows for advanced error correction, meaning theoretically larger range.</td>
@@ -70,15 +75,15 @@ Meant for a stable point to point communication or a remote-RC car/drone setup.
 
 ## Usage
 Note: During the transition to version 2, not all features might be available.</br>CSV exporting or the bridge info are some of the unfinished features.</br></br>
-You can generate a text file with all the available settings (most have comments with explanations in them) by running the program with no arguments: `./rf24tunlink`.</br>
+You can generate a text file with all the available settings (most have comments with explanations in them) by running the program with no arguments: `./rf24tunlink2`.</br>
 Just create your files or use the ones in presets.</br>
 Presets might not always be updated and I might change them as a result of testing, it's a good idea to have a look into them when downloading for the first time.
 
 Examples of config files can be found in the `presets` folder.</br>
 Once everything is tuned to your liking, run the program with all your files as arguments.</br>
 Here is an example which runs the four-RF24 setup:</br>
-Primary device:</br>`sudo ./rf24tunlink presets/tunlink_config.txt presets/harq_config.txt presets/radio_config.txt presets/primary`</br>
-Secondary device:</br>`sudo ./rf24tunlink presets/tunlink_config.txt presets/harq_config.txt presets/radio_config.txt presets/secondary`</br>
+Primary device:</br>`sudo ./rf24tunlink2 presets/tunlink_config.txt presets/harq_config.txt presets/radio_config.txt presets/primary`</br>
+Secondary device:</br>`sudo ./rf24tunlink2 presets/tunlink_config.txt presets/harq_config.txt presets/radio_config.txt presets/secondary`</br>
 This is cool beacuse you can edit your configs once then sync everything in one folder.</br>
 
 ## Systemd service
