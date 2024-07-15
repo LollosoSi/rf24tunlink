@@ -4,7 +4,7 @@ radio_handler=singlerf24
 
 #	SPI Speed in Hz for all RF24 radios
 #	Type:	uint32
-spi_speed=12000000
+spi_speed=4000000
 
 #	The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )
 #	Type:	uint8
