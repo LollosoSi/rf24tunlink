@@ -9,17 +9,17 @@ This software is distributed free of charge under GNU GPLv2 license.</br>
 If you found my work helpful, consider [supporting it through a donation](https://www.paypal.com/donate/?hosted_button_id=BCZNKHFWP3M4L)</br>
 
 # Index
-- [How it works](#-how-it-works)
-- [Error Correction](#-error-correction)
-- [Performance](#-performance)
-- [PCB](#-pcb)
-- [Installation (RPi)](#-installation-raspberry-pi)
-- [Usage](#-usage)
-- [Systemd Service](#-systemd-service)
-- [Wiring](#-wiring)
-- [Stability Advice](#-stability-advice)
-- [Setting up video streaming](#-setting-up-video-streaming)
-- [RPi as wireless AP](#-RPi-as-hotspot)
+- [How it works](#how-it-works)
+- [Error Correction](#error-correction)
+- [Performance](#performance)
+- [PCB](#pcb)
+- [Installation (RPi)](#installation-raspberry-pi)
+- [Usage](#usage)
+- [Systemd Service](#systemd-service)
+- [Wiring](#wiring)
+- [Stability Advice](#stability-advice)
+- [Setting up video streaming](#setting-up-video-streaming)
+- [RPi as wireless AP](#RPi-as-hotspot)
 
 ## How it works
 Upon launch, the program creates the TUN interface (arocc) and sets up for the selected radio.</br>
