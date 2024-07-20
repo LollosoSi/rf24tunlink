@@ -24,6 +24,10 @@ If you found my work helpful, consider [supporting it through a donation](https:
 ## How it works
 Upon launch, the program creates the TUN interface (arocc) and sets up for the selected radio.</br>
 The code structure is designed with expandability in mind, enabling fast addition of different radio modules, packetizers and packet sources.</br>
+Scheme:
+![rf24tunlink components](https://github.com/user-attachments/assets/18c9e97e-79b2-4d4e-b5f7-f69450a8bd90)
+
+
 There are 3 core components:
 <table>
   <tr>
