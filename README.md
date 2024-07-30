@@ -78,7 +78,8 @@ A realistic expectation would be using more bytes for ECC and streaming continou
 A PCB is in the works and will be released later this year.</br>
 Meant for a stable point to point communication or a remote-RC car/drone setup.
 Sneak peek:
-![PCB development sneak peek](https://github.com/user-attachments/assets/d4319455-0bf1-40f2-bd21-51687c19851e)
+![PCB development sneak peek](https://github.com/user-attachments/assets/3832aa36-cb23-40b9-9043-02ee3b07a96f)
+
 
 
 ## Installation (Raspberry Pi)
