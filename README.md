@@ -77,8 +77,17 @@ A realistic expectation would be using more bytes for ECC and streaming continou
 ## PCB
 A PCB is in the works and will be released later this year.</br>
 Meant for a stable point to point communication or a remote-RC car/drone setup.
+Have a look at this [announcement page](https://github.com/LollosoSi/rf24tunlink/discussions/6)</br>
 Sneak peek:
-![PCB development sneak peek](https://github.com/user-attachments/assets/3832aa36-cb23-40b9-9043-02ee3b07a96f)
+<table cellspacing="0" cellpadding="0" border="none">
+<tr>
+  <td>
+<img src="https://private-user-images.githubusercontent.com/24529432/353472345-60665991-5620-437b-82c2-a581ce64d7bd.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MjI3ODg1NjYsIm5iZiI6MTcyMjc4ODI2NiwicGF0aCI6Ii8yNDUyOTQzMi8zNTM0NzIzNDUtNjA2NjU5OTEtNTYyMC00MzdiLTgyYzItYTU4MWNlNjRkN2JkLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDA4MDQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwODA0VDE2MTc0NlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPTliNGI0MGU4MmVlZDA0MDYyMDhjMzNjNTg5OGM1YmIyOGJiNTczMmJmNWQ2NmRiMzM3MDBjZTY5YmIyMjIxM2QmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.8K5NuUs-oao7W4MzMIwxr6-HSejgLg0QugZdfpI1K0M" width="680"></img>
+</td><td><img src="https://private-user-images.githubusercontent.com/24529432/353473025-6b55a894-edf7-434a-a170-1be82d363cca.png?jwt=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJnaXRodWIuY29tIiwiYXVkIjoicmF3LmdpdGh1YnVzZXJjb250ZW50LmNvbSIsImtleSI6ImtleTUiLCJleHAiOjE3MjI3ODg1NjYsIm5iZiI6MTcyMjc4ODI2NiwicGF0aCI6Ii8yNDUyOTQzMi8zNTM0NzMwMjUtNmI1NWE4OTQtZWRmNy00MzRhLWExNzAtMWJlODJkMzYzY2NhLnBuZz9YLUFtei1BbGdvcml0aG09QVdTNC1ITUFDLVNIQTI1NiZYLUFtei1DcmVkZW50aWFsPUFLSUFWQ09EWUxTQTUzUFFLNFpBJTJGMjAyNDA4MDQlMkZ1cy1lYXN0LTElMkZzMyUyRmF3czRfcmVxdWVzdCZYLUFtei1EYXRlPTIwMjQwODA0VDE2MTc0NlomWC1BbXotRXhwaXJlcz0zMDAmWC1BbXotU2lnbmF0dXJlPWUwNzVlNTZlZGNkZTE4ZDg5NTY0NDZiZTBkYWQ0NjY5MGQwOWIyYzRlMmIzODc5NjkzZmE2ZThkOGEyM2VmYzUmWC1BbXotU2lnbmVkSGVhZGVycz1ob3N0JmFjdG9yX2lkPTAma2V5X2lkPTAmcmVwb19pZD0wIn0.dxywJ6K0XuzPJIpRmrilntZ_m1aXJWpePyMX-vo42ss" width="480"></img>
+</td>
+</tr>
+</table>
+
 
 
 
