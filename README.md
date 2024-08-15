@@ -150,7 +150,7 @@ IRQ: GPIO 5
   </td><td>
 Radio 1</br>
 CE: GPIO 26</br>
-CSN: GPIO 16 (CE 1.2) - write 12 in the config (for CE 1.2. for 1.1, write 11. And for 1.0, write 10)</br>
+CSN: GPIO 18 (CE 1.0) - write 10 in the config (for CE 1.1, write 11. And for 1.2, write 12)</br>
 MISO: GPIO 19</br>
 MOSI: GPIO 20</br>
 SCK: GPIO 21</br>
