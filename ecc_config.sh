@@ -26,4 +26,5 @@ ecc_bytes=$1
 payload_size=$pl_sz
 " > presets/rs_config
 
-./stopservice.sh && ./startservice.sh
+sudo systemctl kill rf24tunlink2
+./startservice.sh

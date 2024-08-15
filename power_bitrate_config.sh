@@ -24,4 +24,5 @@ data_rate=$2
 radio_power=$1
 " > presets/radio_pb_config
 
-./stopservice.sh && ./startservice.sh
+sudo systemctl kill rf24tunlink2
+./startservice.sh
