@@ -94,6 +94,8 @@ Sneak peek:
 ## Installation (Raspberry Pi)
 - You need a pair of Raspberry Pi boards. Raspberry 3B and 4 are tested but virtually every linux board should work.
 - Enable the SPI interface using `raspi-config`
+
+From here, an automated install script is available:</br>```wget -qO /tmp/install_script.sh https://raw.githubusercontent.com/LollosoSi/rf24tunlink/main/install_script.sh && bash /tmp/install_script.sh```</br>
 - If you intend to use the dual radio setup add this in your config.txt `dtoverlay=spi1-3cs`
 - Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ -y`
 - Installing [pigpio](https://abyz.me.uk/rpi/pigpio/download.html) is recommended at this point 
