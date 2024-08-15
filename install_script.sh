@@ -7,7 +7,7 @@ case $yn in
         sudo printf '[all]\ndtoverlay=spi1-3cs\n' >> /boot/firmware/config.txt
         ;;
     [Nn]* )
-        exit
+        break
         ;;
     * )
         echo "Please answer yes or no."
@@ -21,7 +21,7 @@ case $yn in
         sudo printf '[all]\ndtoverlay=gpio-key,gpio=4,active_low=1,gpio_pull=up,keycode=30\n' >> /boot/firmware/config.txt
         ;;
     [Nn]* )
-        exit
+        break
         ;;
     * )
         echo "Please answer yes or no."
