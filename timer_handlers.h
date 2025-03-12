@@ -36,7 +36,10 @@ class TimedFrameHandler {
 		std::condition_variable cv;
 
 	public:
-		TimedFrameHandler(uint64_t timeout_millis_p, uint16_t timeout_resend_millis_p) : timeout_millis(timeout_millis_p), timeout_resend_millis(
+		TimedFrameHandler() {}
+		TimedFrameHandler(uint64_t timeout_millis_p,
+				uint16_t timeout_resend_millis_p) : timeout_millis(
+				timeout_millis_p), timeout_resend_millis(
 				timeout_resend_millis_p) {
 		}
 		~TimedFrameHandler() {
@@ -46,11 +49,12 @@ class TimedFrameHandler {
 			//	timer_thread->join();
 
 		}
-		inline void apply_parameters(uint64_t timeout_millis_p, uint16_t timeout_resend_millis_p){
-			timeout_millis=timeout_millis_p;
-			timeout_resend_millis=timeout_resend_millis_p;
+		inline void apply_parameters(uint64_t timeout_millis_p,
+				uint16_t timeout_resend_millis_p) {
+			timeout_millis = timeout_millis_p;
+			timeout_resend_millis = timeout_resend_millis_p;
 		}
-		inline void reset_resend(){
+		inline void reset_resend() {
 			resend_time = send_time + timeout_resend_millis;
 		}
 		inline void start() {
@@ -62,7 +66,7 @@ class TimedFrameHandler {
 			valid = true;
 			//timer_thread = std::make_unique<std::thread>([this]() {
 			//	prctl(PR_SET_NAME, "TFPacket", 0, 0, 0);
-			    this->run();
+			this->run();
 			//});
 		}
 		inline void invalidate_timer() {
@@ -80,18 +84,18 @@ class TimedFrameHandler {
 		inline void set_invalidated_call(std::function<void()> function) {
 			invalidated_call = function;
 		}
-		inline bool finished(){
+		inline bool finished() {
 			return (!valid);
 		}
 		inline void run() {
 			// Wait for resend time until send_time-millis > timeout or until the timer is invalidated
-			std::unique_lock<std::mutex> lock(mtx);
+			std::unique_lock < std::mutex > lock(mtx);
 			while (valid) {
 				uint64_t now = current_millis();
 
 				if ((now >= send_time + timeout_millis) && valid) {
 					// Timeout logic
-					valid=false;
+					valid = false;
 					finish_call();
 					break;
 				} else if (now >= resend_time && valid) {
@@ -100,7 +104,10 @@ class TimedFrameHandler {
 					resend_call();
 				}
 
-				cv.wait_until(lock, std::chrono::steady_clock::now() + std::chrono::milliseconds(timeout_resend_millis),
+				cv.wait_until(lock,
+						std::chrono::steady_clock::now()
+								+ std::chrono::milliseconds(
+										timeout_resend_millis),
 						[&] {
 							return !valid || current_millis() >= resend_time
 									|| current_millis()
@@ -113,7 +120,7 @@ class TimedFrameHandler {
 				}
 			}
 		}
-	};
+};
 
 class NonBlockingTimer {
 
@@ -149,6 +156,7 @@ class NonBlockingTimer {
 			consumed = false;
 
 		}
+
 		inline void invalidate_timer() {
 			if (valid) {
 				valid = false;

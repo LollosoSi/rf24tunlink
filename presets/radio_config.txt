@@ -36,7 +36,7 @@ ce_1_pin=26
 
 #	CSN pin for the radio1 (it's system CE)
 #	Type:	integer
-csn_1_pin=12
+csn_1_pin=10
 
 #	IRQ pin of the radio 0
 #	Type:	integer

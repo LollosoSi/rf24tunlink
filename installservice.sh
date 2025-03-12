@@ -13,6 +13,7 @@ ARG3=${PWD}/presets/harq_config.txt
 ARG4=${PWD}/presets/primary
 ARG5=${PWD}/presets/rs_config
 ARG6=${PWD}/presets/radio_pb_config
+ARG7=${PWD}/presets/act_led.txt
 " > .progconf
 elif [ "$1" == "secondary" ]
 then
@@ -23,6 +24,7 @@ ARG3=${PWD}/presets/harq_config.txt
 ARG4=${PWD}/presets/secondary
 ARG5=${PWD}/presets/rs_config
 ARG6=${PWD}/presets/radio_pb_config
+ARG7=${PWD}/presets/act_led.txt
 " > .progconf
 else
  echo "Bad argument supplied, you must specify whether to install as \"primary\" or \"secondary\""
@@ -35,8 +37,10 @@ Description=rf24tunlink2
 [Service]
 WorkingDirectory=${PWD}
 EnvironmentFile=${PWD}/.progconf
-ExecStart=${PWD}/rf24tunlink2 \${ARG1} \${ARG2} \${ARG3} \${ARG4} \${ARG5} \${ARG6}
+ExecStart=${PWD}/rf24tunlink2 \${ARG1} \${ARG2} \${ARG3} \${ARG4} \${ARG5} \${ARG6} \${ARG7}
 Restart=always
+StartLimitIntervalSec=2
+StartLimitBurst=50
 
 [Install]
 WantedBy=multi-user.target
