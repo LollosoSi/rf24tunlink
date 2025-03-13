@@ -23,8 +23,8 @@
 
 class TimedFrameHandler {
 
-		uint64_t timeout_millis;
-		uint16_t timeout_resend_millis;
+		uint64_t timeout_millis = 0;
+		uint16_t timeout_resend_millis = 0;
 		uint64_t send_time = 0;
 		uint64_t resend_time = 0;
 		std::unique_ptr<std::thread> timer_thread;
