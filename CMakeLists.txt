@@ -5,6 +5,9 @@ project (rf24tunlink2
 	VERSION 0.1
 	DESCRIPTION "TUN Link Driver")
 
+# Find the gpiod library
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPIOD REQUIRED libgpiodcxx)
 
 #add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
 
@@ -94,6 +97,12 @@ set(sourcefiles
 
 # This project will output an executable file
 add_executable(${PROJECT_NAME} main.cpp ${sourcefiles})
+
+# Link the gpiod library
+target_link_libraries(${PROJECT_NAME} PRIVATE ${GPIOD_LIBRARIES})
+
+# Include directories for gpiod
+target_include_directories(${PROJECT_NAME} PRIVATE ${GPIOD_INCLUDE_DIRS})
 
 # Create a simple configuration header
 configure_file(config.h.in config.h)
