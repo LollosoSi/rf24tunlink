@@ -89,12 +89,16 @@ void TUNInterface::apply_settings(const Settings &settings){
 				/* Note that "buffer" should be at least the MTU size of the interface, eg 1500 bytes */
 				//printf("Waiting for tun packet\n");
 				nread = read(tunnel_fd, message.data.get(), 2 * settings.mtu);
+
+				if(!running) break;
+
 				if (nread < 0) {
 					perror("Error reading from interface");
 					break;
 					//close(tunnel_fd);
 					//exit(1);
 				}
+
 
 				/* Do whatever with the data */
 				message.length = nread;
@@ -110,15 +114,16 @@ void TUNInterface::stop_read_thread(bool wait_join){
 	if (read_thread) {
 		if (read_thread->joinable()) {
 			if(wait_join){
-				printf("Waiting for the TUN read thread to quit (send something through the link if blocked here) . . . . .");
+				printf("Waiting for the TUN read thread to quit (send something through the link if blocked here) . . . . . /n");
 				read_thread->join();
 				printf(". . . . . TUN read thread has finished");
 				delete read_thread;
 				read_thread = nullptr;
 			}
-			else
+			else{
+				printf("Detaching the TUN read thread . . . . ./n");
 				read_thread->detach();
-
+			}
 
 		}
 	}
