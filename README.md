@@ -100,6 +100,18 @@ If you're adding a new radio module without any adapters (say, you've hooked one
 - The radio module needs to be placed into the `radio/(module_name)/` folder.
 
 - Create your folder and place your `module_name.h` and `module_name.cpp` files
+- Add your files in CMakeLists.txt
+  
+  Find this variable and add both `.h` and `.cpp` paths
+```
+set(radios
+	radio/dualrf24/DualRF24.h
+	radio/dualrf24/DualRF24.cpp
+	. . .
+	radio/module_name/module_name.h
+	radio/module_name/module_name.cpp
+)
+```
 
 - Then, include the [RadioInterface.h](https://github.com/LollosoSi/rf24tunlink/blob/main/radio/RadioInterface.h) and extend the RadioInterface class.
 <details>
@@ -238,3 +250,66 @@ or if you already have a byte array, [use it in the make_new_packet](https://git
 
 Now, you got the payload. It's time to send it to the `Packetizer`. 
 `packetizer->input(messages);` here you go, `packetizer` is a pointer inside `RadioInterface`, everything is already taken care of. Submit a `vector<RFMessage>`, a `deque<RFMessage>` or directly one `RFMessage`, [here are your possibilities](https://github.com/LollosoSi/rf24tunlink/blob/848ce1b5182fecabbca7f678ffa4f68e6f9ad683/generic_structures.h#L43)
+
+
+Hard work's done, now register your module into the system.
+
+Go to `Settings.h`
+and append your module to both of these arrays as shown:
+
+```
+// NOTE: names and enum have to be in corresponding order!
+		std::vector<std::string> radios_names = { "dualrf24", "singlerf24", "picorf24", "uartrf", "module_name" };
+		enum radios_available {
+			dualrf24,
+			singlerf24,
+			picorf24,
+			uartrf,
+			module_name
+		};
+```
+
+Go to `main.cpp`
+
+Add your `#include` and module instance as shown:
+
+```
+#include "radio/dualrf24/DualRF24.h"
+. . .
+#include "radio/module_name/module_name.h"
+
+. . .
+
+RadioInterface* select_radio_from_settings(const Settings &settings) {
+	Settings::radios_available rsel = settings.find_radio_index();
+	switch (rsel) {
+	default:
+		std::cout << "Radio not found in code. Did you forget to register it in the main function?\n";
+		throw std::invalid_argument("Invalid radio in switch case");
+		exit(1);
+		break;
+	case Settings::radios_available::dualrf24:
+		return new DualRF24();
+		break;
+	case Settings::radios_available::singlerf24:
+		return new SingleRF24();
+		break;
+	case Settings::radios_available::picorf24:
+		return new PicoRF24();
+		break;
+	case Settings::radios_available::uartrf:
+		return new UARTRF();
+		break;
+
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - Add this piece
+	case Settings::radios_available::module_name:        <-------- Your enum entry
+		return new module_name();                    <-------- Your class
+		break;
+ - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
+	}
+}
+```
+
+Now you will be able to use your custom radio handler by specifying it in a preset file.
+
+`radio_handler=module_name`
