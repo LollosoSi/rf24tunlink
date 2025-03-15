@@ -1,7 +1,0 @@
-#	The modulation speed of the radios (Accepted values: 0 - 1Mbps, 1 - 2Mbps, 2 - 250kbps )
-#	Type:	uint8
-data_rate=1
-
-#	Power setting for all radios (Accepted values: 0 - MIN, 1 - LOW, 2 - HIGH, 3 - MAX)
-#	Type:	uint8
-radio_power=0
