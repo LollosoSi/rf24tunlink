@@ -36,14 +36,7 @@ esac
 
 # Install prerequisites
 cd ~
-sudo apt-get install build-essential cmake make git g++ wget -y
-
-# Install pigpio
-wget https://github.com/joan2937/pigpio/archive/master.zip
-unzip master.zip
-cd pigpio-master
-make
-sudo make install
+sudo apt-get install build-essential cmake make git g++ wget gpiod libgpiod-dev libgpiod-doc -y
 
 # Install RF24 Library
 cd ~

@@ -8,11 +8,20 @@
 #pragma once
 
 #include "Settings.h"
+
+// TimedFrameHandler has poorer performance for this specific application, better to spawn one thread
 //#include "timer_handlers.h"
+
 #include "generic_structures.h"
 
-#include <pigpio.h>
+// For GPIO handling
+#include <iostream>
+#include <gpiod.hpp>
+#include <unistd.h>
+#include <vector>
+#include <filesystem>
 
+// For threaded execution
 #include <sys/prctl.h>
 #include <thread>
 #include <condition_variable>
@@ -21,7 +30,9 @@
 class ActivityLed : public SyncronizedShutdown {
 
 		volatile int led_gpio = 10;
-		//TimedFrameHandler tfh;
+		std::string chip_name;
+		::gpiod::chip chip;
+		::gpiod::line line;
 
 	public:
 
@@ -32,21 +43,19 @@ class ActivityLed : public SyncronizedShutdown {
 		ActivityLed(const Settings s) {
 			led_gpio = s.activity_led_gpio;
 			printf("Set Activity LED to: %i\n", led_gpio);
-			printf("Pigpio version: %d, Hardware revision: %d\n", gpioVersion(),
-					gpioHardwareRevision());
 
-			if (gpioInitialise() == PI_INIT_FAILED) {
-				printf(
-						"Failed to initialize GPIO. Fix the problem or disable the activity LED\n");
-				exit(1);
-			}
+			find_gpiochip();
 
-			// Test init sequence
-			gpioSetMode(led_gpio, PI_OUTPUT);
+			std::cout << "Using " << chip_name << std::endl;
+			chip = ::gpiod::chip(chip_name);
 
-			gpioWrite(led_gpio, 1);
+			line = chip.get_line(led_gpio);
+			line.request( { "rf24tunlink_activity_led",
+					gpiod::line_request::DIRECTION_OUTPUT, 0 }, 1);
+
+			line.set_value(1);
 			std::this_thread::sleep_for(std::chrono::microseconds(5000));
-			gpioWrite(led_gpio, 0);
+			line.set_value(0);
 
 			std::unique_ptr < std::thread > timer_thread = std::make_unique
 					< std::thread > ([this]() {
@@ -59,27 +68,48 @@ class ActivityLed : public SyncronizedShutdown {
 		}
 		~ActivityLed() {
 			stop_module();
-			gpioTerminate();
+			line.release();
 		}
 
-		inline void trigger() {
-			if (running) {
+		void find_gpiochip() {
 
-				{
-					std::lock_guard < std::mutex > lock(worker_mtx);
-					fire = true;
+			// Iterate through /dev/ to find available gpiochips
+			for (const auto &entry : std::filesystem::directory_iterator(
+					"/dev/")) {
+				if (entry.path().string().find("gpiochip")
+						!= std::string::npos) {
+					try {
+						::gpiod::chip chip(entry.path().string());
+						auto line = chip.get_line(led_gpio);
+						if (line) {  // If this gpiochip has GPIO 17
+							chip_name = entry.path().string();
+							break;
+						}
+					} catch (...) {
+						continue; // Ignore invalid chips
+					}
 				}
-				fire_cv.notify_one(); // No lock is required here
+			}
 
-			} else {
-				printf("LED triggered, but program is not running\n");
+			if (chip_name.empty()) {
+				std::cerr << "No valid gpiochip found for GPIO " << led_gpio
+						<< std::endl;
+				throw new std::invalid_argument(
+						"Asked to use a gpio, but no gpiochip is available with that entry!");
+				exit(1);
 			}
 		}
 
-		inline void stop_module() {
-			//tfh.invalidate_timer();
-			trigger();
+		inline void trigger() {
+			{
+				std::lock_guard < std::mutex > lock(worker_mtx);
+				fire = true;
+			}
+			fire_cv.notify_all();
+		}
 
+		inline void stop_module() {
+			trigger();
 		}
 
 		void worker_thread() {
@@ -90,12 +120,14 @@ class ActivityLed : public SyncronizedShutdown {
 					return fire || !running;
 				}); // Wait until ready is true
 				fire = false;
+				if (!running)
+					break;
 
-				gpioWrite(led_gpio, 1);
+				line.set_value(1);
 				std::this_thread::sleep_for(std::chrono::microseconds(100));
-				gpioWrite(led_gpio, 0);
-
+				line.set_value(0);
 			}
+			printf("Activity led thread is exiting\n");
 		}
 
 };

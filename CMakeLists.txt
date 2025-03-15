@@ -5,10 +5,10 @@ project (rf24tunlink2
 	VERSION 0.1
 	DESCRIPTION "TUN Link Driver")
 
+# Performance flags (do not use for debugging, obviously)
+add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
 
-#add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
-
-set(CMAKE_BUILD_TYPE Debug) 
+#set(CMAKE_BUILD_TYPE Debug) 
 
 # AddressSanitizer flags, only needed for debugging
 #set(CMAKE_LINKER_FLAGS "${CMAKE_LINKER_FLAGS} -fsanitize=address")
@@ -29,6 +29,10 @@ message(STATUS "using RF24 library: ${RF24}")
 
 # Include directories
 include_directories(${CMAKE_SOURCE_DIR})
+
+# Find the gpiod library
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(GPIOD REQUIRED libgpiodcxx)
 
 # Project files
 set(rs_codec
@@ -94,6 +98,12 @@ set(sourcefiles
 
 # This project will output an executable file
 add_executable(${PROJECT_NAME} main.cpp ${sourcefiles})
+
+# Link the gpiod library
+target_link_libraries(${PROJECT_NAME} PRIVATE ${GPIOD_LIBRARIES})
+
+# Include directories for gpiod
+target_include_directories(${PROJECT_NAME} PRIVATE ${GPIOD_INCLUDE_DIRS})
 
 # Create a simple configuration header
 configure_file(config.h.in config.h)
