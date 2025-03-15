@@ -97,8 +97,7 @@ Sneak peek:
 
 From here, an automated install script is available:</br>```wget -qO /tmp/install_script.sh https://raw.githubusercontent.com/LollosoSi/rf24tunlink/main/install_script.sh && bash /tmp/install_script.sh```</br>
 - If you intend to use the dual radio setup add this in your config.txt `dtoverlay=spi1-3cs`
-- Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ -y`
-- Installing [pigpio](https://abyz.me.uk/rpi/pigpio/download.html) is recommended at this point 
+- Install the build essential, make, cmake, git and g++: `sudo apt-get install build-essential cmake make git g++ gpiod libgpiod-dev libgpiod-doc -y`
 - Install the [RF24 library](https://nrf24.github.io/RF24/md_docs_2linux__install.html) following the instructions from their site.
    - This project is set to look for the **RF24 Core** installation from your home folder (~/). You will end up with `~/rf24libs` (run install.sh in your home folder).
    - SPIDEV is the tested driver for this application.
@@ -248,4 +247,4 @@ ip route add 224.0.0.0/4 dev wlan0
 </details>
 
 
-Dependencies: RF24 library, CMake, pigpio
+Dependencies: RF24 library, CMake, gpiod
