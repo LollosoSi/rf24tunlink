@@ -234,7 +234,6 @@ inline void ARQ::process_packet(RFMessage &m) {
 #ifdef USE_PML
 	PML->packet_in(m);
 #endif
-	this->trigger_led();
 
 
 	uint8_t id, seg;
@@ -340,6 +339,7 @@ inline void ARQ::process_packet(RFMessage &m) {
 #endif
 					if(this->tun->input(tms)){
 						//printf("\tACCEPTED\t");
+						this->trigger_led();
 					}else
 						printf("Packet REJECTED\n");
 				}

@@ -205,7 +205,6 @@ inline void HARQ::process_packet(RFMessage &m) {
 #ifdef USE_PML
 	PML->packet_in(m);
 #endif
-	this->trigger_led();
 
 	uint8_t id, seg;
 	bool lp;
@@ -318,6 +317,7 @@ inline void HARQ::process_packet(RFMessage &m) {
 					PML->tun_out_to_in(tms);
 #endif
 					if(this->tun->input(tms)){
+						this->trigger_led();
 						//printf("\tACCEPTED\t");
 					}else
 						printf("Packet REJECTED\n");

@@ -144,8 +144,9 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			{
 				std::lock_guard lock(radio_in_mtx);
 				incoming_packets.push_back(std::move(m));
+				radio_cv.notify_all();
 			}
-			radio_cv.notify_all();
+
 			//process_packet(m);
 			return (true);
 		}
@@ -155,8 +156,9 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 				incoming_packets.insert(incoming_packets.end(),
 				  std::make_move_iterator(m.begin()),
 				  std::make_move_iterator(m.end()));
+				radio_cv.notify_all();
 			}
-			radio_cv.notify_all();
+
 			//process_packet(m);
 			return (true);
 		}
@@ -244,8 +246,9 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 			{
 				std::unique_lock<std::mutex> lock(outgoing_frames_mtx);
 				outgoing_frames.push_back(std::move(f));
+				frames_cv.notify_one();
 			}
-			frames_cv.notify_one();
+
 		}
 
 		inline Frame next_frame() {
