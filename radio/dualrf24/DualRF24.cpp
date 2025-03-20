@@ -141,8 +141,9 @@ inline void DualRF24::receive_ISR_tx(){
 	radio1.whatHappened(tx_ds, tx_df, rx_dr);
 	if(tx_ds || tx_df)
 		tx_done = true;
-	}
 	radio1_cv.notify_all();
+	}
+
 	//printf("TX ISR %d, %d, %d\n",tx_ds,tx_df,rx_dr);
 }
 

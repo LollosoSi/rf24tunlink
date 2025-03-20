@@ -32,13 +32,13 @@ class ActivityLed : public SyncronizedShutdown {
 		volatile int led_gpio = 10;
 		std::string chip_name;
 		::gpiod::chip chip;
-		::gpiod::line line;
+		::gpiod::line led_gpioline;
 
 	public:
 
-		std::condition_variable fire_cv;
-		std::mutex worker_mtx;
-		bool fire = false;
+		std::condition_variable cv_wait_trigger;
+		std::mutex listener_mtx;
+		bool trigger_led = false;
 
 		ActivityLed(const Settings s) {
 			led_gpio = s.activity_led_gpio;
@@ -49,18 +49,18 @@ class ActivityLed : public SyncronizedShutdown {
 			std::cout << "Using " << chip_name << std::endl;
 			chip = ::gpiod::chip(chip_name);
 
-			line = chip.get_line(led_gpio);
-			line.request( { "rf24tunlink_activity_led",
+			led_gpioline = chip.get_line(led_gpio);
+			led_gpioline.request( { "rf24tunlink_activity_led",
 					gpiod::line_request::DIRECTION_OUTPUT, 0 }, 1);
 
-			line.set_value(1);
+			led_gpioline.set_value(1);
 			std::this_thread::sleep_for(std::chrono::microseconds(5000));
-			line.set_value(0);
+			led_gpioline.set_value(0);
 
 			std::unique_ptr < std::thread > timer_thread = std::make_unique
 					< std::thread > ([this]() {
 				prctl(PR_SET_NAME, "TFNB", 0, 0, 0);
-				worker_thread();
+				activity_led_thread();
 			});
 			timer_thread.get()->detach();
 
@@ -68,7 +68,7 @@ class ActivityLed : public SyncronizedShutdown {
 		}
 		~ActivityLed() {
 			stop_module();
-			line.release();
+			led_gpioline.release();
 		}
 
 		void find_gpiochip() {
@@ -100,34 +100,51 @@ class ActivityLed : public SyncronizedShutdown {
 			}
 		}
 
+		// Called by the packetizer when a packet is received correctly
 		inline void trigger() {
 			{
-				std::lock_guard < std::mutex > lock(worker_mtx);
-				fire = true;
+				// Acquire the lock to edit the trigger boolean
+				std::lock_guard < std::mutex > lock(listener_mtx);
+
+				// Set the trigger
+				trigger_led = true;
+
+				// Notify the listener that it should blink the led once
+				cv_wait_trigger.notify_all();
 			}
-			fire_cv.notify_all();
+
+		}
+
+		void activity_led_thread() {
+			while (running) {
+
+				// Acquire the mutex
+				std::unique_lock < std::mutex > lock(listener_mtx);
+				// Wait until the led action is triggered or the program should exit
+				cv_wait_trigger.wait(lock, [this] {
+					return trigger_led || !running;
+				});
+
+				// Disable the trigger boolean immediately in order to wait on the next loop iteration
+				// or catch more triggers while this thread is busy, so it's not going to wait at all in the next iteration
+				trigger_led = false;
+
+				// Don't blink if we're exiting
+				if (!running)
+					break;
+
+				// Blink
+				led_gpioline.set_value(1);
+				std::this_thread::sleep_for(std::chrono::microseconds(100));
+				led_gpioline.set_value(0);
+
+			}
+
+			printf("Activity led thread is exiting\n");
 		}
 
 		inline void stop_module() {
 			trigger();
-		}
-
-		void worker_thread() {
-			while (running) {
-
-				std::unique_lock < std::mutex > lock(worker_mtx);
-				fire_cv.wait(lock, [this] {
-					return fire || !running;
-				}); // Wait until ready is true
-				fire = false;
-				if (!running)
-					break;
-
-				line.set_value(1);
-				std::this_thread::sleep_for(std::chrono::microseconds(100));
-				line.set_value(0);
-			}
-			printf("Activity led thread is exiting\n");
 		}
 
 };

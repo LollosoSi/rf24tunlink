@@ -1,6 +1,7 @@
 #!/bin/bash
-# Set config.txt
-#!/bin/bash
+
+# Disable TCP slow start after idle. Helps with performance albeit slightly
+sudo sysctl -w net.ipv4.tcp_slow_start_after_idle=0
 
 read -p "Do you intend to use the dual rf24 setup? (y/n) " yn
 case $yn in
@@ -15,8 +16,6 @@ case $yn in
         echo "Please answer yes or no."
         ;;
 esac
-
-#!/bin/bash
 
 read -p "Do you intend to use the action button? (y/n) " yn
 case $yn in
