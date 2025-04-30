@@ -5,7 +5,7 @@ Point to Point TUN link via NRF24L01 radio modules
 [![Video or PTT](https://img.youtube.com/vi/3pRVBQoNrP4/0.jpg)](https://www.youtube.com/watch?v=3pRVBQoNrP4)
 
 ## Preamble
-Starting 30/04/2025 this software has moved from GPLv2 to GPLv3
+Starting 30/04/2025 this software has moved from GPLv2 to GPLv3.</br>
 This software is distributed free of charge under GNU GPLv3 license.</br>
 If you found my work helpful, consider [supporting it through a donation](https://www.paypal.com/donate/?hosted_button_id=BCZNKHFWP3M4L)</br>
 
