@@ -1,0 +1,11 @@
+#	Sends link status via UDP (see udp_send_address, udp_send_port)
+#	Type:	bool
+use_udp_activity=yes
+
+#	Which address to send link status via UDP (defaults local 127.0.0.1)
+#	Type:	string
+udp_send_address=127.0.0.1
+
+#	Which port to send link status via UDP (default port 55001)
+#	Type:	integer
+udp_send_port=55001
