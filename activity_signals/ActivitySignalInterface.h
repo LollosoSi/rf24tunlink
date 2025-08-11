@@ -1,7 +1,7 @@
 /*
- * activity_led.h
+ * ActivitySignalInterface.h
  *
- *  Created on: 27 Jun 2024
+ *  Created on: 11 Aug 2025
  *      Author: Andrea Roccaccino
  */
 
@@ -16,10 +16,6 @@
 
 // For GPIO handling
 #include <iostream>
-#include <gpiod.hpp>
-#include <unistd.h>
-#include <vector>
-#include <filesystem>
 
 // For threaded execution
 #include <sys/prctl.h>
@@ -27,78 +23,28 @@
 #include <condition_variable>
 #include <mutex>
 
-class ActivityLed : public SyncronizedShutdown {
-
-		volatile int led_gpio = 10;
-		std::string chip_name;
-		::gpiod::chip chip;
-		::gpiod::line led_gpioline;
+class ActivitySignalInterface : public SyncronizedShutdown {
 
 	public:
-
 		std::condition_variable cv_wait_trigger;
 		std::mutex listener_mtx;
 		bool trigger_led = false;
 
-		ActivityLed(const Settings s) {
-			led_gpio = s.activity_led_gpio;
-			printf("Set Activity LED to: %i\n", led_gpio);
-
-			find_gpiochip();
-
-			std::cout << "Using " << chip_name << std::endl;
-			chip = ::gpiod::chip(chip_name);
-
-			led_gpioline = chip.get_line(led_gpio);
-			led_gpioline.request( { "rf24tunlink_activity_led",
-					gpiod::line_request::DIRECTION_OUTPUT, 0 }, 1);
-
-			led_gpioline.set_value(1);
-			std::this_thread::sleep_for(std::chrono::microseconds(5000));
-			led_gpioline.set_value(0);
-
+		ActivitySignalInterface(const Settings s) {
 			std::unique_ptr < std::thread > timer_thread = std::make_unique
 					< std::thread > ([this]() {
 				prctl(PR_SET_NAME, "TFNB", 0, 0, 0);
-				activity_led_thread();
+				signal_thread();
 			});
 			timer_thread.get()->detach();
 
 			running = true;
 		}
-		~ActivityLed() {
+		virtual ~ActivitySignalInterface() {
 			stop_module();
-			led_gpioline.release();
+
 		}
 
-		void find_gpiochip() {
-
-			// Iterate through /dev/ to find available gpiochips
-			for (const auto &entry : std::filesystem::directory_iterator(
-					"/dev/")) {
-				if (entry.path().string().find("gpiochip")
-						!= std::string::npos) {
-					try {
-						::gpiod::chip chip(entry.path().string());
-						auto line = chip.get_line(led_gpio);
-						if (line) {  // If this gpiochip has GPIO 17
-							chip_name = entry.path().string();
-							break;
-						}
-					} catch (...) {
-						continue; // Ignore invalid chips
-					}
-				}
-			}
-
-			if (chip_name.empty()) {
-				std::cerr << "No valid gpiochip found for GPIO " << led_gpio
-						<< std::endl;
-				throw new std::invalid_argument(
-						"Asked to use a gpio, but no gpiochip is available with that entry!");
-				exit(1);
-			}
-		}
 
 		// Called by the packetizer when a packet is received correctly
 		inline void trigger() {
@@ -115,7 +61,7 @@ class ActivityLed : public SyncronizedShutdown {
 
 		}
 
-		void activity_led_thread() {
+		void signal_thread() {
 			while (running) {
 
 				// Acquire the mutex
@@ -134,17 +80,20 @@ class ActivityLed : public SyncronizedShutdown {
 					break;
 
 				// Blink
-				led_gpioline.set_value(1);
+				set_state(1);
 				std::this_thread::sleep_for(std::chrono::microseconds(100));
-				led_gpioline.set_value(0);
+				set_state(0);
 
 			}
 
-			printf("Activity led thread is exiting\n");
+			printf("Activity Signal thread is exiting\n");
 		}
 
 		inline void stop_module() {
 			trigger();
 		}
+
+		virtual void set_state(bool on_off) = 0;
+		virtual void stop() = 0;
 
 };

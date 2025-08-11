@@ -4,7 +4,9 @@
 #include "Settings.h"
 #include "rs_codec/RSCodec.h"
 
-#include "activity_led.h"
+#include "activity_signals/activity_led.h"
+#include "activity_signals/UdpActivity.h"
+
 
 #include "generic_structures.h"
 #include "system_dialogators/tun/TUNInterface.h"
@@ -173,9 +175,12 @@ int main(int argc, char **argv) {
 
 
 	RSCodec RSC(settings);
-	ActivityLed* actl = nullptr;
+	ActivitySignalInterface* actl = nullptr;
 	if(settings.use_activity_led)
 		actl = new ActivityLed(settings);
+	if(settings.use_udp_activity){
+		actl = new UdpActivity(settings);
+	}
 
 
 	TUNInterface TUNI;
