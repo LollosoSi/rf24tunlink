@@ -22,13 +22,15 @@
 #include <thread>
 #include <condition_variable>
 #include <mutex>
+#include <atomic>
+#include <chrono>
 
 class ActivitySignalInterface : public SyncronizedShutdown {
 
 	public:
 		std::condition_variable cv_wait_trigger;
 		std::mutex listener_mtx;
-		bool trigger_led = false;
+		std::atomic<bool> trigger_led{false};
 
 		ActivitySignalInterface(const Settings s) {
 			std::unique_ptr < std::thread > timer_thread = std::make_unique
@@ -47,33 +49,24 @@ class ActivitySignalInterface : public SyncronizedShutdown {
 
 
 		// Called by the packetizer when a packet is received correctly
-		inline void trigger() {
-			{
-				// Acquire the lock to edit the trigger boolean
-				std::lock_guard < std::mutex > lock(listener_mtx);
-
-				// Set the trigger
-				trigger_led = true;
-
-				// Notify the listener that it should blink the led once
-				cv_wait_trigger.notify_all();
-			}
-
+		// Immediate notification, no lock
+		inline void trigger() noexcept {
+			trigger_led.store(true, std::memory_order_relaxed);
+			cv_wait_trigger.notify_one();
 		}
 
 		void signal_thread() {
 			while (running) {
 
 				// Acquire the mutex
-				std::unique_lock < std::mutex > lock(listener_mtx);
-				// Wait until the led action is triggered or the program should exit
-				cv_wait_trigger.wait(lock, [this] {
-					return trigger_led || !running;
-				});
+				std::unique_lock<std::mutex> lock(listener_mtx);
+            cv_wait_trigger.wait(lock, [this] {
+                return trigger_led.load(std::memory_order_relaxed) || !running;
+            });
 
 				// Disable the trigger boolean immediately in order to wait on the next loop iteration
 				// or catch more triggers while this thread is busy, so it's not going to wait at all in the next iteration
-				trigger_led = false;
+				trigger_led.store(false, std::memory_order_relaxed);
 
 				// Don't blink if we're exiting
 				if (!running)
@@ -81,7 +74,7 @@ class ActivitySignalInterface : public SyncronizedShutdown {
 
 				// Blink
 				set_state(1);
-				std::this_thread::sleep_for(std::chrono::microseconds(100));
+				std::this_thread::sleep_for(std::chrono::microseconds(20));
 				set_state(0);
 
 			}
