@@ -63,9 +63,13 @@ You should be able to ping each other when everything is set up correctly. Test 
 ## Error Correction
 </br>Here is a representation of the errors in close range, before RS ECC was implemented</br>
 ![Just out of my room](https://github.com/user-attachments/assets/030ba1eb-4e7a-4324-a6ae-4c61f67b9fd6)
+</br>The bit flip patterns looked like this</br>
+![Bit flips are mostly at the beginning of 32 bytes packets](https://github.com/user-attachments/assets/eb505750-d741-45b2-aba1-57d26913c786)
 </br>Here is one test done after implementing the RS ECC</br>
 ![RS ECC](https://github.com/user-attachments/assets/1bd38d37-7a09-49e1-b92b-7d0838d1c436)
-</br>Note that error correction is available only for the four-RF24 setup.</br>Unfortunately for two-RF24 you cannot disable ack payloads unless you intend to send a one way stream (unsupported at the moment)
+</br>Bit flips after ECC (none!)</br>
+![Perfect transmission](https://github.com/user-attachments/assets/43bcccb9-9b9d-4ae8-ac4b-c9ed1f8fc320)
+</br>Note that error correction is only available for the four-RF24 setup.</br>Unfortunately for two-RF24 you cannot disable ack payloads unless you intend to send a one way stream (unsupported at the moment)
 
 ## Performance
 _Results depend on the configuration used._</br>
