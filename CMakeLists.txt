@@ -6,7 +6,7 @@ project (rf24tunlink2
 	DESCRIPTION "TUN Link Driver")
 
 # Performance flags (do not use for debugging, obviously)
-add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
+#add_compile_options(-Ofast -Wall -march=native -fno-signed-zeros -fno-trapping-math -frename-registers -funroll-loops) # passing the compiler a `-pthread` flag doesn't work here
 
 #set(CMAKE_BUILD_TYPE Debug) 
 
@@ -48,8 +48,13 @@ set(settings
 
 set(generics
     generic_structures.h
-    activity_led.h
     timer_handlers.h
+)
+
+set(activity_signals
+	activity_signals/ActivitySignalInterface.h
+	activity_signals/activity_led.h
+	activity_signals/UdpActivity.h
 )
 
 set(dialogators
@@ -94,6 +99,7 @@ set(sourcefiles
 	${dialogators}
 	${radios}
 	${packetizers}
+	${activity_signals}
 )
 
 # This project will output an executable file

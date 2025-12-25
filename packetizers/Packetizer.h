@@ -11,7 +11,7 @@
 #include "../rs_codec/RSCodec.h"
 
 #include "../timer_handlers.h"
-#include "../activity_led.h"
+#include "../activity_signals/ActivitySignalInterface.h"
 
 #include <thread>
 // Thread naming
@@ -106,7 +106,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		SystemInterface<radio_message_class> *radio = nullptr;
 		SystemInterface<tun_message_class> *tun = nullptr;
 		RSCodec *rsc = nullptr;
-		ActivityLed *activity_led = nullptr;
+		ActivitySignalInterface *activity_led = nullptr;
 		TunReceiver *tr = nullptr;
 		RadioReceiver *rr = nullptr;
 		PacketMessageFactory *pmf = nullptr;
@@ -323,7 +323,7 @@ class Packetizer : public SettingsCompliant, public SyncronizedShutdown {
 		inline void register_rsc(RSCodec *reference) {
 			rsc = reference;
 		}
-		inline void register_activity_led(ActivityLed *reference) {
+		inline void register_activity_led(ActivitySignalInterface *reference) {
 			activity_led = reference;
 		}
 		inline void register_radio(SystemInterface<radio_message_class> *receiver) {

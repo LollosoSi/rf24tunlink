@@ -82,12 +82,13 @@ inline void DualRF24::receive_ISR_rx(){
 	});
 	if(!running || !radio_ready_to_use)return;
 
-	bool tx_ds = 0, tx_df = 0, rx_dr = 0;  // declare variables for IRQ masks
-	radio0.whatHappened(tx_ds, tx_df, rx_dr);
+	// Deprecated. Replaced by clearStatusFlags
+	//bool tx_ds = 0, tx_df = 0, rx_dr = 0; // declare variables for IRQ masks
+	//radio0.whatHappened(tx_ds, tx_df, rx_dr);
 
-	//printf("Radio data in (IRQ)\n");
+	uint8_t flags = radio0.clearStatusFlags(RF24_IRQ_ALL);
 
-	if (rx_dr) {
+	if (flags & RF24_RX_DR) {
 		std::deque<RFMessage> messages;
 		uint8_t pipe = 0;
 		while (radio0.available(&pipe)) {
@@ -135,11 +136,15 @@ inline void DualRF24::radio_read_thread() {
 }
 
 inline void DualRF24::receive_ISR_tx(){
-	bool tx_ds = 0, tx_df = 0, rx_dr = 0;  // declare variables for IRQ masks
+	//bool tx_ds = 0, tx_df = 0, rx_dr = 0; // declare variables for IRQ masks
 	{
 	std::unique_lock lock(radio1_mtx);
-	radio1.whatHappened(tx_ds, tx_df, rx_dr);
-	if(tx_ds || tx_df)
+
+	// Deprecated. Replaced by clearStatusFlags
+	// radio1.whatHappened(tx_ds, tx_df, rx_dr);
+
+	uint8_t flags = radio1.clearStatusFlags(RF24_IRQ_ALL);
+	if(flags & (RF24_TX_DS | RF24_TX_DF))
 		tx_done = true;
 	radio1_cv.notify_all();
 	}
@@ -148,7 +153,8 @@ inline void DualRF24::receive_ISR_tx(){
 }
 
 inline void DualRF24::input_finished(){
-	//if(!radio1.isFifo(true,true)){
+	// Old code, should be updated
+	// if(!radio1.isFifo(true,true)){
 		//radio1.txStandBy();
 		//printf("Radio data out (F)\n");
 		//radio1.flush_tx();
@@ -187,6 +193,7 @@ inline bool DualRF24::input(RFMessage &m){
 		send_tx();
 
 	// Get all packets out of the way
+	// Old code, should be updated
 	//if (!radio1.isFifo(true, true))
 	//	send_tx();
 
@@ -214,7 +221,7 @@ inline bool DualRF24::input(std::vector<RFMessage> &q) {
 	}
 
 	// Get all packets out of the way
-	if (!radio1.isFifo(true, true))
+	if (!radio1.isFifo(true) != RF24_FIFO_EMPTY)
 		send_tx();
 	return true;
 }
@@ -236,12 +243,13 @@ inline bool DualRF24::input(std::deque<RFMessage> &q) {
 	}
 
 	// Get all packets out of the way
-	if (!radio1.isFifo(true, true))
+	if (!radio1.isFifo(true) != RF24_FIFO_EMPTY)
 		send_tx();
 
 	return (true);
 }
 
+/** @deprecated
 inline uint64_t string_to_address(const std::string& str){
 	if (str.size() != 3) {
 		throw std::invalid_argument("String must be exactly 3 bytes long");
@@ -259,6 +267,7 @@ inline uint64_t string_to_address(const std::string& str){
 
 	return result;
 }
+	**/
 
 inline void DualRF24::resetRadio0(bool print_info, bool acquire_lock) {
 
@@ -317,25 +326,27 @@ inline void DualRF24::resetRadio0(bool print_info, bool acquire_lock) {
 	radio0.setCRCLength((rf24_crclength_e)current_settings()->crc_length);
 
 	if (role) {
-		uint64_t ln = string_to_address(current_settings()->address_0_1);
+		const uint8_t* ln = (const uint8_t*)current_settings()->address_0_1.c_str();
 		radio0.openReadingPipe(1, ln);
 		radio0.setChannel(current_settings()->channel_0);
-		printf("RADIO0 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+		printf("RADIO0 -> ROLE: %d \t read: %s : %s \t write %s \t channel: %d\n",
 				role, current_settings()->address_0_1.c_str(), ln, "none",
 				current_settings()->channel_0);
 
 	} else {
-		uint64_t ln = string_to_address(current_settings()->address_0_2);
+		const uint8_t* ln = (const uint8_t*)current_settings()->address_0_2.c_str();
 		radio0.openReadingPipe(1, ln);
 		radio0.setChannel(current_settings()->channel_1);
-		printf("RADIO0 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+		printf("RADIO0 -> ROLE: %d \t read: %s : %s \t write %s \t channel: %d\n",
 				role, current_settings()->address_0_2.c_str(), ln, "none",
 				current_settings()->channel_1);
 
 	}
 
 	// Configure radio0 to interrupt for read events
-	radio0.maskIRQ(true,true,false);
+	// Deprecated, now replaced with setStatusFlags
+	// radio0.maskIRQ(true,true,false);
+	radio0.setStatusFlags(RF24_RX_DR);
 
 	if (!attached_rx) {
 		attached_rx = true;
@@ -407,23 +418,25 @@ inline void DualRF24::resetRadio1(bool print_info, bool acquire_lock) {
 	radio1.setCRCLength((rf24_crclength_e)current_settings()->crc_length);
 
 	if (role) {
-		uint64_t ln1 = string_to_address(current_settings()->address_1_1);
-		uint64_t ln2 = string_to_address(current_settings()->address_0_2);
+		const uint8_t* ln1 = (const uint8_t*) current_settings()->address_1_1.c_str();
+		const uint8_t* ln2 = (const uint8_t*) current_settings()->address_0_2.c_str();
 
 		//radio1.openReadingPipe(1, ln1);
-		radio1.openWritingPipe(ln2);
+		// Deprecated in favour of stopListening(address). // radio1.openWritingPipe(ln2);
+		radio1.stopListening(ln2);
 		radio1.setChannel(current_settings()->channel_1);
-		printf("RADIO1 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s : %" PRIu64 " \t channel: %d. NOTE Reading pipe is disabled\n",
+		printf("RADIO1 -> ROLE: %d \t read: %s : %s \t write %s : %s \t channel: %d. NOTE Reading pipe is disabled\n",
 				role, current_settings()->address_1_1.c_str(), ln1,
 				current_settings()->address_0_2.c_str(), ln2,
 				current_settings()->channel_1);
 	} else {
-		uint64_t ln1 = string_to_address(current_settings()->address_1_2);
-		uint64_t ln2 = string_to_address(current_settings()->address_0_1);
+		const uint8_t* ln1 = (const uint8_t*)current_settings()->address_1_2.c_str();
+		const uint8_t* ln2 = (const uint8_t*)current_settings()->address_0_1.c_str();
 		//radio1.openReadingPipe(1, ln1);
-		radio1.openWritingPipe(ln2);
+		// Deprecated in favour of stopListening(address). // radio1.openWritingPipe(ln2);
+		radio1.stopListening(ln2);
 		radio1.setChannel(current_settings()->channel_0);
-		printf("RADIO1 -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s : %" PRIu64 " \t channel: %d. NOTE Reading pipe is disabled\n",
+		printf("RADIO1 -> ROLE: %d \t read: %s : %s \t write %s : %s \t channel: %d. NOTE Reading pipe is disabled\n",
 				role, current_settings()->address_1_2.c_str(), ln1,
 				current_settings()->address_0_1.c_str(), ln2,
 				current_settings()->channel_0);
@@ -431,7 +444,8 @@ inline void DualRF24::resetRadio1(bool print_info, bool acquire_lock) {
 	}
 
 	// Configure radio1 to interrupt for write events
-	radio1.maskIRQ(false, false, true);
+	// radio1.maskIRQ(false, false, true);
+	radio1.setStatusFlags(RF24_TX_DS | RF24_TX_DF);
 
 	if (!attached_tx) {
 		//attached_tx = true;

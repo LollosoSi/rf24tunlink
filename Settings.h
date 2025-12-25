@@ -83,6 +83,9 @@ class Settings {
 
 		int activity_led_gpio = 0;
 		bool use_activity_led = false;
+		bool use_udp_activity = false;
+		int udp_send_port = 55001;
+		std::string udp_send_address = "127.0.0.1";
 
 		std::string pico_device_file = "/dev/ttyACM0";
 		std::string uart_device_file = "/dev/ttyUSB0";
@@ -371,7 +374,7 @@ class Settings {
 				&channel_0, &channel_1, &address_bytes, &address_0_1,
 				&address_0_2, &address_0_3, &address_1_1, &address_1_2,
 				&address_1_3, &primary, &dynamic_payloads, &ack_payloads, &irq_pin_radio0, &irq_pin_radio1,
-		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate, &activity_led_gpio, &use_activity_led};
+		        &tuned_ARQ_wait_singlepacket, &use_tuned_ARQ_wait, &tx_queuelength, &bits_id, &bits_segment, &bits_lastpacketmarker, &empty_packet_delay, &pico_device_file, &uart_device_file, &uart_baudrate, &activity_led_gpio, &use_activity_led, &use_udp_activity, &udp_send_address, &udp_send_port};
 		std::vector<std::string> settings_names = { "address", "destination",
 				"netmask", "iname", "minimum_arq_wait", "maximum_frame_time",
 				"display_telemetry", "csv_out_filename", "csv_divider",
@@ -382,13 +385,13 @@ class Settings {
 				"channel_0", "channel_1", "address_bytes", "address_0_1",
 				"address_0_2", "address_0_3", "address_1_1", "address_1_2",
 				"address_1_3", "primary", "dynamic_payloads", "ack_payloads", "irq_pin_radio0", "irq_pin_radio1",
-                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate", "activity_led_gpio", "use_activity_led"};
+                "tuned_arq_wait_singlepacket", "use_tuned_arq_wait", "tx_queuelength", "bits_id", "bits_segment", "bits_lastpacketmarker", "empty_packet_delay", "pico_device_file", "uart_device_file", "uart_baudrate", "activity_led_gpio", "use_activity_led", "use_udp_activity", "udp_send_address", "udp_send_port"};
 		std::vector<types> settings_types = { string, string, string, string,
 				uint16, uint16, boolean, string, uint8, string, string, string,
 				boolean, integer, integer, integer, integer, uint32, uint8,
 				uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8, uint8,
 				uint8, string, string, string, string, string, string,	boolean,	boolean,	boolean,	integer,	integer,
-		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32, integer, boolean};
+		        double_fp, boolean, integer, uint8, uint8, uint8, uint16, string, string, uint32, integer, boolean, boolean, string, integer};
 		std::vector<std::string> settings_descriptions =
 				{ "The address of the interface",
 						"The destination address of the interface",
@@ -438,7 +441,10 @@ class Settings {
 						"The UART Radio linux file descriptor (default: /dev/ttyUSB0)",
 						"The UART baud rate to use for UARTRF",
 						"The activity LED GPIO number",
-						"Whether to enable the activity LED. Don't forget to set its GPIO number"};
+						"Whether to enable the activity LED. Don't forget to set its GPIO number",
+						"Sends link status via UDP (see udp_send_address, udp_send_port)",
+						"Which address to send link status via UDP (defaults local 127.0.0.1)",
+						"Which port to send link status via UDP (default port 55001)"};
 };
 
 class SettingsCompliant {
