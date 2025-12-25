@@ -7,6 +7,7 @@
 
 #include "SingleRF24.h"
 
+/** @Deprecated
 inline uint64_t string_to_address(const std::string& str){
 	if (str.size() != 3) {
 		throw std::invalid_argument("String must be exactly 3 bytes long");
@@ -24,6 +25,7 @@ inline uint64_t string_to_address(const std::string& str){
 
 	return result;
 }
+**/
 
 SingleRF24* rf24reference;
 static void ISR_static_rx(){
@@ -95,7 +97,7 @@ inline bool SingleRF24::input(RFMessage &m) {
 
 	} else {
 
-		if (radio.isFifo(false, false)) {
+		if (radio.isFifo(false) == RF24_FIFO_FULL) {
 			ack_done = false;
 			radio_ackwait_cv.wait(lock, [&] {
 				return (!running || radio_ready_to_use) || ack_done;
@@ -105,6 +107,7 @@ inline bool SingleRF24::input(RFMessage &m) {
 
 	}
 	// Get all packets out of the way
+	// Old code, should be updated
 	//if (!radio1.isFifo(true, true))
 	//	send_tx();
 
@@ -123,12 +126,15 @@ inline void SingleRF24::ISR_RX() {
 		if (!running || !radio_ready_to_use)
 			return;
 
-		bool tx_ds = 0, tx_df = 0, rx_dr = 0; // declare variables for IRQ masks
-		radio.whatHappened(tx_ds, tx_df, rx_dr);
+		// Deprecated. Replaced by clearStatusFlags
+		//bool tx_ds = 0, tx_df = 0, rx_dr = 0; // declare variables for IRQ masks
+		//radio.whatHappened(tx_ds, tx_df, rx_dr);
+
+		uint8_t flags = radio.clearStatusFlags(RF24_IRQ_ALL);
 
 		//printf("Radio data in (IRQ)\n");
 
-		if (rx_dr) {
+		if (flags & RF24_RX_DR) {
 			std::deque<RFMessage> messages;
 			uint8_t pipe = 0;
 			while (radio.available(&pipe)) {
@@ -212,22 +218,28 @@ void SingleRF24::reset_radio(bool print_info, bool acquire_lock){
 		radio.setCRCLength((rf24_crclength_e)current_settings()->crc_length);
 
 		if (role) {
-			uint64_t ln = string_to_address(current_settings()->address_0_1);
-			uint64_t ln2 = string_to_address(current_settings()->address_0_2);
+			const uint8_t* ln = (const uint8_t*) current_settings()->address_0_1.c_str();
+			const uint8_t* ln2 = (const uint8_t*) current_settings()->address_0_2.c_str();
+
+			// Deprecated in favour of stopListening(address). // radio.openWritingPipe(ln2);
+			radio.stopListening(ln2);
 			radio.openReadingPipe(1, ln);
-			radio.openWritingPipe(ln2);
+
 			radio.setChannel(current_settings()->channel_0);
-			printf("radio -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+			printf("radio -> ROLE: %d \t read: %s : %s \t write %s \t channel: %d\n",
 					role, current_settings()->address_0_1.c_str(), ln, current_settings()->address_0_2.c_str(),
 					current_settings()->channel_0);
 
 		} else {
-			uint64_t ln = string_to_address(current_settings()->address_0_2);
-			uint64_t ln2 = string_to_address(current_settings()->address_0_1);
+			const uint8_t* ln = (const uint8_t*) current_settings()->address_0_2.c_str();
+			const uint8_t* ln2 = (const uint8_t*) current_settings()->address_0_1.c_str();
+			
+			// Deprecated in favour of stopListening(address). // radio.openWritingPipe(ln2);
+			radio.stopListening(ln2);
 			radio.openReadingPipe(1, ln);
-			radio.openWritingPipe(ln2);
+
 			radio.setChannel(current_settings()->channel_0);
-			printf("radio -> ROLE: %d \t read: %s : %" PRIu64 " \t write %s \t channel: %d\n",
+			printf("radio -> ROLE: %d \t read: %s : %s \t write %s \t channel: %d\n",
 					role, current_settings()->address_0_2.c_str(), ln, current_settings()->address_0_1.c_str(),
 					current_settings()->channel_1);
 			RFMessage rfm = RFMessage(settings->payload_size);
@@ -236,7 +248,9 @@ void SingleRF24::reset_radio(bool print_info, bool acquire_lock){
 		}
 
 		// Configure radio to interrupt for read events
-		radio.maskIRQ(true,true,false);
+		// Deprecated, now updated to setStatusFlags()
+		// radio.maskIRQ(true,true,false);
+		radio.setStatusFlags(RF24_RX_DR);
 
 		if (!attached_rx) {
 			attached_rx = true;
