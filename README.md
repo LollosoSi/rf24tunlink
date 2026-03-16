@@ -4,6 +4,9 @@ Point to Point TUN link via NRF24L01 radio modules
 ## Video or audio streaming demo
 [![Video or PTT](https://img.youtube.com/vi/3pRVBQoNrP4/0.jpg)](https://www.youtube.com/watch?v=3pRVBQoNrP4)
 
+## Thesis
+My thesis work for rf24tunlink is available via the [thesis branch](https://github.com/LollosoSi/rf24tunlink/blob/8cfcff45ab06eed65bb7c4bae1ce681c58ad9d95/Tesi%20rf24tunlink.pdf) (Italian)
+
 ## Preamble
 Starting 30/04/2025 this software has moved from GPLv2 to GPLv3.</br>
 This software is distributed free of charge under GNU GPLv3 license.</br>
