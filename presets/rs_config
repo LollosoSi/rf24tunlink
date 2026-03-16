@@ -1,9 +1,0 @@
-#	The data bytes for the Reed-Solomon codec
-#	Type:	uint8
-data_bytes=30
-
-#	The ECC bytes for the Reed-Solomon codec (note, one byte might be used as CRC, this element must be >0)
-#	Type:	uint8
-ecc_bytes=2
-
-payload_size=32
