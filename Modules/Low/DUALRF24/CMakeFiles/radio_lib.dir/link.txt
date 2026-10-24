@@ -1,0 +1,2 @@
+/usr/bin/ar qc libradio_lib.a CMakeFiles/radio_lib.dir/DUALRF24.cpp.o
+/usr/bin/ranlib libradio_lib.a

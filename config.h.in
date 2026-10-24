@@ -1,4 +1,0 @@
-#define rf24tunlink2_VERSION_MAJOR @rf24tunlink2_VERSION_MAJOR@
-#define rf24tunlink2_VERSION_MINOR @rf24tunlink2_VERSION_MINOR@
-#define sourcefiles "@sourcefiles@"
-

@@ -1,2 +1,0 @@
-use_activity_led=yes
-activity_led_gpio=12

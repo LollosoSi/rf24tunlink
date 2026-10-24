@@ -1,0 +1,945 @@
+
+#ifdef HARQ_MULTIBUFFER
+
+constexpr bool RESET_ON_DUPLICATES = false;
+
+#include <iostream>
+#include <stdint.h>
+
+#include <cmath>
+
+#include <cstring>
+
+#include <sys/uio.h>
+
+#include "HARQ_constants.h"
+#include "CRC.h"
+#include "RSCodec.h"
+
+#include <sys/timerfd.h>
+#include <unistd.h>
+
+#include "../../../debugutils.h"
+#include "../../../PacketLogger.h"
+
+
+
+// Secondary constants (non user defined)
+
+constexpr uint8_t radio_input_buffer_num = 5;
+constexpr uint8_t max_radio_buffer_segments = 25;
+
+constexpr uint8_t bytes_header = 1;
+constexpr uint8_t bytes_segment_capacity = bytes_data - bytes_header;
+
+// Bit shift: 1 << bits equals 2^bits
+constexpr unsigned int max_segments = 1u << bits_segment;
+constexpr unsigned int max_id = 1u << bits_id;
+
+constexpr unsigned int MTU = (bytes_segment_capacity * max_segments) - 1; // -1 Is the last packet length byte
+
+constexpr unsigned int bytes_payload = bytes_data + bytes_ECC;
+
+constexpr unsigned int max_reply_queue_length = 4 * MTU;
+constexpr unsigned int max_system_replies_length = (MTU);
+
+// PACK AND UNPACK header utils
+constexpr uint8_t bits_to_mask(uint8_t bits)
+{
+    return (1u << bits) - 1;
+}
+
+// Bit math for pack and unpack
+constexpr unsigned int id_byte_pos_offset = 8 - bits_id;
+constexpr unsigned int segment_byte_pos_offset = 8 - bits_id - bits_segment;
+constexpr unsigned int last_packet_byte_pos_offset = 8 - bits_id - bits_segment - bits_lastpacket;
+constexpr unsigned int id_mask = bits_to_mask(bits_id);
+constexpr unsigned int segment_mask = bits_to_mask(bits_segment);
+constexpr unsigned int last_packet_mask = bits_to_mask(bits_lastpacket);
+
+static uint8_t pack(const uint8_t &id, const uint8_t &segment,
+                    const bool &last_packet)
+{
+    return (0x00 | ((id & id_mask) << id_byte_pos_offset) | ((segment & segment_mask) << segment_byte_pos_offset) | (last_packet & last_packet_mask));
+}
+// Corrects segment size for the last packet to prevent overflow
+static void unpack(const uint8_t &data, uint8_t &id, uint8_t &segment, bool &last_packet)
+{
+    id = id_mask & (data >> id_byte_pos_offset);
+    segment = segment_mask & (data >> segment_byte_pos_offset);
+    last_packet = last_packet_mask & (data >> last_packet_byte_pos_offset);
+}
+
+// - - - - - - - - - - - -
+
+// Number of timers (one per buffer)
+constexpr unsigned int buffer_fd_event_number = max_id - 1;
+int timer_fds[buffer_fd_event_number] = {-1};
+unsigned int buffer_send_retries[buffer_fd_event_number] = {0};
+static void initialize_buffer_fds()
+{
+    for (unsigned int i = 0; i < buffer_fd_event_number; i++)
+    {
+        timer_fds[i] = timerfd_create(CLOCK_MONOTONIC, TFD_NONBLOCK);
+        if (timer_fds[i] == -1)
+        {
+            perror("Errore creazione timerfd");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
+
+void set_buffer_timer(int buf_id, int timeout_us)
+{
+    struct itimerspec new_value{};
+    new_value.it_value.tv_sec = timeout_us / 1000000;
+    new_value.it_value.tv_nsec = (timeout_us % 1000000) * 1000;
+    // it_interval a 0 significa: scatta una volta sola
+    timerfd_settime(timer_fds[buf_id], 0, &new_value, NULL);
+
+#ifdef DEBUG_LOGS
+    printf("Timer %d impostato: %d us\n", buf_id, timeout_us);
+#endif
+}
+
+bool is_timer_active(int buf_id) {
+    struct itimerspec current_value;
+    if (timerfd_gettime(timer_fds[buf_id], &current_value) == -1) return false;
+    // Se secondi o nanosecondi residui > 0, il timer è attivo
+    return (current_value.it_value.tv_sec > 0 || current_value.it_value.tv_nsec > 0);
+}
+
+void clear_buffer_timer(int buf_id)
+{
+    struct itimerspec stop_value{};
+    timerfd_settime(timer_fds[buf_id], 0, &stop_value, NULL);
+
+    uint64_t exp;
+    // read non blocca se hai usato TFD_NONBLOCK, ma restituirà -1
+    if (read(timer_fds[buf_id], &exp, sizeof(exp)) == -1)
+    {
+        // Se errno è EAGAIN, significa che non c'erano eventi da leggere: perfetto.
+    }
+
+    buffer_send_retries[buf_id] = 0;
+#ifdef DEBUG_LOGS
+    printf("Rimosso timer %d\n", buf_id);
+#endif
+}
+
+#pragma pack(push, 1)
+struct segment
+{
+    uint8_t header[bytes_header];
+    uint8_t data[bytes_segment_capacity];
+    uint8_t trailer[bytes_ECC];
+};
+#pragma pack(pop)
+
+#pragma pack(push, 1)
+struct frame_input
+{
+    uint8_t CRC = 0;
+    uint8_t last_segment_number = 0;
+    iovec data_pointers[max_segments];
+    segment buffer[max_segments];
+};
+#pragma pack(pop)
+
+frame_input input_buffers[max_id - 1];
+
+// Frame lock - unlock logic
+
+uint8_t completed_frames = 0;
+uint8_t free_frames = max_id - 1;
+uint8_t free_frames_array_default_copy[max_id - 1] = {0};
+uint8_t free_frames_array[max_id - 1] = {0};
+bool free_frames_by_index[max_id - 1] = {true};
+
+static void initialize_free_frames_array()
+{
+    for (unsigned int i = 0; i < max_id - 1; i++)
+    {
+        free_frames_array[i] = (max_id - 1) - 1 - i;
+        free_frames_array_default_copy[i] = (max_id - 1) - 1 - i;
+    }
+}
+
+#ifdef WAIT_WINDOW_COMPLETION
+
+static void on_frame_completed()
+{
+    if (++completed_frames == (max_id - 1))
+    {
+        completed_frames = 0;
+        memcpy(free_frames_array, free_frames_array_default_copy, max_id - 1);
+        memset(free_frames_by_index, true, max_id - 1);
+        free_frames = max_id - 1;
+#ifdef DEBUG_LOGS
+        printf("All inputs freed. Waiting for more data.\n");
+#endif
+    }
+}
+
+#endif
+
+static bool is_buffer_free(unsigned int buf_id)
+{
+    assert(buf_id < (max_id - 1));
+    return free_frames_by_index[buf_id];
+}
+
+static bool any_buffers_free()
+{
+    return free_frames > 0;
+}
+
+static void free_frame(uint8_t buffer_id)
+{
+    free_frames_array[free_frames++] = buffer_id;
+    free_frames_by_index[buffer_id] = true;
+    // printf("Unlocked frame: %d\n", buffer_id);
+    // printf("Free frames now: ");
+    // print_array(free_frames_array, free_frames, free_frames);
+}
+
+static frame_input *lock_frame(uint8_t &buf_id)
+{
+    buf_id = free_frames_array[--free_frames];
+    free_frames_by_index[buf_id] = false;
+
+    // printf("Locked frame: %d\n", buf_id);
+    // printf("Free frames now: ");
+    // print_array(free_frames_array, free_frames, free_frames);
+    return &input_buffers[buf_id];
+}
+
+// - - - - - - - - - - - -
+
+static void setup_data_pointers()
+{
+    unsigned int bufferslen = sizeof(input_buffers) / sizeof(frame_input);
+
+    for (unsigned int j = 0; j < bufferslen; j++)
+    {
+        unsigned int pointerslen = sizeof(input_buffers[j].data_pointers) / sizeof(iovec);
+        for (unsigned int i = 0; i < pointerslen - 1; i++)
+        {
+            input_buffers[j].data_pointers[i] = {input_buffers[j].buffer[i].data, bytes_segment_capacity};
+        }
+        input_buffers[j].data_pointers[pointerslen - 1] = {input_buffers[j].buffer[pointerslen - 1].data, bytes_segment_capacity - 1}; // The last packet is mandatory with one less byte
+    }
+
+    initialize_free_frames_array();
+    initialize_buffer_fds();
+}
+
+#pragma pack(push, 1)
+struct reception_buffer
+{
+    uint8_t CRC = 0;
+    unsigned int msglen = 0;
+    uint8_t last_segment_number = 0;
+    bool consumed = false; // If we should consume or only ACK when receiving the same last segment
+    bool segments_received[max_segments] = {false};
+    uint8_t message[MTU] = {0};
+};
+#pragma pack(pop)
+
+reception_buffer reception_buffers[max_id - 1];
+
+static void reception_buffer_reset(reception_buffer *buffer)
+{
+    buffer->msglen = 0;
+    memset(buffer->segments_received, false, max_segments);
+    buffer->consumed = false;
+    buffer->last_segment_number = 0;
+}
+
+#pragma pack(push, 1)
+struct single_radio_buffer
+{
+    bool lock = false;
+    uint8_t written_items = 0;
+    segment segments[max_radio_buffer_segments];
+};
+#pragma pack(pop)
+
+single_radio_buffer radio_interrupt_buffers[radio_input_buffer_num];
+
+#pragma pack(push, 1)
+struct reply_queue
+{
+    segment *message_pointer = nullptr;
+};
+#pragma pack(pop)
+
+reply_queue replies[max_reply_queue_length];
+unsigned int inserted_replies = 0;
+
+segment system_ack_replies[max_system_replies_length];
+unsigned int inserted_system_ack_replies = 0;
+
+segment system_nack_replies[max_system_replies_length];
+unsigned int queued_nack_items = 0;
+unsigned int queued_nack_packets = 0;
+constexpr unsigned int max_nack_entries = (bytes_segment_capacity - 1);
+
+// This function assumes the nack array in data has been completed
+static void finalize_nack_packet(unsigned int index)
+{
+    system_nack_replies[index].header[0] = pack(0, 0, false);
+    rs_encode(system_nack_replies[index].header);
+}
+
+static void finalize_nack_and_flush()
+{
+
+    if (queued_nack_items > 0)
+    {
+
+        unsigned int current_pkt = queued_nack_items / max_nack_entries;
+        unsigned int byte_offset = queued_nack_items % max_nack_entries;
+
+        // Se ci sono dati residui (non siamo all'inizio di un nuovo pacchetto)
+        if (byte_offset != 0)
+        {
+            finalize_nack_packet(current_pkt); // Punto al pacchetto attuale
+            queued_nack_packets++;
+        }
+
+        for (int i = 0; i < queued_nack_packets; i++)
+        {
+            if (inserted_replies < max_reply_queue_length)
+            {
+                replies[inserted_replies++].message_pointer = &system_nack_replies[i];
+            }
+            else
+                break;
+        }
+    }
+}
+
+static void insert_nack_item(uint8_t id, uint8_t segment)
+{
+    // 1. Individua posizione
+    unsigned int current_pkt = queued_nack_items / max_nack_entries;
+    unsigned int byte_offset = queued_nack_items % max_nack_entries;
+
+    uint8_t candidate = pack(id, segment, 0);
+
+    // Return if already present
+    for (int i = 0; i < queued_nack_items; i++)
+    {
+        unsigned int test_pkt = (queued_nack_items - 1 - i) / max_nack_entries;
+        unsigned int test_byte_offset = (queued_nack_items - 1 - i) % max_nack_entries;
+        if (system_nack_replies[test_pkt].data[test_byte_offset] == candidate)
+        {
+#ifdef DEBUG_LOGS
+            printf("Preventing duplicate segment request in same NACK batch\n");
+#endif
+            return;
+        }
+    }
+
+    // 2. Scrittura (usando l'id nell'header se necessario o nel payload)
+    // Se id=0 è un messaggio di sistema, il pacchetto trasporta i segmenti mancanti
+    system_nack_replies[current_pkt].data[byte_offset] = candidate;
+
+    // Aggiorna contatore interno (ultimo byte usato come segnaposto/count)
+    system_nack_replies[current_pkt].data[max_nack_entries] = byte_offset + 1;
+
+    // 3. Controllo chiusura pacchetto
+    if (byte_offset == (max_nack_entries - 1))
+    {
+        // L'indice dell'id del buffer va gestito (qui suppongo header[0] gestito da pack)
+        finalize_nack_packet(current_pkt);
+        queued_nack_packets++;
+    }
+
+    queued_nack_items++;
+}
+
+static bool reschedule_segment(const unsigned int &buffer, const unsigned int &segment)
+{
+    if (inserted_replies < max_reply_queue_length)
+    {
+        replies[inserted_replies++].message_pointer = &input_buffers[buffer].buffer[segment];
+        return true; // Successfully rescheduled
+    }
+    // Couldn't reschedule
+    return false;
+}
+
+static bool insert_ack_or_nack_for_buffer(uint8_t &buf_id, uint8_t &segment_number_last, bool only_ACK_if_finished = false)
+{
+    if (inserted_replies < max_reply_queue_length)
+    {
+        bool should_ack = true;
+        reception_buffer &buffer_ref = reception_buffers[buf_id];
+        for (unsigned int i = 0; i <= segment_number_last; i++)
+        {
+            if (!buffer_ref.segments_received[i])
+            {
+#ifdef DEBUG_LOGS
+                if (should_ack)
+                {
+                    if (only_ACK_if_finished)
+                    {
+                        printf("Not NACKing - Missing:");
+                    }
+                    else
+                    {
+                        printf("NACK - Manca:");
+                    }
+                }
+                printf(" %d(%d)", buf_id + 1, i);
+#endif
+                if (!only_ACK_if_finished)
+                {
+                    insert_nack_item(buf_id + 1, i);
+                }
+                should_ack = false;
+            }
+        }
+#ifdef DEBUG_LOGS
+        if (!should_ack)
+        {
+            printf("\n");
+        }
+#endif
+
+        if (should_ack)
+        {
+// ACK! Make header, CRC8 and encode
+#ifdef DEBUG_LOGS
+            printf("Rispondiamo ACK\n");
+#endif
+            uint8_t msg_crc = gencrc(buffer_ref.message, buffer_ref.msglen);
+            if (inserted_system_ack_replies < max_system_replies_length && inserted_replies < max_reply_queue_length)
+            {
+                unsigned int locked_idx = inserted_system_ack_replies++;
+                system_ack_replies[locked_idx].header[0] = pack(0, buf_id + 1, true);
+                system_ack_replies[locked_idx].data[0] = segment_number_last;
+                system_ack_replies[locked_idx].data[bytes_segment_capacity - 1] = msg_crc;
+                rs_encode(system_ack_replies[locked_idx].header);
+                replies[inserted_replies++].message_pointer = &system_ack_replies[locked_idx];
+            }
+            else
+            {
+#ifdef CATASTROPHIC_LOGS
+                printf("Ran out of ACK (%d) or replies (%d) space.\n", inserted_system_ack_replies < max_system_replies_length, inserted_replies < max_reply_queue_length);
+#endif
+            }
+
+            if (msg_crc != buffer_ref.CRC && buffer_ref.consumed)
+            {
+#if defined(DEBUG_LOGS) || defined(CATASTROPHIC_LOGS)
+                printf("Different CRC with consumed frame, imposing to consume.\n");
+#endif
+                buffer_ref.consumed = false;
+#ifdef PACKET_LOGGER
+                PL.write_log(TX, buf_id + 1, Packet_Types::WTF, segment_number_last, "Different CRC on consumed frame");
+#endif
+            }
+            buffer_ref.CRC = msg_crc;
+
+#ifdef PACKET_LOGGER
+            PL.write_log(TX, buf_id + 1, Packet_Types::ACK, segment_number_last);
+#endif
+            // printf("Questo messaggio era lungo %d e ha CRC %d\n", buffer_ref.msglen, counter);
+            return true; // Return true so the caller knows they have to consume the frame
+        }
+        else
+        {
+            // NACK! Our information about the missing segments is in place, just make the header and encode
+#ifdef DEBUG_LOGS
+            // printf("Messaggio scorretto, NACK.\n");
+#endif
+#ifdef PACKET_LOGGER
+            PL.write_log(TX, buf_id + 1, NACK, segment_number_last);
+#endif
+            return false;
+        }
+    }
+
+    return false; // We did not ACK nor NACK, but the caller must only know the reception isn't completed (need more data or ran out of space)
+}
+
+// Returns the number of frames queued for sending from that buffer
+unsigned int consume_frame(const unsigned int &buffer, const unsigned int &length)
+{
+    const uint8_t id = buffer + 1;
+    auto &current_buf = input_buffers[buffer]; // Riferimento locale
+    auto &bufdata = current_buf.buffer;
+
+    // Calcolo intero veloce O(1)
+    int segments = (length + bytes_segment_capacity - 1) / bytes_segment_capacity;
+    int remainder = length % bytes_segment_capacity;
+    if (remainder == 0)
+        segments++;
+
+    // printf("remainder %d\n", remainder);
+
+    current_buf.last_segment_number = segments - 1;
+    current_buf.CRC = gencrc_iovec(current_buf.data_pointers, segments, length);
+
+#ifdef PACKET_LOGGER
+    PL.log_messaggio_completo(TX, buffer + 1, current_buf.CRC, length, segments);
+#endif
+
+    for (int n = 0; n < segments - 1; n++)
+    {
+        auto &frame = bufdata[n];
+        // Pack and encode
+        frame.header[0] = pack(id, n, false);
+        rs_encode(frame.header);
+#ifdef PACKET_LOGGER
+        PL.write_log(TX, buffer + 1, DATA, n);
+#endif
+#ifdef DEBUG_DATA
+        print_array(frame.header, bytes_payload, bytes_payload);
+#endif
+    }
+
+    // Pack and encode the last segment
+    bufdata[segments - 1].data[bytes_segment_capacity - 1] = remainder;
+    bufdata[segments - 1].header[0] = pack(id, segments - 1, true);
+    rs_encode(bufdata[segments - 1].header);
+#ifdef DEBUG_DATA
+    print_array(bufdata[segments - 1].header, bytes_payload, bytes_payload);
+#endif
+
+#ifdef PACKET_LOGGER
+    PL.write_log(TX, buffer + 1, LAST, segments - 1);
+#endif
+
+    set_buffer_timer(buffer, (segments * segment_timeout_us) + (2 * segment_timeout_us));
+
+    return segments;
+}
+
+static bool consume_packet_single(const segment &msg, unsigned int &buffer_to_consume)
+{
+    uint8_t id, segment;
+    bool last_packet = false;
+
+    unpack(msg.header[0], id, segment, last_packet);
+#ifdef DEBUG_LOGS
+    printf("Dati in ingresso: ID %d | segmento %d | l_pkt %d\n", id, segment, last_packet);
+#endif
+#ifdef DEBUG_DATA
+    print_array(msg.header, bytes_payload, bytes_payload);
+#endif
+
+    uint8_t buf_id = id - 1;
+
+    if (id != 0)
+    {
+        if (buf_id >= max_id)
+        {
+
+            CATASTROPHIC(printf("Id is %d. bad data packet\n", buf_id));
+            PKLOGGER(PL.write_log(RX, buf_id + 1, WTF, 0, "Larger id than pool for data"));
+            return false;
+        }
+        // Data message
+        if (!last_packet)
+        {
+            PKLOGGER(PL.write_log(RX, buf_id + 1, DATA, segment));
+
+            bool duplicate_memory = false;
+            if (!reception_buffers[buf_id].segments_received[segment])
+            {
+                // Marking as received
+                reception_buffers[buf_id].segments_received[segment] = true;
+            }
+            else if (RESET_ON_DUPLICATES || reception_buffers[buf_id].consumed)
+            {
+
+                // We're getting new data or repeated packets. Repeated packets shouldn't happen if not explicitly requested, so it counts as new reception!
+                reception_buffer_reset(reception_buffers + buf_id);
+                reception_buffers[buf_id].segments_received[segment] = true;
+
+                DLOG(printf("ID %d was reset.\n", id));
+                PKLOGGER(PL.write_log(NONE, buf_id + 1, RECEPTION_RESET, segment, "Segment Already Marked"));
+            }
+            // Copy to memory!
+            memcpy(reception_buffers[buf_id].message + (bytes_segment_capacity * segment), msg.data, bytes_segment_capacity);
+
+            if (!duplicate_memory && reception_buffers[buf_id].last_segment_number > 0)
+            {
+                // Skip for now
+                return false;
+                if (insert_ack_or_nack_for_buffer(buf_id, reception_buffers[buf_id].last_segment_number, true))
+                {
+                    // We should consume the frame!
+                    if (!reception_buffers[buf_id].consumed)
+                    {
+                        reception_buffers[buf_id].consumed = true;
+
+                        DLOG(printf("Messaggio da consumare (dopo dati): LEN %d, CRC %d\n", reception_buffers[buf_id].msglen, reception_buffers[buf_id].CRC));
+                        PKLOGGER(PL.log_messaggio_completo(RX, buf_id + 1, reception_buffers[buf_id].CRC, reception_buffers[buf_id].msglen));
+
+                        // TODO: send to the upper level interface
+                        buffer_to_consume = buf_id;
+                        return true;
+                    }
+                }
+            }
+        }
+        else
+        {
+            uint8_t seglen = msg.data[bytes_segment_capacity - 1]; // How many data bytes is this last segment carrying?
+            if (seglen >= bytes_segment_capacity)
+            {
+                // Corrupted packet!
+                CATASTROPHIC(printf("Last segment corrupted: seglen %d .\n", seglen));
+                PKLOGGER(PL.write_log(NONE, buf_id + 1, RECEPTION_RESET, segment, "Segment Already Marked"));
+                return false;
+            }
+            unsigned int calculated_msg_len = (segment * bytes_segment_capacity) + seglen;
+
+            PKLOGGER(PL.write_log(RX, buf_id + 1, LAST, segment));
+
+            // If the msglen was already calculated, see if it is different.
+            // Chances are we lost all previous segments and tx is trying to send a new message
+            // So reset the message now, copy the data and ask for all the missing segments.
+            if (calculated_msg_len != reception_buffers[buf_id].msglen && reception_buffers[buf_id].msglen != 0)
+            {
+                PKLOGGER(PL.write_log(NONE, buf_id + 1, RECEPTION_RESET, segment, "Message Length Mismatch"));
+                reception_buffer_reset(reception_buffers + buf_id);
+            }
+
+            reception_buffers[buf_id].msglen = calculated_msg_len;
+            reception_buffers[buf_id].last_segment_number = segment;
+
+            if (!reception_buffers[buf_id].segments_received[segment])
+            {
+                // Marking as received
+                reception_buffers[buf_id].segments_received[segment] = true;
+                // Copy to memory
+                memcpy(reception_buffers[buf_id].message + (bytes_segment_capacity * segment), msg.data, seglen);
+            }
+
+            if (insert_ack_or_nack_for_buffer(buf_id, segment))
+            {
+                // We should consume the frame!
+                if (!reception_buffers[buf_id].consumed)
+                {
+                    reception_buffers[buf_id].consumed = true;
+                    DLOG(printf("Messaggio da consumare: LEN %d, CRC %d\n", reception_buffers[buf_id].msglen, reception_buffers[buf_id].CRC));
+                    PKLOGGER(PL.log_messaggio_completo(RX, buf_id + 1, reception_buffers[buf_id].CRC, reception_buffers[buf_id].msglen));
+
+                    // TODO: send to the upper level interface
+                    buffer_to_consume = buf_id;
+                    return true;
+                }
+            }
+        }
+    }
+    else
+    {
+
+        // System message
+        if (!last_packet)
+        {
+            // Segment must be ZERO
+            if (segment != 0)
+            {
+                CATASTROPHIC(printf("Nonzero segment id (%d). bad NACK\n", segment));
+                PKLOGGER(PL.write_log(RX, buf_id + 1, WTF, 0, "Larger id than pool"));
+                return false;
+            }
+
+            DLOG(printf("NACK: rinvio "));
+
+            // NACK
+            // We're asked to reschedule N segments.
+            // Let's get to it immediately:
+            uint8_t how_many = msg.data[bytes_segment_capacity - 1];
+            if (how_many > bytes_segment_capacity - 1 || how_many == 0)
+            {
+                CATASTROPHIC(printf("Invalid nack, were requested %d segments.\n", how_many));
+                PKLOGGER(PL.write_log(RX, buf_id + 1, WTF, 0, "Invalid NACK"));
+                return false;
+            }
+
+            unsigned int rescheduled = 0;
+            uint8_t r_id, r_segment;
+            bool r_lpkt;
+
+            uint8_t r_buf;
+
+            for (unsigned int i = 0; i < how_many; i++)
+            {
+                unpack(msg.data[i], r_id, r_segment, r_lpkt);
+                r_buf = r_id - 1;
+
+                DLOG(printf("%d(%d) ", r_id, r_segment));
+
+                if (r_buf < (max_id - 1))
+                {
+                    if (r_segment <= input_buffers[r_buf].last_segment_number)
+                    {
+                        if (reschedule_segment(r_buf, r_segment))
+                        {
+                            rescheduled++;
+                            set_buffer_timer(r_buf, (rescheduled * segment_timeout_us) + (2 * segment_timeout_us));
+
+                            PKLOGGER(PL.write_log(TX, r_buf, RESEND_ASKED, i));
+
+                            continue;
+                        }
+                        else
+                            break;
+                    }
+                    else
+                    {
+                        CATASTROPHIC(printf("Requested segments that don't exist ID: %d( seg: %d : max %d).\n", r_id, r_segment, input_buffers[r_buf].last_segment_number));
+                        PKLOGGER(PL.write_log(RX, r_buf, INVALID_NACK, 0, "Inexistent segments"));
+                    }
+                }
+                else
+                {
+                    CATASTROPHIC(printf("Requested segment in buffer that doesn't exist buf: %d( seg: %d).\n", r_buf, r_segment));
+                    PKLOGGER(PL.write_log(RX, r_buf, INVALID_NACK, 0, "Inexistent buffer"));
+                }
+                DLOG(printf("\n"));
+            }
+            DLOG(printf("\n"));
+        }
+
+        else
+        {
+            // The id is contained in segment now
+            buf_id = segment - 1;
+            if (segment == 0 || buf_id >= max_id)
+            {
+                CATASTROPHIC(printf("Id is %d. bad ACK\n", buf_id));
+                PKLOGGER(PL.write_log(RX, buf_id + 1, WTF, 0, "Larger id than pool"));
+
+                return false;
+            }
+            if (!is_buffer_free(buf_id))
+            {
+
+                // ACK
+                // If the transmission is successful, we will match the full message CRC
+                // and the number of segments that was sent (-1 to avoid overflow)
+                bool checkCRC = input_buffers[buf_id].CRC == msg.data[bytes_segment_capacity - 1];
+                bool checkSegments = input_buffers[buf_id].last_segment_number == msg.data[0];
+                if (checkCRC && checkSegments)
+                {
+                    DLOG(printf("ACK: Confermato ID %d, SEG %d, CRC %d\n", buf_id + 1, msg.data[0], msg.data[bytes_segment_capacity - 1]));
+                    //  Everything corresponds. We successfully transferred a message!
+                    //  Hooray! Let's free that buffer for new data to come in.
+                    PKLOGGER(PL.write_log(RX, buf_id + 1, ACK, input_buffers[buf_id].last_segment_number));
+                    // TODO: Free upper level buffer and reschedule
+                    // if(!is_buffer_free(buf_id)){
+                    clear_buffer_timer(buf_id);
+#ifdef WAIT_WINDOW_COMPLETION
+                    on_frame_completed();
+#else
+                    free_frame(buf_id);
+#endif
+                    //}
+                }
+                else
+                {
+                    DLOG(
+                        printf("ACK invalido.\n");
+                        if (!checkCRC)
+                            printf("Controllo CRC fallito: atteso %d | trovato %d\t", input_buffers[buf_id].CRC, msg.data[bytes_segment_capacity - 1]);
+                        if (!checkSegments)
+                            printf("Controllo dimensione segmenti fallito\t");
+                        printf("\n"););
+
+                    PKLOGGER(
+                        char out_str[] = "CRC Check: %d | Seg Check: %d";
+                        sprintf(out_str, out_str, checkCRC, checkSegments);
+                        PL.write_log(RX, buf_id + 1, INVALID_ACK, 0, out_str););
+
+                    unsigned int rescheduled = 0;
+                    // Something is wrong with this ACK - might be an ack that does not have anything to do with the current message
+                    // We want to reschedule all current segments out.
+                    // If this is a duplicate ACK, there is no hurt.
+                    // If the message was partially delivered, we will get a NACK.
+                    for (unsigned int i = 0; i <= input_buffers[buf_id].last_segment_number; i++)
+                        if (reschedule_segment(buf_id, i))
+                        {
+                            rescheduled++;
+                            PKLOGGER(PL.write_log(TX, buf_id + 1, RESEND_AFTER_INVALID_ACK, i));
+                            continue;
+                        }
+                        else
+                            break;
+
+                    set_buffer_timer(buf_id, (rescheduled * segment_timeout_us) + (2 * segment_timeout_us));
+                }
+            }
+            else
+            {
+                CATASTROPHIC(printf("ACK about free buffer.\n"));
+                PKLOGGER(PL.write_log(RX, buf_id + 1, FREE_ACK, 0));
+            }
+        }
+    }
+
+    return false;
+}
+
+static bool consume_packet(const segment &msg, unsigned int &buffer_to_consume)
+{
+
+    uint8_t id, segment;
+    bool last_packet = false;
+
+    unpack(msg.header[0], id, segment, last_packet);
+
+    DLOG(("Dati in ingresso: ID %d | segmento %d | l_pkt %d\n", id, segment, last_packet));
+    DDATA(print_array(msg.header, bytes_payload, bytes_payload));
+
+    return false;
+}
+
+static bool consume_packets(const unsigned int &buffer, unsigned int *buffers_to_consume, unsigned int &buffer_to_consume_count)
+{
+    uint8_t id;
+    uint8_t seg;
+    bool last;
+
+    static unsigned int pass_1[max_radio_buffer_segments] = {0};
+    static unsigned int pass_2[max_radio_buffer_segments] = {0};
+    unsigned int segments_pass_1 = 0;
+    unsigned int segments_pass_2 = 0;
+
+    buffer_to_consume_count = 0;
+    unsigned int buffer_to_consume_result = 0;
+    for (unsigned int i = 0; i < radio_interrupt_buffers[buffer].written_items; i++)
+    {
+        if (rs_decode(radio_interrupt_buffers[buffer].segments[i].header))
+        {
+            unpack(radio_interrupt_buffers[buffer].segments[i].header[0], id, seg, last);
+            if (last)
+                pass_1[segments_pass_1++] = i;
+            else if (id == 0)
+                pass_2[segments_pass_2++] = i;
+            else if (consume_packet_single(radio_interrupt_buffers[buffer].segments[i], buffer_to_consume_result))
+            {
+                buffers_to_consume[buffer_to_consume_count++] = buffer_to_consume_result;
+            }
+        }
+    }
+    for (unsigned int i = 0; i < segments_pass_1; i++)
+    {
+        if (consume_packet_single(radio_interrupt_buffers[buffer].segments[pass_1[i]], buffer_to_consume_result))
+        {
+            buffers_to_consume[buffer_to_consume_count++] = buffer_to_consume_result;
+        }
+    }
+    for (unsigned int i = 0; i < segments_pass_2; i++)
+    {
+        if (consume_packet_single(radio_interrupt_buffers[buffer].segments[pass_2[i]], buffer_to_consume_result))
+        {
+            buffers_to_consume[buffer_to_consume_count++] = buffer_to_consume_result;
+        }
+    }
+
+    // Call after consuming all incoming data.
+    // Not here. Do that in main or the RX.
+    // finalize_nack_and_flush();
+
+    radio_interrupt_buffers[buffer].lock = false;
+    return buffer_to_consume_count > 0;
+}
+
+static void timer_fired(unsigned int buf_id)
+{
+
+    if(is_timer_active(buf_id)){
+        DLOG("Timer fired, but it is still ticking! Skipping.\n");
+        return;
+    }
+    // Timer associated with a buffer has fired.
+    // See if we want to reschedule the segment or scrap the frame
+    if (!is_buffer_free(buf_id))
+    {
+        if (buffer_send_retries[buf_id]++ < segment_retries_max)
+        {
+            // Reschedule
+            DLOG(printf("Buffer %d resent.\n", buf_id));
+            PKLOGGER(PL.write_log(TX, buf_id + 1, RESEND_TIMEOUT, input_buffers[buf_id].last_segment_number));
+
+            reschedule_segment(buf_id, input_buffers[buf_id].last_segment_number);
+            set_buffer_timer(buf_id, segment_timeout_us + (2 * segment_timeout_us));
+        }
+        else
+        {
+            // Scrap the frame
+            DLOG(printf("Buffer %d has expired.\n", buf_id));
+            PKLOGGER(PL.write_log(NONE, buf_id + 1, EXPIRED, input_buffers[buf_id].last_segment_number));
+            clear_buffer_timer(buf_id);
+#ifdef WAIT_WINDOW_COMPLETION
+            on_frame_completed();
+#else
+            free_frame(buf_id);
+#endif
+        }
+    }
+    else
+    {
+        DLOG(printf("Buffer %d is free, timer skipped.\n", buf_id));
+    }
+}
+
+static void reset_reply_counters()
+{
+    inserted_replies = 0;
+    inserted_system_ack_replies = 0;
+    queued_nack_items = 0;
+    queued_nack_packets = 0;
+}
+
+static unsigned int replies_duplicates()
+{
+    unsigned int found = 0;
+    for (unsigned int i = 0; i < inserted_replies; i++)
+    {
+        for (unsigned int j = i + 1; j < inserted_replies; j++)
+        {
+            if (replies[i].message_pointer == replies[j].message_pointer)
+            {
+                CATASTROPHIC(
+                    if (found == 0)
+                        printf("Duplicate items:");
+                    uint8_t id, seg;
+                    bool fpkt;
+                    unpack(replies[i].message_pointer->header[0], id, seg, fpkt);
+                    printf(" %d(%d, %d)", id, seg, fpkt););
+
+                found++;
+            }
+        }
+    }
+    CATASTROPHIC(
+        if (found != 0) {
+            printf("\nOutbound replies contain %d duplicates. (possibly less. must be ZERO duplicates).", found);
+        }
+    );
+    return found;
+}
+
+static int find_free_radio_input_buffer()
+{
+    for (int i = 0; i < radio_input_buffer_num; i++)
+    {
+        if (!radio_interrupt_buffers[i].lock)
+        {
+            return i;
+        }
+    }
+    return -1;
+}
+
+#endif

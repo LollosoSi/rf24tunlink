@@ -1,251 +1,317 @@
+/** Tunlink 3
+ * Author: Andrea Roccaccino
+ * Created on 11/01/2026
+ * Only for private use.
+ *
+ * Never give up. I didn't.
+ */
+
 #include <iostream>
-#include "config.h"
 
-#include "Settings.h"
-#include "rs_codec/RSCodec.h"
+#include <string>
+#include <fcntl.h>
 
-#include "activity_signals/activity_led.h"
-#include "activity_signals/UdpActivity.h"
+#include <thread>
+#include <pthread.h>
+#include <errno.h>
+#include <cstdio>
 
-
-#include "generic_structures.h"
-#include "system_dialogators/tun/TUNInterface.h"
-#include "system_dialogators/uart/UARTHandler.h"
-
-#include "packetizers/Packetizer.h"
-#include "radio/RadioInterface.h"
-
-#include "radio/dualrf24/DualRF24.h"
-#include "radio/singlerf24/SingleRF24.h"
-#include "radio/picorf24/PicoRF24.h"
-#include "radio/uartrf/UARTRF.h"
-
-#include "packetizers/harq/HARQ.h"
-#include "packetizers/arq/ARQ.h"
-#include "packetizers/latency_evaluator/LatencyEvaluator.h"
-
-// Thread naming
-#include <sys/prctl.h>
-
-// Catch CTRL+C Event
+#include <poll.h>
 #include <signal.h>
-#include <stdlib.h>
-#include <stdio.h>
-#include <unistd.h>
 
-// Exit conditions
-#include <mutex>
-#include <condition_variable>
+#include "Modules/High/TUN/TUN.h"
+#include "Modules/Processing/HARQ/HARQ.h"
 
-#include <functional>
+#include "Modules/Low/DUALRF24/DUALRF24.h"
 
-std::mutex sleep_mutex;
-std::condition_variable cv;
-bool ready_to_exit = false;
+bool running = false;
 
-bool stop_program = false;
+// To be compiled later using CMake
+typedef TunSource SelectedSource;
+typedef DUALRF24 SelectedRadio;
 
-void test(){
+struct Pipeline
+{
+    SelectedSource source;
+    // SelectedProcessor processor;
+    SelectedRadio radio;
+};
+Pipeline pipeline;
 
-	//UARTHandler ua("/dev/ttyACM0");
-	/*unsigned long msecs = 0;
-	while (true) {
-		if (current_millis() > msecs + 1000) {
-			msecs = current_millis();
-			printf("Mbps: %f\n", (ua.receivedbytes * 8) / 1000000.0f);
-			ua.receivedbytes = 0;
-		}
-		std::this_thread::yield();
-	}*/
+int pipe_fds[2];
+int pipe_fds_2[2];
+int pipe_radio_ready_marker[2];
+int frame_freed_marker[2];
 
-	Settings S;
+enum Poll_Items
+{
+    Source_Poll = 0,
+    HARQ_Internal_Poll = 1,
+    Radio_Poll = 2,
+    Pipe_Poll = 3,
+    Frame_Freed_Poll = 4,
+    Poll_items_count // Always last item!
+};
 
-	PicoRF24 prf = PicoRF24();
-	prf.apply_settings(S);
-
-	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
-
-	prf.apply_settings(S);
-	std::this_thread::sleep_for(std::chrono::milliseconds(5000));
+bool frame_write(uint8_t *data, unsigned int length)
+{
+    return pipeline.source.write_to_buffer(data, length);
 }
 
-void catch_setups() {
-	/*Do this early in your program's initialization */
-	signal(SIGABRT, [](int signal_number) {
-		/*Your code goes here. You can output debugging info.
-		 If you return from this function, and it was called
-		 because abort() was called, your program will exit or crash anyway
-		 (with a dialog box on Windows).
-		 */
-		stop_program=true;
-		cv.notify_all();
-		std::cout << "SIGABORT caught. Ouch.\n";
-	});
-
-	// CTRL+C Handler
-	struct sigaction sigIntHandler;
-	sigIntHandler.sa_handler = [](int s) {
-		std::cout << "Caught a signal, number:\t" << (int) s << std::endl;
-		if (s == 2) {
-			printf("Caught exit signal\n");
-			// TODO: Handle signals gracefully
-			stop_program=true;
-			cv.notify_all();
-		}
-	};
-	sigemptyset(&sigIntHandler.sa_mask);
-	sigIntHandler.sa_flags = 0;
-	sigaction(SIGINT, &sigIntHandler, NULL);
+void radio_write(uint8_t *out_buffer, unsigned int sequential_payloads, unsigned int bytes_per_payload)
+{
+    pipeline.radio.radio_write(out_buffer, sequential_payloads, bytes_per_payload);
 }
 
-Packetizer<TunMessage, RFMessage>* select_packetizer_from_settings(const Settings &settings) {
-	Settings::packetizers_available psel = settings.find_packetizer_index();
-	switch (psel) {
-	default:
-		std::cout << "Packetizer not found in code. Did you forget to register it in the main function?\n";
-		throw std::invalid_argument("Invalid packetizer in switch case");
-		exit(1);
-		break;
-	case Settings::packetizers_available::harq:
-		return new HARQ();
-		break;
-	case Settings::packetizers_available::latency_evaluator:
-			return new LatencyEvaluator();
-			break;
-	case Settings::packetizers_available::arq:
-		return new ARQ();
-		break;
-
-	}
+void frame_completed_signal()
+{
+    uint8_t s = 1;
+    write(frame_freed_marker[1], &s, 1);
 }
 
-RadioInterface* select_radio_from_settings(const Settings &settings) {
-	Settings::radios_available rsel = settings.find_radio_index();
-	switch (rsel) {
-	default:
-		std::cout << "Radio not found in code. Did you forget to register it in the main function?\n";
-		throw std::invalid_argument("Invalid radio in switch case");
-		exit(1);
-		break;
-	case Settings::radios_available::dualrf24:
-		return new DualRF24();
-		break;
-	case Settings::radios_available::singlerf24:
-		return new SingleRF24();
-		break;
-	case Settings::radios_available::picorf24:
-		return new PicoRF24();
-		break;
-	case Settings::radios_available::uartrf:
-			return new UARTRF();
-			break;
-	}
+void loop()
+{
+    // Poll size is the system events + HARQ timers
+    unsigned int pollsize = Poll_items_count + buffer_fd_event_number;
+    struct pollfd fds[pollsize];
+    fds[Source_Poll] = {pipeline.source.get_fd(), POLLIN, 0};
+    fds[HARQ_Internal_Poll] = {get_harq_internal_fd_pipe(), POLLIN, 0};
+
+    fds[Radio_Poll] = {pipe_radio_ready_marker[0], POLLIN, 0};
+
+    fds[Frame_Freed_Poll] = {frame_freed_marker[0], POLLIN, 0};
+
+    fds[Pipe_Poll] = {pipe_fds[0], POLLIN, 0};
+
+    for (unsigned int i = 0; i < buffer_fd_event_number; i++)
+    {
+        fds[Poll_items_count + i].fd = timer_fds[i];
+        fds[Poll_items_count + i].events = POLLIN;
+        fds[Poll_items_count + i].revents = 0;
+    }
+
+    while (running)
+    {
+
+        // Do not read TUN if there are no buffers to write into.
+        // Leave queued to the kernel
+        fds[Source_Poll].events = (!is_fifo_empty()) ? POLLIN : 0;
+        int ret = poll(fds, pollsize, -1);
+        DLOG("Poll\n");
+        if (ret < 0)
+        {
+            if (errno == EINTR || !running)
+                break; // Uscita immediata per segnale
+            continue;
+        }
+
+        if (ret == 0)
+            continue;
+
+        DLOG("Loop\n");
+
+        if (fds[Source_Poll].revents & POLLIN)
+        {
+            DLOG("Source\n");
+            frame_out *out = lock_frame();
+            if (out != nullptr)
+            {
+                int bytes = pipeline.source.read_to_buffer_iovec(get_buffer_iovec(*out), max_segments);
+                if (bytes <= 0)
+                    continue;
+
+                consume_frame(*out, bytes);
+            }else{
+                CATASTROPHIC("Frame out pointer is nullptr. This should not happen.");
+            }
+            if (--ret <= 0)
+                continue; // Salta il resto se era l'unico evento
+        }
+
+        // Gestione Radio
+        if (fds[Radio_Poll].revents & POLLIN)
+        {
+            DLOG("Radio Poll\n");
+
+            // printf("Ricevo: \n");
+            // print_array(segment_beginning(radio_interrupt_buffers[0].segments[0]), radio_interrupt_buffers[0].written_items * bytes_segment_capacity, bytes_segment_capacity);
+            uint8_t ready_slot;
+            while (read(pipe_radio_ready_marker[0], &ready_slot, 1) > 0)
+            {
+                consume_radio_packets(ready_slot);
+            }
+
+            if (--ret <= 0)
+                continue; // Salta il resto se era l'unico evento
+        }
+
+        if (fds[HARQ_Internal_Poll].revents & POLLIN)
+        {
+            HARQInternalEvent event;
+            read(frame_freed_marker[0], &event, sizeof(HARQInternalEvent));
+            frame_completed(event.buffer_id);
+
+            if (--ret <= 0)
+                continue; // Salta il resto se era l'unico evento
+        }
+
+        if (fds[Frame_Freed_Poll].revents & POLLIN)
+        {
+
+            DLOG("Frame ready poll\n");
+            int ready_slot;
+            read(frame_freed_marker[0], &ready_slot, 1);
+            if (--ret <= 0)
+                continue; // Salta il resto se era l'unico evento
+        }
+
+        // 3. Scansione Timer (Solo per i restanti eventi)
+        for (unsigned int i = Poll_items_count; i < pollsize && ret > 0; ++i)
+        {
+            if (fds[i].revents & POLLIN)
+            {
+                DLOG("Timer scanned %d\n", i - Poll_items_count);
+
+                uint64_t expirations;
+
+                // OBBLIGATORIO: Leggi 8 byte per svuotare il timerfd
+                ssize_t n = read(fds[i].fd, &expirations, sizeof(expirations));
+                if (n == sizeof(uint64_t))
+                {
+                    // Solo se ho letto davvero un evento chiamo la callback
+                    // printf("Timer %d fired\n", i-2);
+                    timer_fired(i - Poll_items_count);
+                }
+                else
+                {
+                    // Se n == -1 ed errno == EAGAIN, significa che il timer
+                    // è stato cancellato (svuotato) da un altro evento (es. ACK)
+                    // in questo stesso ciclo di poll. Lo ignoriamo.
+                    // DLOG(printf("Salto evento fantasma su timer %d\n", i - Poll_items_count));
+                }
+
+                ret--; // Un evento in meno da cercare
+            }
+        }
+
+        if (fds[Pipe_Poll].revents & POLLIN)
+        {
+            DLOG("Break poll\n");
+            char c;
+            read(pipe_fds[0], &c, 1); // Svuota la pipe
+            return;                   // Esci dal loop
+        }
+    }
 }
 
-int main(int argc, char **argv) {
+void set_thread_name(const char *name)
+{
+    return; // Disabled
+    int res = pthread_setname_np(pthread_self(), name);
+    if (res != 0)
+    {
+        fprintf(stderr, "Errore set_thread_name: %s\n", strerror(res));
+    }
+}
 
-	catch_setups();
+void radio_read_IRQ()
+{
+    DLOG("IRQ call");
 
-	prctl(PR_SET_NAME, "Main Thread", 0, 0, 0);
+    int rbuf;
+    while ((rbuf = find_free_radio_input_buffer()) == -1)
+    {
+        // Sleep... can't do anything else but wait
+        std::this_thread::yield();
+        DLOG("Radio buffer full");
+    }
+
+    radio_interrupt_buffers[rbuf].written_items = pipeline.radio.handle_read(segment_beginning(radio_interrupt_buffers[rbuf].segments[0]), max_radio_buffer_segments);
+    radio_interrupt_buffers[rbuf].lock = true;
+
+    //consume_radio_packets(rbuf);
+    // Try to process in irq.
+     write(pipe_radio_ready_marker[1], &rbuf, 1);
+}
+
+void handle_sigint(int sig)
+{
+    running = false;
+    char c = 1;
+    write(pipe_fds[1], &c, 1);   // Sveglia il poll
+    write(pipe_fds_2[1], &c, 1); // Sveglia il poll
+}
+
+int main(int argc, char **argv)
+{
+    set_thread_name("Main");
+
+    signal(SIGINT, handle_sigint);
+
+INIT_LOG();
+
+    pipe2(pipe_fds, O_CLOEXEC);
+    fcntl(pipe_fds[0], F_SETFL, O_NONBLOCK);
+    fcntl(pipe_fds[1], F_SETFL, O_NONBLOCK);
+
+    pipe2(pipe_fds_2, O_CLOEXEC);
+    fcntl(pipe_fds_2[0], F_SETFL, O_NONBLOCK);
+    fcntl(pipe_fds_2[1], F_SETFL, O_NONBLOCK);
+
+    pipe2(pipe_radio_ready_marker, O_CLOEXEC);
+    fcntl(pipe_radio_ready_marker[0], F_SETFL, O_NONBLOCK);
+    fcntl(pipe_radio_ready_marker[1], F_SETFL, O_NONBLOCK);
+
+    pipe2(frame_freed_marker, O_CLOEXEC);
+    fcntl(frame_freed_marker[0], F_SETFL, O_NONBLOCK);
+    fcntl(frame_freed_marker[1], F_SETFL, O_NONBLOCK);
+
+    // Verify role from cmd
+    if (argc < 2)
+    {
+        std::cerr << "Utilizzo: " << argv[0] << " [0|1]" << std::endl;
+        // return 1;
+        role = 1;
+    }
+    else
+    {
+        // Convert role (0 o 1)
+        role = std::stoi(argv[1]) == 1;
+    }
+
+    if (role == 1)
+    {
+        std::cout << "Role set: 1" << std::endl;
+    }
+    else
+    {
+        std::cout << "Role set: 0" << std::endl;
+    }
+
+#ifdef PACKET_LOGGER
+    char outfile_proto[] = "logs_%s.csv";
+    sprintf(outfile_proto, outfile_proto, role ? "PY" : "SY");
+    PL.open(outfile_proto);
+#endif
+
+    pipeline.source.init(MTU, role);
+
+    initialize_HARQ();
+
+    pipeline.radio.init();
+
+    running = true;
+    loop();
+
+// Termina tutto quando il loop finisce
+#ifdef PACKET_LOGGER
+    PL.close();
+#endif
+
+    close(pipe_fds[0]);
+    close(pipe_fds[1]);
 
 
-	//test();
-	//return 0;
-
-	Settings settings;
-
-	if (geteuid())
-		std::cout << "Not running as root, make sure you have the required privileges to access SPI ( ) and the network interfaces (CAP_NET_ADMIN) \n";
-
-	std::cout << "rf24tunlink 2 BETA\t" << "Version " << rf24tunlink2_VERSION_MAJOR << "." << rf24tunlink2_VERSION_MINOR << std::endl;
-
-	if (argc < 2) {
-		std::cout << "You need to include at least one settings file (./thisprogram settings.txt more_settings.txt more_more_settings.txt)\nPrinting tunlink_default.txt for you in the working directory\n";
-		settings.to_file("tunlink_default.txt");
-		return (0);
-	}
-
-	std::function<void()> read_settings_function([&] {
-		for (int i = 1; i < argc; i++)
-			settings.read_settings(argv[i]);
-
-		settings.print_all_settings(std::cout, false);
-	});
-	read_settings_function();
-
-
-	RSCodec RSC(settings);
-	ActivitySignalInterface* actl = nullptr;
-	if(settings.use_activity_led)
-		actl = new ActivityLed(settings);
-	if(settings.use_udp_activity){
-		actl = new UdpActivity(settings);
-	}
-
-
-	TUNInterface TUNI;
-	RadioInterface* radio = select_radio_from_settings(settings);
-	Packetizer<TunMessage, RFMessage>* packetizer = select_packetizer_from_settings(settings);
-	if(actl) packetizer->register_activity_led(actl);
-
-	packetizer->register_rsc(&RSC);
-	packetizer->register_tun(&TUNI);
-	packetizer->register_radio(radio);
-	radio->register_packet_target(packetizer->expose_radio_receiver());
-	TUNI.register_packet_target(packetizer->expose_tun_receiver());
-
-	PacketMessageFactory PMF(settings);
-
-
-	std::function<void()> reload_settings_function([&] {
-		RSC.apply_settings(settings);
-		// MTU can only be calcd after applying the settings
-		packetizer->apply_settings(settings);
-		settings.mtu = packetizer->get_mtu();
-		PMF = PacketMessageFactory(settings);
-
-		packetizer->register_message_factory(&PMF);
-		radio->register_message_factory(&PMF);
-
-		TUNI.apply_settings(settings); // The read thread will start here
-		radio->apply_settings(settings);
-	});
-	reload_settings_function();
-
-	// If needed, reload at runtime
-	//read_settings_function();
-	//reload_settings_function();
-
-	//while(!stop_program){
-	//	printf("Type 'r' to reload settings, type 'q' to quit\n");
-		//std::this_thread::sleep_for(1000ms);
-//	char a;
-//		cin >> a;
-//		switch (a) {
-//		case 'q':
-//			stop_program = true;
-//			break;
-//		case 'r':
-//			read_settings_function();
-//			reload_settings_function();
-//			break;
-//		}
-	//	std::this_thread::sleep_for(std::chrono::microseconds(1000));
-	//}
-
-	{
-		std::unique_lock lock(sleep_mutex);
-		cv.wait(lock, [&]{return stop_program;});
-	}
-
-	TUNI.stop();
-	radio->stop();
-	packetizer->stop();
-	actl->stop();
-
-	delete packetizer;
-	delete radio;
-	delete actl;
-
-	return 0;
+    END_LOG();
+    return 0;
 }

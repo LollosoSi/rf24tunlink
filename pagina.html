@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <title>Protocol Visualizer - Last-to-Data Sync</title>
+    <style>
+        body { font-family: 'Consolas', monospace; background: #121212; color: #e0e0e0; margin: 0; padding: 20px; }
+        #drop-zone { border: 2px dashed #444; padding: 20px; text-align: center; background: #1a1a1a; margin-bottom: 20px; border-radius: 8px; cursor: pointer; }
+        .header { display: flex; width: 100%; position: sticky; top: 0; background: #121212; z-index: 100; padding: 15px 0; border-bottom: 2px solid #333; }
+        .col { flex: 1; text-align: center; font-weight: bold; }
+        .row { display: flex; width: 100%; min-height: 45px; align-items: center; position: relative; border-bottom: 1px solid #1f1f1f; }
+        .ts { position: absolute; left: 50%; transform: translateX(-50%); color: #555; font-size: 0.7em; background: #121212; padding: 0 5px; z-index: 5; }
+        .lane { flex: 1; display: flex; align-items: center; padding: 5px 40px; width: 50%; }
+        .lane-a { justify-content: flex-start; border-right: 1px solid #222; }
+        .lane-b { justify-content: flex-end; border-left: 1px solid #222; }
+        .packet { padding: 8px; border-radius: 4px; color: #000; font-size: 0.85em; width: 100%; max-width: 420px; position: relative; cursor: pointer; transition: 0.2s; }
+        .packet:hover { filter: brightness(1.1); }
+        .sys { background: #333 !important; color: #999 !important; border: 1px solid #444; }
+        .burst-container { display: flex; flex-wrap: wrap; gap: 2px; margin-top: 5px; }
+        .seg-box { width: 15px; height: 15px; display: flex; align-items: center; justify-content: center; font-size: 0.6em; border-radius: 2px; }
+        .seg-fill { background: rgba(0,0,0,0.2); border: 1px solid rgba(0,0,0,0.1); }
+        .seg-empty { background: #fff; border: 1px solid #ff5252; color: #ff5252; font-weight: bold; }
+        .arrow { position: absolute; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 7px solid transparent; border-bottom: 7px solid transparent; }
+        .lane-a .tx-arrow { right: -30px; border-left: 12px solid #fff; }
+        .lane-a .rx-arrow { right: -30px; border-right: 12px solid #fff; }
+        .lane-b .tx-arrow { left: -30px; border-right: 12px solid #fff; }
+        .lane-b .rx-arrow { left: -30px; border-left: 12px solid #fff; }
+        .details { display: none; margin-top: 8px; font-size: 0.8em; background: rgba(0,0,0,0.1); padding: 8px; border-radius: 4px; border-top: 1px solid rgba(0,0,0,0.2); }
+        .packet.expanded .details { display: block; }
+    </style>
+</head>
+<body>
+
+<div id="drop-zone">Trascina File A e poi File B. Sincronizzazione su primo LAST TX -> DATA RX.</div>
+<div class="header"><div class="col">FILO A (Master)</div><div class="col">FILO B (Slave)</div></div>
+<div id="timeline"></div>
+
+<script>
+    let rawData = [];
+    const palette = ["#90caf9", "#a5d6a7", "#fff59d", "#ffcc80", "#ce93d8"];
+
+    document.getElementById('drop-zone').ondragover = e => e.preventDefault();
+    document.getElementById('drop-zone').ondrop = async e => {
+        e.preventDefault();
+        rawData = [];
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length < 2) { alert("Carica entrambi i file per allineare i clock!"); return; }
+
+        for (let i = 0; i < 2; i++) {
+            const text = await files[i].text();
+            parse(text, i === 0 ? 'A' : 'B');
+        }
+
+        alignClocks();
+        render();
+    };
+
+    function parse(text, lane) {
+        text.split('\n').slice(1).forEach(l => {
+            const p = l.split(',');
+            if (p.length >= 5) rawData.push({ ts: parseInt(p[0]), dir: p[1].trim(), id: parseInt(p[2]), type: p[3].trim(), seg: parseInt(p[4]), notes: p[5]||"", lane });
+        });
+    }
+
+    function alignClocks() {
+        // Trova primo LAST inviato (TX) da chiunque
+        const lastTx = rawData.find(d => d.type === 'LAST' && d.dir === 'TX');
+        if (!lastTx) return;
+
+        // Trova il primo DATA ricevuto (RX) dall'altra parte con lo stesso ID
+        const targetLane = lastTx.lane === 'A' ? 'B' : 'A';
+        const firstDataRx = rawData.find(d => d.lane === targetLane && d.dir === 'RX' && d.id === lastTx.id && d.type === 'DATA');
+
+        if (firstDataRx) {
+            // Calcoliamo l'offset affinché il DATA RX appaia 100us dopo il LAST TX
+            const offset = (lastTx.ts + 100) - firstDataRx.ts;
+            rawData.forEach(d => { if(d.lane === targetLane) d.ts += offset; });
+            console.log(`Sincronizzazione completata. Offset applicato a ${targetLane}: ${offset}us`);
+        }
+    }
+
+    function render() {
+        rawData.sort((a, b) => a.ts - b.ts);
+        const container = document.getElementById('timeline');
+        container.innerHTML = '';
+
+        const processed = [];
+        for (let i = 0; i < rawData.length; i++) {
+            const curr = rawData[i];
+            const last = processed[processed.length - 1];
+            // Accorpa solo DATA consecutivi sulla stessa corsia/direzione/ID
+            if (curr.type === "DATA" && last && last.isBurst && last.id === curr.id && last.lane === curr.lane && last.dir === curr.dir) {
+                last.items.push(curr);
+                continue;
+            }
+            processed.push({ ...curr, isBurst: curr.type === "DATA", items: [curr] });
+        }
+
+        processed.forEach(d => {
+            const row = document.createElement('div');
+            row.className = 'row';
+            const color = palette[d.id % palette.length];
+            const isComm = d.dir === 'TX' || d.dir === 'RX';
+
+            let pktHtml = `<div class="packet ${!isComm?'sys':''}" style="background:${isComm?color:''}" onclick="this.classList.toggle('expanded')">`;
+
+            if (d.isBurst && d.items.length > 1) {
+                const segs = d.items.map(i => i.seg);
+                const min = Math.min(...segs), max = Math.max(...segs);
+                pktHtml += `<strong>BURST DATA</strong> ID:${d.id} (S:${min}-${max})`;
+                pktHtml += `<div class="burst-container">`;
+                for (let s = min; s <= max; s++) {
+                    const found = segs.includes(s);
+                    pktHtml += `<div class="seg-box ${found?'seg-fill':'seg-empty'}">${found?'':s}</div>`;
+                }
+                pktHtml += `</div><div class="details">`;
+                pktHtml += d.items.map(i => `Seg:${i.seg} | T:${i.ts}us | ${i.notes}`).join('<br>');
+                pktHtml += `</div>`;
+            } else {
+                pktHtml += `<strong>${d.type}</strong> ID:${d.id} S:${d.seg} <br><small>${d.notes}</small>`;
+            }
+
+            pktHtml += `${isComm?`<div class="arrow ${d.dir.toLowerCase()}-arrow"></div>`:''}</div>`;
+
+            row.innerHTML = `<div class="ts">${d.ts % 10000000}</div><div class="lane lane-a">${d.lane==='A'?pktHtml:''}</div><div class="lane lane-b">${d.lane==='B'?pktHtml:''}</div>`;
+            container.appendChild(row);
+        });
+    }
+</script>
+</body>
+</html>
