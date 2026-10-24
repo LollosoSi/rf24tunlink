@@ -8,19 +8,28 @@ This software is unstable/unfinished - if it does work at all.
 There is a handful of improvements that rf24tunlink could use, and of course I am taking the challenge.
 
 [x] Move to a Zero-Copy architecture (iovec - scatter/gather operations) : tunlink2 used to make at least one copy of the incoming data. Can do better.
+
 [x] Move to a single-threaded EVENT-POLL loop structure : an attempt to avoid 100% CPU usage while getting faster response times.
+
 [x] Refresh the HARQ algorithm not to wait for ACK/NACK timers.
+
 [x] Tune timers based on the expected airtime of each frame (based on number of packets)
 
 The current input implementation speed (TUN + HARQ first processing) is in the **gigabit range** on a Raspberry Pi. Plenty of processing power left for any radio we want to add.
 
 [x] Implement a packet logger interface (and a webpage that reads CSV files)
-[] Refine the HARQ algorithm to use a more efficient, unified and unmistakable packet structure
-[] Refine the HARQ algorithm for interleaving (Complexity skyrocketed here, could be very hard with the current structure)
-[] Reintroduce configurations
-[] Simplify the Radio Module interface requirements.
-[] Compress the TUN interface (remove headers and reintroduce later)
-    [] Or compress the network stream if necessary (ROHC, LZ4)
+
+[ ] Refine the HARQ algorithm to use a more efficient, unified and unmistakable packet structure
+
+[ ] Refine the HARQ algorithm for interleaving (Complexity skyrocketed here, could be very hard with the current structure)
+
+[ ] Reintroduce configurations
+
+[ ] Simplify the Radio Module interface requirements.
+
+[ ] Compress the TUN interface (remove headers and reintroduce later)
+
+[ ] Or compress the network stream if necessary (ROHC, LZ4)
 
 Probably more stuff will be added to this list as time goes on.
 
