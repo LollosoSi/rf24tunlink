@@ -19,21 +19,45 @@ The current input implementation speed (TUN + HARQ first processing) is in the *
 
 [x] Implement a packet logger interface (and a webpage that reads CSV files)
 
-[ ] Refine the HARQ algorithm to use a more efficient, unified and unmistakable packet structure
+[x] Refine the HARQ algorithm to use a more efficient, unified and unmistakable packet structure
 
-[ ] Refine the HARQ algorithm for interleaving (Complexity skyrocketed here, could be very hard with the current structure)
+[x] Refine the HARQ algorithm for interleaving (Complexity skyrocketed here, could be very hard with the current structure)
 
-[ ] Reintroduce configurations
+[x] Reintroduce configurations
 
 [ ] Simplify the Radio Module interface requirements.
 
-[ ] Compress the TUN interface (remove headers and reintroduce later)
+[x] Compress the TUN interface (remove headers and reintroduce later)
 
 [ ] Or compress the network stream if necessary (ROHC, LZ4)
 
 Probably more stuff will be added to this list as time goes on.
 
-I almost lost these files, that's why I am publishing unfinished software. Tunlink2's performance can still be improved.
+[x] Run the entire full duplex link on a microcontroller
+
+[x] Runtime link speed negotiation and fallback
+
+[x] Multiple and priority data sources of different nature
+
+[x] Dynamic radio wait time, radio module error profiling, antenna coupling detection
+
+[x] Streamed network stats and expected link speed - adaptive video streams will use this
+
+[x] Tunnel encryption
+
+And the most important checkboxes, that should have been clear by now:
+
+[x] Beat tunlink2 in ping time
+
+[x] Beat tunlink2 in throughput
+
+[x] Beat tunlink2 in memory and cpu usage
+
+Yes, as of 23/11/2026, there are now CHECKED. Release soon.
+
+---
+
+I almost lost these files, that's why I am publishing unfinished software. This is not the software described by the checkboxes above yet.
 
 # I mean, why continue development, at all?
 
